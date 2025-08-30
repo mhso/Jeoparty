@@ -1,0 +1,18 @@
+[project]
+name = "jeopardy"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Mikkel Sørensen", email = "m_hooge@hotmail.com"},
+]
+dependencies = [
+    "mhooge-flask @ file:///${PROJECT_ROOT}/../scripts/mhooge_flask",
+    "flask-socketio>=5.5.1",
+]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false

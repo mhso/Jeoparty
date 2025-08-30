@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+{% include 'dashboard/head.html' %}
+<body>
+    <script src="{{ url_for('static', filename='js/question_pack.js') }}"></script>
+
+    <div id="question-pack-wrapper">
+        <input id="question-pack-name" value="{{ name }}" placeholder="Name of Pack">
+
+        <div id="question-pack-data">
+            <div id="question-pack-round-select">
+                <div>
+                    {% for round_data in rounds %}
+                    <button onclick="showRoundView({{ loop.index0 }});" class="question-pack-round-select-button{% if loop.index == 1 %} question-pack-round-selected{% endif %}">Round {{ loop.index }}</button>
+                    {% endfor %}
+                    {% if not rounds %}
+                    <button onclick="showRoundView(0);" class="question-pack-round-select-button question-pack-round-selected">Round 1</button>
+                    {% endif %}
+                </div>
+
+                <button onclick="addRound();">+</button>
+            </div>
+
+            {% for round_data in rounds %}
+            {% set round_num = loop.index0 %}
+            <div class="question-pack-round-wrapper d-none">
+                {% for category_data in round_data["categories"] %}
+                <div class="question-pack-category-wrapper">
+                    {% for tier_data in category_data["tiers"] %}
+                    <div class="question-pack-tier-wrapper" onclick="openQuestionModal(round_num, '{{ category_data["category"] }}', {{ loop.index0 }})">
+                        <div>{{ tier_data["value"] }}</div>
+                    </div>
+                    {% endfor %}
+
+                    <button id="question-pack-add-tier-btn" onclick="openQuestionModal(round_num, '{{ category_data["category"] }}', null)">+</button>
+                </div>
+                {% endfor %}
+
+                <button id="question-pack-add-category-btn" onclick="addCategory();">+</button>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button id="question-pack-save-all" onclick="saveData();">Save</button>
+    </div>
+
+    <!-- Question Modal -->
+    <div id="question-pack-modal" class="d-none">
+        <div id="question-pack-modal-header">
+            <button onclick="closeQuestionModal();">&times;</button>
+        </div>
+
+        <div id="question-pack-modal-body">
+            <input id="question-pack-modal-question">
+            <input id="question-pack-modal-answer">
+    
+            <input id="question-pack-modal-multiple_choice" type="checkbox" onchange="modalSetMultipleChoice()">
+                <label>Multiple Choice</label>
+            </input>
+            <div id="question-pack-modal-choices" class="d-none">
+                <div></div>
+                <button onclick="modalAddAnswerChoice()">+</button>
+            </div>
+    
+            <div id="question-pack-modal-image">
+    
+            </div>
+            <div id="question-pack-modal-video">
+    
+            </div>
+            <div id="question-pack-modal-answer_image">
+    
+            </div>
+        </div>
+
+        <div id="question-pack-modal-footer">
+            <button id="question-pack-modal-save-btn" onclick="addQuestion(); closeQuestionModal();">OK</button>
+            <button id="question-pack-modal-delete-btn" onclick="deleteQuestion();">Delete</button>
+        </div>
+    </div>
+
+    <script>questionData = "{{ rounds | tojson }}"</script>
+</body>
+</html>

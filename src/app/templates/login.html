@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jeopardy Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/presenter_style.css') }}">
+</head>
+<body>
+    <div id="login-wrapper">
+        <h1>Jeopardy</h1>
+        <form action="{{ redirect_url }}" method="POST">
+            <input type="hidden" value="admin" name="user">
+            <input type="password" name="pass">
+            <input type="submit" value="Login" class="btn">
+        </form>
+
+        <p id="login-error-msg">{% if error %}{{ error }}{% endif %}</p>
+    </div>
+</body>
+</html>

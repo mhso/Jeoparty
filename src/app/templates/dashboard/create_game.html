@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+{% include 'dashboard/head.html' %}
+<body>
+    <div id="create-game-wrapper">
+        <h1>Create Game</h1>
+
+        <form action="{{ url_for('dashboard.create_game') }}" method="POST">
+            <label for="title">Lobby Name</label>
+            <input type="text" name="title" minlength="1" maxlength="64" value="{{ user_name }}'s Game">
+    
+            <label for="rounds">Rounds</label>
+            <input type="number" name="rounds" minlength="1" maxlength="9" value="2">
+
+            <label for="contestants">Contestants</label>
+            <input type="number" name="contestants" minlength="1" maxlength="9" value="4">
+
+            <select>
+                <label>Question Pack</label>
+                {% for question_data in questions %}
+                <option value="{{ question_data['id'] }}">{{ question_data['title'] }}</option>
+                {% endfor %}
+                <option value="missing" selected>Select Pack</option>
+            </select>
+
+            <input type="submit" value="Create" class="btn">
+        </form>
+
+        <p id="dashboard-form-error">{% if error %}Error: {{ error }}{% endif %}</p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+{% include 'dashboard/head.html' %}
+<body>
+    <div id="dashboard-wrapper">
+        <h1>Welcome {{ user_name }}</h1>
+
+        <div id="dashboard-inner-wrapper">
+            <div id="dashboard-games-list">
+                <h2>Your Games</h2>
+
+                {% for game_data in games %}
+                <div class="dashboard-game-list-entry">
+                    <h3>{{ game_data['game_title'] }}</h3>
+                    <div class="dashboard-game-entry-question">Question Pack: {{ game_data['questions_title'] }}</div>
+                    <div class="dashboard-game-entry-rounds">Round {{ game_data['round'] }} / {{ game_data['regular_rounds'] + 1 }}</div>
+                    <div class="dashboard-game-entry-question">Question #{{ game_data['question'] }}</div>
+                    <div class="dashboard-game-entry-powers">Power-Ups: {% if game_data['use_powerups'] %}Yes{% else %}No{% endif %}</div>
+                    <div class="dashboard-game-entry-stage">Stage: {{ game_data['stage'] | capitalize }}</div>
+                    <div class="dashboard-game-entry-contestants">Contestants: {{ game_data['num_contestants'] }}</div>
+                    <div class="dashboard-game-entry-created">Started: {{ game_data['created_at'] }}</div>
+                    <div class="dashboard-game-entry-ended">{% if game_data['ended_at'] %}Ended: {{ game_data['ended_at'] }}{% else %}Ongoing{% endif %}</div>
+                    {% if game_data['url'] %}
+                    <button>
+                        <a href="{{ game_data['url'] }}">Open</a>
+                    </button>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                {% if not games %}
+                <div id="dashboard-game-list-empty">
+                    You haven't played any games yet.
+                </div>
+                {% endif %}
+
+                <button>
+                    <a href="{{ url_for('dashboard.create_game') }}">New Game</a>
+                </button>
+            </div>
+
+            <div id="dashboard-questions-list">
+                <h2>Your Question Packs</h2>
+
+                {% for question_data in questions %}
+                    <h3>{{ question_data['pack_name'] }}</h3>
+                    <div class="dashboard-question-entry-questions">Questions: {{ question_data['questions'] | length }}</div>
+                    <div class="dashboard-question-entry-created">Created: {{ question_data['created_at'] }}</div>
+                    <div class="dashboard-question-entry-changed">Changed: {{ question_data['changed_at'] }}</div>
+                    <button>
+                        <a href="{{ url_for('dashboard.questions_view', pack_id=question_data['id'] ) }}">Open</a>
+                    </button>
+                {% endfor %}
+
+                {% if not questions %}
+                <div id="dashboard-questions-list-empty">
+                    You haven't created any question packs yet.
+                </div>
+                {% endif %}
+
+                <button>
+                    <a href="{{ url_for('dashboard.create_pack') }}">Create Pack</a>
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
