@@ -47,8 +47,9 @@ def _validate_create_pack_params(params: Dict[str, Any]):
         return error
 
     public = "public" in params
+    finale = "finale" in params
 
-    return name, public
+    return name, public, finale
 
 @dashboard_page.route("/create_pack", methods=["GET", "POST"])
 def create_pack():
@@ -65,10 +66,10 @@ def create_pack():
         if not isinstance(validate_result, tuple) and validate_result is not None:
             return flask.redirect(flask.url_for(".create_game", error=validate_result, _external=True))
 
-        name, public = validate_result
+        name, public, finale = validate_result
 
         pack_id = uuid4().hex
-        database.create_question_pack(pack_id, user_id, name, public)
+        database.create_question_pack(pack_id, user_id, name, public, finale)
 
         return flask.redirect(flask.url_for(".questions_view", pack_id=pack_id, _external=True))
 

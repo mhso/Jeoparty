@@ -2,30 +2,32 @@ CREATE TABLE [question_packs] (
     [id] NVARCHAR(64) PRIMARY KEY,
     [name] NVARCHAR(64) NOT NULL,
     [public] INTEGER NOT NULL,
+    [include_finale] INTEGER DEFAULT(1),
     [created_by] NVARCHAR(32) NOT NULL,
     [created_at] INTEGER NOT NULL,
     [changed_at] INTEGER NOT NULL
 );
 
-CREATE TABLE [question_categories] (
+CREATE TABLE [question_rounds] (
     [id] NVARCHAR(64) PRIMARY KEY,
     [pack_id] NVARCHAR(64) NOT NULL,
     [name] NVARCHAR(64) NOT NULL,
-    [order] INTEGER NOT NULL
+    [round] INTEGER NOT NULL
 );
 
-CREATE TABLE [question_tiers] (
+CREATE TABLE [question_categories] (
     [id] NVARCHAR(64) PRIMARY KEY,
-    [category_id] NVARCHAR(64) NOT NULL,
-    [value] INTEGER NOT NULL
+    [round_id] NVARCHAR(64) NOT NULL,
+    [name] NVARCHAR(64) NOT NULL,
+    [order] INTEGER NOT NULL
 );
 
 CREATE TABLE [questions] (
     [id] NVARCHAR(64) PRIMARY KEY,
     [tier_id] NVARCHAR(64) NOT NULL,
-    [round] INTEGER NOT NULL,
     [question] NVARCHAR(128) NOT NULL,
     [answer] NVARCHAR(128) NOT NULL,
+    [value] INTEGER NOT NULL,
     [extra] JSON NULL
 );
 

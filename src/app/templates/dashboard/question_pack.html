@@ -5,40 +5,52 @@
     <script src="{{ url_for('static', filename='js/question_pack.js') }}"></script>
 
     <div id="question-pack-wrapper">
-        <input id="question-pack-name" value="{{ name }}" placeholder="Name of Pack">
+        <input id="question-pack-name" value="{{ name }}" placeholder="Name of Pack" oninput="dataChanged();">
+        <input id="question-pack-public" type="checkbox"{% if public %} checked{% endif %} onchange="dataChanged();">
+        <input id="question-pack-finale" type="checkbox"{% if include_finale %} checked{% endif %} onchange="dataChanged();">
 
-        <div id="question-pack-data">
+        <div id="question-pack-data-wrapper">
             <div id="question-pack-round-select">
                 <div>
                     {% for round_data in rounds %}
                     <button onclick="showRoundView({{ loop.index0 }});" class="question-pack-round-select-button{% if loop.index == 1 %} question-pack-round-selected{% endif %}">Round {{ loop.index }}</button>
                     {% endfor %}
-                    {% if not rounds %}
-                    <button onclick="showRoundView(0);" class="question-pack-round-select-button question-pack-round-selected">Round 1</button>
-                    {% endif %}
                 </div>
 
-                <button onclick="addRound();">+</button>
+                <button class="question-pack-add-round-btn" onclick="addRound();">+</button>
             </div>
 
-            {% for round_data in rounds %}
-            {% set round_num = loop.index0 %}
-            <div class="question-pack-round-wrapper d-none">
-                {% for category_data in round_data["categories"] %}
-                <div class="question-pack-category-wrapper">
-                    {% for tier_data in category_data["tiers"] %}
-                    <div class="question-pack-tier-wrapper" onclick="openQuestionModal(round_num, '{{ category_data["category"] }}', {{ loop.index0 }})">
-                        <div>{{ tier_data["value"] }}</div>
+            <div>
+                {% for round_data in rounds %}
+                {% set round_num = loop.index0 %}
+                <div class="question-pack-round-wrapper d-none">
+                    <input class="question-pack-round-name" value="{{ category_data['round_name'] }}" onchange="syncRoundData(); dataChanged();">
+        
+                    <div>
+                        {% for category_data in round_data["categories"] %}
+                        {% set category_num = loop.index0 %}
+                        <div class="question-pack-category-wrapper">
+                            <input class="question-pack-category-name" value="{{ category_data['category_name'] }}" onchange="syncCategoryData(); dataChanged();">
+        
+                            <div>
+                                {% for question_data in category_data["questions"] %}
+                                <div class="question-pack-question-wrapper" onclick="openQuestionModal(round_num, category_num, {{ loop.index0 }})">
+                                    {{ question_data["value"] }}
+                                </div>
+                                {% endfor %}
+                            </div>
+        
+                            <button id="question-pack-add-question-btn" onclick="openQuestionModal(round_num, category_num, null)">+</button>
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
 
-                    <button id="question-pack-add-tier-btn" onclick="openQuestionModal(round_num, '{{ category_data["category"] }}', null)">+</button>
+                    <div class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}">Add a category below to get started!</div>
+                    
+                    <button id="question-pack-add-category-btn" onclick="addCategory({{ round_num }});">+</button>
                 </div>
                 {% endfor %}
-
-                <button id="question-pack-add-category-btn" onclick="addCategory();">+</button>
             </div>
-            {% endfor %}
         </div>
 
         <button id="question-pack-save-all" onclick="saveData();">Save</button>
@@ -53,6 +65,7 @@
         <div id="question-pack-modal-body">
             <input id="question-pack-modal-question">
             <input id="question-pack-modal-answer">
+            <input type="number" min="1" max="10000" id="question-pack-modal-value">
     
             <input id="question-pack-modal-multiple_choice" type="checkbox" onchange="modalSetMultipleChoice()">
                 <label>Multiple Choice</label>
@@ -74,8 +87,8 @@
         </div>
 
         <div id="question-pack-modal-footer">
-            <button id="question-pack-modal-save-btn" onclick="addQuestion(); closeQuestionModal();">OK</button>
-            <button id="question-pack-modal-delete-btn" onclick="deleteQuestion();">Delete</button>
+            <button id="question-pack-modal-save-btn">OK</button>
+            <button id="question-pack-modal-delete-btn">Delete</button>
         </div>
     </div>
 

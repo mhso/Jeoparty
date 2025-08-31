@@ -2,10 +2,12 @@ from datetime import datetime
 import json
 from typing import Any, Dict, List
 from sqlite3 import DatabaseError
+from uuid import uuid4
 
 from mhooge_flask.database import SQLiteDatabase
 from mhooge_flask.logging import logger
 
+from api.config import ROUND_NAMES, FINALE_NAME
 from api.stage import Stage
 
 def format_value(key, value):
@@ -42,33 +44,36 @@ class Database(SQLiteDatabase):
                 qp.id AS pack_id,
                 qp.name,
                 qp.public,
+                qp.include_finale,
                 qp.created_at,
                 qp.changed_at,
+                qr.id AS round_id,
+                qr.name AS round_name,
+                qr.round,
                 qc.id AS category_id,
-                qc.name AS category,
+                qc.name AS category_name,
                 qc.order,
-                qt.value,
                 qs.id AS question_id,
-                qs.round,
                 qs.question,
                 qs.answer,
+                qs.value,
                 qs.extra
             FROM question_packs AS qp
-            INNER JOIN question_tiers AS qt
-                ON qp.id = qt.pack_id
+            INNER JOIN question_rounds AS qr
+                ON qp.id = qr.pack_id
             INNER JOIN question_categories AS qc
-                ON qt.pack_id = qc.pack_id
+                ON qr.id = qc.round_id
             LEFT JOIN questions AS qs
-                ON qc.pack_id = qs.pack_id
+                ON qc.id = qs.tier_id
             WHERE
                 {where_condition}
             ORDER BY
                 qp.id,
-                qs.round,
+                qr.round,
                 qc.order,
-                qt.value
+                qs.value
         """
-        static_ids = ["id", "name", "public", "created_at", "changed_at"]
+        static_ids = ["id", "name", "public", "include_finale", "created_at", "changed_at"]
         question_ids = ["question_id", "value", "question", "answer"]
 
         with self:
@@ -91,15 +96,15 @@ class Database(SQLiteDatabase):
                 if curr_round_num is not None and curr_round_num != row["round"]:
                     curr_pack["rounds"].append(curr_round)
                     curr_round = {"categories": []}
-                    curr_category = {"name": row["category"], "order": row["order"], "tiers": []}
+                    curr_category = {"name": row["category"], "questions": []}
 
                 if curr_order is not None and curr_order != row["order"]:
                     curr_round["categories"].append(curr_category)
-                    curr_category = {"name": row["category"], "order": row["order"], "tiers": []}
+                    curr_category = {"name": row["category"], "questions": []}
 
                 question_data = {key: row[key] for key in question_ids}
                 question_data.update(row["extra"])
-                curr_category["tiers"].append(question_data)
+                curr_category["questions"].append(question_data)
 
                 curr_pack_id = row["pack_id"]
                 curr_round_num = row["round"]
@@ -155,15 +160,29 @@ class Database(SQLiteDatabase):
         with self:
             return self.execute_query(query, game_id).fetchall()
 
-    def create_question_pack(self, pack_id: str, user_id: str, name: str, public: bool):
-        query = """
-            INSERT INTO question_packs (id, name, public, created_by, created_at, changed_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+    def create_question_pack(self, pack_id: str, user_id: str, name: str, public: bool, finale: bool):
+        query_pack = """
+            INSERT INTO question_packs (id, name, public, include_finale, created_by, created_at, changed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """
+
+        query_rounds = """
+            INSERT INTO question_rounds (id, name, round)
+            VALUES (?, ?, ?)
+        """
+
         timestamp = datetime.now().timestamp()
 
         with self:
-            self.execute_query(query, pack_id, name, public, user_id, timestamp, timestamp)
+            self.execute_query(query_pack, pack_id, name, public, user_id, timestamp, timestamp, commit=False)
+            rounds = [(1, ROUND_NAMES[0])]
+            if finale:
+                rounds.append((2, FINALE_NAME))
+
+            for (round_num, name) in rounds:
+                round_id = uuid4().hex
+                commit = round_num == len(rounds)
+                self.execute_query(query_rounds, round_id, name, round_num, commit=commit)
 
     def update_question_pack(
         self,
