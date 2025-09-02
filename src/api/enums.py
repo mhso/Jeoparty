@@ -7,3 +7,8 @@ class Stage(Enum):
     QUESTION = "question"
     FINALE = "finale"
     ENDED = "ended"
+
+class PowerUp(Enum):
+    HIJACK = "hijack"
+    FREEZE = "freeze"
+    REWIND = "rewind"

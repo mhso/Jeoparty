@@ -24,7 +24,7 @@ CREATE TABLE [question_categories] (
 
 CREATE TABLE [questions] (
     [id] NVARCHAR(64) PRIMARY KEY,
-    [tier_id] NVARCHAR(64) NOT NULL,
+    [category_id] NVARCHAR(64) NOT NULL,
     [question] NVARCHAR(128) NOT NULL,
     [answer] NVARCHAR(128) NOT NULL,
     [value] INTEGER NOT NULL,
@@ -40,27 +40,11 @@ CREATE TABLE [games] (
     [started_at] INTEGER NOT NULL,
     [ended_at] INTEGER NULL,
     [max_contestants] INTEGER NOT NULL,
-    [round] INTEGER DEFAULT(0),
-    [question] INTEGER DEFAULT(0),
-    [category] NVARCHAR(128) NULL,
-    [tier] INTEGER NULL,
+    [round_id] INTEGER DEFAULT(0),
+    [category_id] NVARCHAR(128) NULL,
+    [question_id] INTEGER DEFAULT(0),
     [use_powerups] INTEGER DEFAULT(1),
-    [state] NVARCHAR(32) DEFAULT('lobby')
-);
-
-CREATE TABLE [contestants] (
-    [id] NVARCHAR(64) PRIMARY KEY,
-    [game_id] NVARCHAR(64) NOT NULL,
-    [name] NVARCHAR(32) NOT NULL,
-    [avatar] NVARCHAR(128) NULL,
-    [bg_image] NVARCHAR(128) NULL,
-    [color] NVARCHAR(32) NOT NULL,
-    [score] INTEGER DEFAULT(0),
-    [buzzes] INTEGER DEFAULT(0),
-    [hits] INTEGER DEFAULT(0),
-    [misses] INTEGER DEFAULT(0),
-    [finale_wager] INTEGER NULL,
-    [finale_answer] NVARCHAR(128) NULL
+    [stage] NVARCHAR(32) DEFAULT('lobby')
 );
 
 CREATE TABLE [game_questions] (
@@ -79,4 +63,19 @@ CREATE TABLE [power_ups] (
     [name] NVARCHAR(64) NOT NULL,
     [enabled] INTEGER DEFAULT(0),
     [used] INTEGER DEFAULT(0)
+);
+
+CREATE TABLE [contestants] (
+    [id] NVARCHAR(64) PRIMARY KEY,
+    [game_id] NVARCHAR(64) NOT NULL,
+    [name] NVARCHAR(32) NOT NULL,
+    [avatar] NVARCHAR(128) NULL,
+    [bg_image] NVARCHAR(128) NULL,
+    [color] NVARCHAR(32) NOT NULL,
+    [score] INTEGER DEFAULT(0),
+    [buzzes] INTEGER DEFAULT(0),
+    [hits] INTEGER DEFAULT(0),
+    [misses] INTEGER DEFAULT(0),
+    [finale_wager] INTEGER NULL,
+    [finale_answer] NVARCHAR(128) NULL
 );

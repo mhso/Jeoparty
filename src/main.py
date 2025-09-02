@@ -24,6 +24,8 @@ def main():
         f"/{app_name}/",
         routes,
         database,
+        game_metadata={},
+        contestant_metadata={},
         join_locks={},
         buzz_locks={},
         exit_code=0

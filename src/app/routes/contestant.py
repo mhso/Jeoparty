@@ -1,10 +1,20 @@
+import os
+from typing import Any, Dict
+
 import flask
 from flask_socketio import emit
 
-import app.util as app_util
-from mhooge_flask.routing import socket_io
+from mhooge_flask.routing import socket_io, make_template_context
 
-from app.routes.jeopardy_presenter import PLAYER_NAMES, PLAYER_INDEXES, PLAYER_BACKGROUNDS, Contestant
+from api.database import Database
+from api.orm.models import Contestant, GameContestant
+from app.routes.shared import (
+    ContestantMetadata,
+    validate_param,
+    get_avatar_path,
+    get_bg_image_path,
+    get_contestant_metadata
+)
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
 
@@ -15,123 +25,208 @@ contestant_page = flask.Blueprint("contestant", __name__, template_folder="templ
 
 #     return flask.abort(404)
 
+_VALID_AVATAR_FILETYPES = set(["jpg", "jpeg", "png", "webp"])
+_COOKIE_ID = "jeoparty_user_id"
+
+def _save_user_id_to_cookie(user_id: str):
+    max_age = 60 * 60 * 24 * 365 # 1 year
+    return _COOKIE_ID, user_id, max_age
+
+def _get_user_id_from_cookie(cookies) -> str:
+    return cookies.get(_COOKIE_ID)
+
+def _validate_join_params(params: Dict[str, Any]) -> Contestant | str:
+    name, error = validate_param(params, "name", str, 1, 32)
+    if error:
+        return error
+
+    color, error = validate_param(params, "color", str)
+    if error:
+        return error
+
+    if "game_id" not in params:
+        return "Failed to join: Game ID is missing"
+
+    if not "default_avatar" in flask.request.form and "avatar" in flask.request.files:
+        file = flask.request.files["avatar"]
+        if not file.filename:
+            return "No avatar file selected"
+
+        file_split = file.filename.split(".")
+        if not len(file_split) != 2 or file_split[1] not in _VALID_AVATAR_FILETYPES:
+            return "Invalid avatar file type, must be .jpg, .png, or .webp"
+
+    return Contestant(
+        name=name,
+        color=color,
+    )
+
+def _get_random_bg_image(index):
+    return None # TODO: Make this sometime
+
+def _save_contestant_avatar(file, user_id):
+    file_split = file.filename.split(".")
+    filename = f"{user_id}.{file_split[1]}"
+    path = os.path.join(get_avatar_path(), filename)
+
+    file.save(path)
+
+    return filename
+
 @contestant_page.route("/join", methods=["POST"])
 def join_lobby():
-    name = flask.request.form.get("name")
-    disc_id = int(flask.request.form.get("user_id"))
-    jeopardy_data = flask.current_app.config["JEOPARDY_DATA"]
-    state = jeopardy_data["state"]
+    database: Database = flask.current_app.config["DATABASE"]
 
-    if state is None:
-        return app_util.make_template_context("jeopardy/contestant_nogame.html")
+    contestant_model_or_error = _validate_join_params(flask.request.form)
 
-    error = None
-    if name is None or name == "":
-        error = "Du skal give et navn"
-    elif len(name) > 10:
-        error = "Dit navn er for langt (max 10 bogstaver)"
+    if not isinstance(contestant_model_or_error, Contestant) and contestant_model_or_error is not None:
+        return flask.redirect(flask.url_for(".create_game", error=contestant_model_or_error, _external=True))
 
-    if error:
-        return app_util.make_template_context(
-            "jeopardy/contestant_lobby.html",
-            user_id=str(disc_id),
-            player_name=name,
-            error=error
-        )
+    game_id = flask.request.form["game_id"]
+    user_id = flask.request.form.get("user_id")
 
-    color = flask.request.form.get("color")
-    avatar = app_util.discord_request("func", "get_discord_avatar", disc_id)
+    with database:
+        game_data = database.get_game_from_id(game_id)
+        if game_data is None:
+            return flask.redirect(
+                flask.url_for(".lobby", error="Failed to join: Game does not exist")
+            )
 
-    if avatar:
-        avatar = flask.url_for("static", _external=True, filename=avatar.replace("app/static/", ""))
-    else:
-        avatar = flask.url_for("static", _external=True, filename="img/questionmark.png")
+        index = len(game_data.game_contestants)
 
-    turn_id = PLAYER_INDEXES.index(disc_id)
-    with flask.current_app.config["JEOPARDY_JOIN_LOCK"]:
-        active_contestants = flask.current_app.config["JEOPARDY_DATA"]["contestants"]
-        active_contestants[disc_id] = Contestant(disc_id, turn_id, name, avatar, color)
+        # Try to get existitng user
+        existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
+
+        user_already_joined = False
+        if existing_model is not None:
+            contestant_model_or_error.id = existing_model.id
+            for contestant in game_data.game_contestants:
+                if contestant.contestant_id == user_id:
+                    user_already_joined = True
+                    break
+
+        # Get or set background image
+        contestant_model_or_error.bg_image = flask.request.form.get("bg_image")
+
+        if contestant_model_or_error.bg_image is None:
+            contestant_model_or_error.bg_image = _get_random_bg_image(index)
+
+        # Set buzz sound, if given
+        contestant_model_or_error.buzz_sound = flask.request.form.get("buzz_sound")
+
+        # Update or save contestant info
+        if not "default_avatar" in flask.request.form and "avatar" in flask.request.files:
+            contestant_model_or_error.avatar = _save_contestant_avatar(flask.request.files["avatar"], user_id)
+
+        database.save_contenstant(contestant_model_or_error)
+
+        if not user_already_joined:
+            # If user isn't already in the game, add them
+            game_contestant_model = GameContestant(
+                game_id=game_id,
+                contestant_id=contestant_model_or_error.id
+            )
+            database.add_contestant_to_game(game_contestant_model)
 
     response = flask.redirect(flask.url_for(".game_view", _external=True))
-    max_age = 60 * 60 * 6 # 6 hours
-    response.set_cookie("jeopardy_user_id", str(disc_id), max_age=max_age)
+
+    # Save user ID to cookie
+    cookie_id, data, max_age = _save_user_id_to_cookie(contestant_model_or_error.id)
+    response.set_cookie(cookie_id, data, max_age=max_age)
 
     return response
 
-@contestant_page.route("/game")
-def game_view():
-    if "jeopardy_user_id" not in flask.request.cookies:
-        return flask.redirect(flask.url_for(".lobby", _external=True, client_secret="None"))
+@contestant_page.route("/game/<game_id>")
+def game_view(game_id: str):
+    user_id = _get_user_id_from_cookie(flask.request.cookies)
 
-    state = flask.current_app.config["JEOPARDY_DATA"]["state"]
+    # Validate that user_id is saved as a cookie
+    if user_id is None:
+        return flask.redirect(flask.url_for(".lobby", _external=True, game_id=game_id))
 
-    if state is None:
-        return app_util.make_template_context("jeopardy/contestant_nogame.html")
+    database: Database = flask.current_app.config["DATABASE"]
 
-    active_contestants = flask.current_app.config["JEOPARDY_DATA"]["contestants"]
-    disc_id = int(flask.request.cookies["jeopardy_user_id"])
-    contestant: Contestant = active_contestants[disc_id]
+    game_data = database.get_game_from_id(game_id)
+    if game_data is None:
+        return make_template_context("contestant/nogame.html")
 
-    state_dict = state.__dict__
+    # Find the game contestant matching the given user_id
+    game_contestant_data = game_data.get_contestant(user_id)
+    if game_contestant_data is not None:
+        contestant_data: Contestant = game_contestant_data.contestant
+    else:
+        contestant_data = None
 
-    return app_util.make_template_context(
-        "jeopardy/contestant_game.html",
-        active_player=str(contestant.disc_id),
-        turn_id=contestant.index,
-        nickname=contestant.name,
-        avatar=contestant.avatar,
-        color=contestant.color,
-        score=contestant.score,
-        buzzes=contestant.buzzes,
-        hits=contestant.hits,
-        misses=contestant.misses,
+    if contestant_data is None: # User haven't joined the game yet
+        return flask.redirect(flask.url_for(".lobby", _external=True, game_id=game_id))
+
+    # Get avatar and background image
+    if contestant_data.avatar is not None:
+        contestant_data.json["avatar"] = os.path.join(get_avatar_path(False), contestant_data.avatar)
+
+    if contestant_data.bg_image is not None:
+        contestant_data.json["bg_image"] = os.path.join(get_bg_image_path(False), contestant_data.bg_image)
+
+    game_data.json["game_id"] = game_data.json["id"]
+    del game_data.json["id"]
+
+    contestant_data.json["user_id"] = contestant_data.json["id"]
+    del contestant_data.json["id"]
+
+    question_num = sum(1 if gq.used else 0 for gq in game_data.questions) + 1
+    total_questions = sum(1 if gq.question.category.round == game_data.round else 0 for gq in game_data.questions)
+
+    # Add metadata
+    contestant: ContestantMetadata = get_contestant_metadata(flask.current_app.config, game_id, user_id)
+
+    return make_template_context(
+        "contestant/game.html",
         ping=contestant.ping,
-        power_ups=[power_up.__dict__ for power_up in contestant.power_ups],
-        finale_wager=contestant.finale_wager,
-        player_bg_img=PLAYER_BACKGROUNDS[contestant.disc_id],
-        **state_dict
+        question_num=question_num,
+        total_questions=total_questions,
+        **game_data.json,
+        **contestant_data.json,
     )
 
-@contestant_page.route("/<client_secret>")
-def lobby(client_secret):
-    jeopardy_data = flask.current_app.config["JEOPARDY_DATA"]
-    database = flask.current_app.config["DATABASE"]
+@contestant_page.route("/<game_id>")
+def lobby(game_id: str):
+    database: Database = flask.current_app.config["DATABASE"]
 
-    if client_secret is None or client_secret == "None":
-        return flask.abort(404)
+    game_data = database.get_game_from_id(game_id)
+    if game_data is None:
+        return make_template_context("contestant/nogame.html")
 
-    state = jeopardy_data["state"]
-    disc_id = database.get_user_from_secret(client_secret)
+    user_id = _get_user_id_from_cookie(flask.request.cookies)
+    user_data = {}
+    if user_id is not None:
+        user_data = database.get_contestant_from_id(user_id).json
 
-    if disc_id is None or int(disc_id) not in PLAYER_NAMES:
-        return flask.abort(404)
+    if "avatar" in user_data:
+        user_data["avatar"] = os.path.join(get_avatar_path(False), user_data["avatar"])
+    else:
+        user_data["avatar"] = flask.url_for("static", filename="img/questionmark.png")
+        user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
 
-    avatar = app_util.discord_request("func", "get_discord_avatar", disc_id)
-    if avatar:
-        avatar = flask.url_for("static", _external=True, filename=avatar.replace("app/static/", ""))
+    error = flask.request.args.get("error")
 
-    if state is None:
-        return app_util.make_template_context("jeopardy/contestant_nogame.html")
-
-    return app_util.make_template_context(
+    return make_template_context(
         "jeopardy/contestant_lobby.html",
-        user_id=str(disc_id),
-        player_name=PLAYER_NAMES[disc_id],
-        avatar=avatar,
+        **user_data,
+        game_id=game_id,
+        has_password=game_data.password is not None,
+        error=error,
     )
 
 @socket_io.event
-def ping_request(disc_id: str, timestamp: float):
-    emit("ping_response", (disc_id, timestamp))
+def ping_request(timestamp: float):
+    emit("ping_response", timestamp)
 
 @socket_io.event
-def calculate_ping(disc_id: str, timestamp_sent: float, timestamp_received: float):
-    contestant: Contestant = flask.current_app.config["JEOPARDY_DATA"]["contestants"].get(int(disc_id))
+def calculate_ping(user_id: str, game_id: str, timestamp_sent: float, timestamp_received: float):
+    contestant: ContestantMetadata = get_contestant_metadata(flask.current_app.config, game_id, user_id)
+    contestant.calculate_ping(timestamp_sent, timestamp_received)
 
-    if contestant is not None:
-        contestant.calculate_ping(timestamp_sent, timestamp_received)
-
-        emit("ping_calculated", f"{min(999.0, max(contestant.ping, 1.0)):.1f}")
+    emit("ping_calculated", f"{min(999.0, max(contestant.ping, 1.0)):.1f}")
 
 @socket_io.event
 def make_daily_wager(disc_id: str, amount: str):

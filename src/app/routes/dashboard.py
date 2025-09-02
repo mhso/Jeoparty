@@ -1,5 +1,5 @@
+import os
 from typing import Any, Dict
-from uuid import uuid4
 
 import flask
 
@@ -7,7 +7,9 @@ from mhooge_flask.auth import get_user_details
 from mhooge_flask.routing import make_template_context, make_text_response
 
 from api.database import Database
-from app.routes.util import redirect_to_login, validate_param
+from api.orm.models import *
+from api.enums import Stage
+from app.routes.shared import redirect_to_login, validate_param, get_data_path_for_question_pack
 
 dashboard_page = flask.Blueprint("dashboard", __name__, template_folder="templates")
 
@@ -20,28 +22,23 @@ def home():
     database: Database = flask.current_app.config["DATABASE"]
     user_id, user_name = user_details
 
-    questions = database.get_questions_for_user(user_id)
+    questions = [question.json for question in database.get_questions_for_user(user_id)]
     games = database.get_games_for_user(user_id)
+    games_json = []
     for game in games:
-        if not game["ended_at"]:
-            params = {}
-            if game["stage"] in ("selection", "question"):
-                params["jeopardy_round"] = game["round"]
-            if game["stage"] == "question":
-                params["category"] = game["category"]
-                params["tier"] = game["tier"]
-
-            game["url"] = flask.url_for(f"presenter.{game["stage"]}", **params)
+        if game.stage is not Stage.ENDED:
+            game.json["url"] = flask.url_for(f"presenter.{game.stage.value}", game_id=game.id)
+            games_json.append(game.json)
 
     return make_template_context(
         "dashboard/home.html",
         user_id=user_id,
         user_name=user_name,
         questions=questions,
-        games=games,
+        games=games_json,
     )
 
-def _validate_create_pack_params(params: Dict[str, Any]):
+def _validate_create_pack_params(params: Dict[str, Any], user_id: str):
     name, error = validate_param(params, "name", str, 1, 64)
     if error:
         return error
@@ -49,7 +46,12 @@ def _validate_create_pack_params(params: Dict[str, Any]):
     public = "public" in params
     finale = "finale" in params
 
-    return name, public, finale
+    return QuestionPack(
+        name=name,
+        public=public,
+        include_finale=finale,
+        created_by=user_id,
+    )
 
 @dashboard_page.route("/create_pack", methods=["GET", "POST"])
 def create_pack():
@@ -61,48 +63,28 @@ def create_pack():
     database: Database = flask.current_app.config["DATABASE"]
 
     if flask.request.method == "POST":
-        validate_result = _validate_create_pack_params(flask.request.form)
+        pack_model_or_error = _validate_create_pack_params(flask.request.form, user_id)
 
-        if not isinstance(validate_result, tuple) and validate_result is not None:
-            return flask.redirect(flask.url_for(".create_game", error=validate_result, _external=True))
+        if not isinstance(pack_model_or_error, QuestionPack) and pack_model_or_error is not None:
+            return flask.redirect(flask.url_for(".create_game", error=pack_model_or_error, _external=True))
 
-        name, public, finale = validate_result
+        database.create_question_pack(pack_model_or_error)
 
-        pack_id = uuid4().hex
-        database.create_question_pack(pack_id, user_id, name, public, finale)
-
-        return flask.redirect(flask.url_for(".questions_view", pack_id=pack_id, _external=True))
+        return flask.redirect(flask.url_for(".questions_view", pack_id=pack_model_or_error.id, _external=True))
 
     return make_template_context("dashboard/create_pack.html", user_name=user_name)
 
-@dashboard_page.route("/<pack_id>/save")
-def save_pack(pack_id: str):
-
-
-    return make_text_response("Question pack saved succesfully", 200)
-
-@dashboard_page.route("/<pack_id>")
-def questions_view(pack_id: str):
-    user_details = get_user_details()
-    if user_details is None:
-        return redirect_to_login("dashboard.questions_view", pack_id=pack_id)
-
-    database: Database = flask.current_app.config["DATABASE"]
-    user_id, user_name = user_details
-
-    question_data = database.get_questions_for_user(user_id, pack_id)
-
-    return make_template_context(
-        "dashboard/question_pack.html",
-        user_name=user_name,
-        pack_id=pack_id,
-        **question_data,
-    )
-
-def _validate_create_game_params(params: Dict[str, Any]):
+def _validate_create_game_params(params: Dict[str, Any], user_id: str) -> Game | str:
     title, error = validate_param(params, "title", str, 1, 64)
     if error:
         return error
+
+    if "password" in params:
+        password, error = validate_param(params, "password", str, 3, 128)
+        if error:
+            return error
+    else:
+        password = None
 
     rounds, error = validate_param(params, "rounds", int, 1, 9)
     if error:
@@ -119,7 +101,28 @@ def _validate_create_game_params(params: Dict[str, Any]):
     if pack_id == "missing":
         return "Choose a valid question pack"
 
-    return title, rounds, contestants, pack_id
+    daily_doubles = "daily_doubles" in params
+    power_ups = "power_ups" in params
+
+    if "music" in flask.request.files:
+        file = flask.request.files["music"]
+        if not file.filename:
+            return "No lobby music selected"
+
+        file_split = file.filename.split(".")
+        if not len(file_split) != 2 or file_split[1] != "mp3":
+            return "Invalid lobby music file type, must be .mp3"
+
+    return Game(
+        pack_id=pack_id,
+        title=title,
+        regular_rounds=rounds,
+        max_contestants=contestants,
+        use_daily_doubles=daily_doubles,
+        use_powerups=power_ups,
+        password=password,
+        created_by=user_id,
+    )
 
 @dashboard_page.route("/create_game", methods=["GET", "POST"])
 def create_game():
@@ -131,24 +134,26 @@ def create_game():
     database: Database = flask.current_app.config["DATABASE"]
 
     if flask.request.method == "POST":
-        validate_result = _validate_create_game_params(flask.request.form)
+        game_model_or_error = _validate_create_game_params(flask.request.form, user_id)
 
-        if not isinstance(validate_result, tuple) and validate_result is not None:
-            return flask.redirect(flask.url_for(".create_game", error=validate_result, _external=True))
+        if not isinstance(game_model_or_error, Game) and game_model_or_error is not None:
+            return flask.redirect(flask.url_for(".create_game", error=game_model_or_error, _external=True))
 
-        title, rounds, contestants, pack_id = validate_result
-
-        if database.get_questions_for_user(user_id, pack_id, True) == []:
-            error = "The given question pack does not exist or you do not have access to it"
-            return flask.redirect(flask.url_for(".create_game", error=error, _external=True))
-
-        game_id = uuid4().hex
-        success = database.create_game(game_id, pack_id, user_id, rounds, contestants, title)
+        success = database.create_game(game_model_or_error)
         if not success:
             error = "There was an unexpected error when creating the game, please try again later"
             return flask.redirect(flask.url_for(".create_game", error=error, _external=True)) 
 
-        return flask.redirect(flask.url_for("presenter.lobby", game_id=game_id, _external=True))
+        data_path = get_data_path_for_question_pack(game_model_or_error.pack_id)
+        os.mkdir(data_path)
+
+        if "music" in flask.request.form:
+            file = flask.request.files["music"]
+
+            path = os.path.join(data_path, "lobby_music.mp3")
+            file.save(path)
+
+        return flask.redirect(flask.url_for("presenter.lobby", game_id=game_model_or_error.id, _external=True))
 
     questions = database.get_questions_for_user(user_id, include_public=True)
     error = flask.request.args.get("error")
@@ -158,4 +163,41 @@ def create_game():
         user_id=user_id,
         questions=questions,
         error=error,
+    )
+
+@dashboard_page.route("/<pack_id>/save", methods=["POST"])
+def save_pack(pack_id: str):
+    user_details = get_user_details()
+    if user_details is None:
+        return make_text_response("You are not logged in!", 401)
+
+    database: Database = flask.current_app.config["DATABASE"]
+    user_id = user_details[0]
+
+    if database.get_questions_for_user(user_id, pack_id) is None:
+        return make_text_response("You are not authorized to edit this question package", 401)
+
+    data: Dict[str, Any] = flask.request.json
+    pack_model = QuestionPack(**data)
+
+    database.save_question_pack(pack_model)
+
+    return make_text_response("Question pack saved succesfully.", 200)
+
+@dashboard_page.route("/<pack_id>")
+def questions_view(pack_id: str):
+    user_details = get_user_details()
+    if user_details is None:
+        return redirect_to_login("dashboard.questions_view", pack_id=pack_id)
+
+    database: Database = flask.current_app.config["DATABASE"]
+    user_id, user_name = user_details
+
+    question_data: QuestionPack = database.get_questions_for_user(user_id, pack_id)
+
+    return make_template_context(
+        "dashboard/question_pack.html",
+        user_name=user_name,
+        pack_id=pack_id,
+        **question_data.json,
     )

@@ -25,13 +25,15 @@ function syncQuestionData(round, category, question) {
     let questionText = document.getElementById("question-pack-modal-question").value;
     let answerText = document.getElementById("question-pack-modal-answer").value;
     let value = document.getElementById("question-pack-modal-value").value;
+    let buzzTime = document.getElementById("question-pack-modal-buzztime").value;
     let isMultipleChoice = document.getElementById("question-pack-modal-multiple_choice").checked;
     let choices = document.querySelectorAll(".question-pack-modal-choice");
 
     let data = {
         "question": questionText,
         "answer": answerText,
-        "value": value
+        "value": value,
+        "buzz_time": buzzTime,
     }
     if (isMultipleChoice) {
         data["choices"] = choices.map((choice) => choice.textContent);
@@ -82,10 +84,11 @@ function syncCategoryData(round, category) {
 
     let questionDataCategories = questionData["rounds"][round]["categories"];
     if (questionDataCategories.length == category) {
-        questionDataCategories.push({"name": name, "questions": []});
+        questionDataCategories.push({"name": name, "order": category, "questions": []});
     }
     else {
         questionDataCategories[category]["name"] = name;
+        questionDataCategories[category]["order"] = category;
     }
 }
 
@@ -127,7 +130,17 @@ function addCategory(round) {
 }
 
 function deleteCategory(round, category) {
+    let roundElem = document.querySelectorAll(".question-pack-round-wrapper > div")[round];
+    let categoryElem = roundElem.querySelectorAll(".question-pack-category-wrapper")[category];
 
+    if (categoryElem != null) {
+        categoryWrapper.removeChild(categoryElem);
+        questionData["rounds"][round]["categories"].splice(category, 1);
+        if (questionData["rounds"][round]["categories"].length == 0) {
+            let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
+            placeholder.classList.remove("d-none");
+        }
+    }
 }
 
 function syncRoundData(round) {
@@ -136,10 +149,11 @@ function syncRoundData(round) {
 
     let questionDataRounds = questionData["rounds"];
     if (questionDataRounds.length == round) {
-        questionDataRounds.push({"name": name, "categories": []});
+        questionDataRounds.push({"name": name, "round": round, "categories": []});
     }
     else {
         questionDataRounds[round]["name"] = name;
+        questionDataRounds[round]["round"] = round;
     }
 }
 
@@ -198,8 +212,75 @@ function syncGeneralData() {
     questionData["include_finale"] = finale;
 }
 
-function saveData() {
+function getBaseURL() {
+    return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port + "/jeopardy";
+}
+
+function fade(elem, out, duration) {
+    elem.style.transition = null;
+    elem.offsetHeight;
+
+    popupElem.style.opacity = out ? 1 : 0;
+    elem.style.transition = `opacity ${duration}s`;
+
+    elem.offsetHeight;
+
+    if (!out) {
+        elem.classList.remove("d-none");
+    }
+
+    let opacity = out ? 0 : 1;
+    elem.style.opacity = opacity;
+
+    if (out) {
+        setTimeout(function() {
+            elem.classList.add("d-none");
+        }, duration * 1000);
+    }
+}
+
+function showPopup(text) {
+    let popupElem = document.getElementById("question-pack-popup");
+    popupElem.textContent = text;
+    fade(popupElem, false, 1);
+}
+
+function saveData(packId) {
+    let saveBtn = document.getElementById("question-pack-save-all");
+    saveBtn.disabled = true;
+
     syncGeneralData();
+
+    let btnRegularState = saveBtn.querySelector(".save-btn-regular");
+    let btnPendingState = saveBtn.querySelector(".save-btn-pending");
+    let btnSuccessState = saveBtn.querySelector(".save-btn-success");
+    let btnFailState = saveBtn.querySelector(".save-btn-fail");
+
+    fade(btnRegularState, true, 1);
+    fade(btnPendingState, false, 1);
+
+    let baseURL = getBaseURL();
+
+    $.ajax(
+        `${baseURL}/${packId}/save`,
+        data=questionData,
+        method="POST"
+    ).always(function(response) {
+        showPopup(response);
+        fade(btnPendingState, true, 1);
+    }).done(function() {
+        fade(btnSuccessState, false, 1);
+        setTimeout(function() {
+            fade(btnSuccessState, true, 1);
+            fade(btnRegularState, false, 1);
+        }, 3000);
+    }).fail(function() {
+        fade(btnFailState, false, 1);
+        setTimeout(function() {
+            fade(btnFailState, true, 1);
+            fade(btnRegularState, false, 1);
+        }, 3000);
+    });
 }
 
 function modalAddAnswerChoice() {
@@ -240,6 +321,7 @@ function openQuestionModal(round, category, question) {
     let questionInput = document.getElementById("question-pack-modal-question");
     let answerInput = document.getElementById("question-pack-modal-answer");
     let valueInput = document.getElementById("question-pack-modal-value");
+    let buzzInput = document.getElementById("question-pack-modal-buzztime");
     let multipleChoiceCheck = document.getElementById("question-pack-modal-multiple_choice");
     let choicesWrapper = document.getElementById("question-pack-modal-choices");
     let choicesInnerWrapper = document.querySelector("#question-pack-modal-choices > div");
@@ -252,6 +334,7 @@ function openQuestionModal(round, category, question) {
         questionInput.value = "";
         answerInput.value = "";
         valueInput.value = 100 * (question + 1) * (round + 1);
+        buzzInput.value = 10;
         multipleChoiceCheck.checked = false;
         choicesWrapper.classList.add("d-none");
         choicesInnerWrapper.innerHTML = "";
@@ -261,6 +344,7 @@ function openQuestionModal(round, category, question) {
         questionInput.value = data["question"];
         answerInput.value = data["answer"];
         valueInput.value = data["value"];
+        buzzInput.value = data["buzz_time"]
         multipleChoiceCheck.checked = Object.hasOwn("choices");
         if (multipleChoiceCheck.checked) {
             choicesWrapper.classList.remove("d-none");

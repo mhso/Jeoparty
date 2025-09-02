@@ -4,6 +4,10 @@
 <body>
     <script src="{{ url_for('static', filename='js/question_pack.js') }}"></script>
 
+    <div id="question-pack-popup d-none">
+        
+    </div>
+
     <div id="question-pack-wrapper">
         <input id="question-pack-name" value="{{ name }}" placeholder="Name of Pack" oninput="dataChanged();">
         <input id="question-pack-public" type="checkbox"{% if public %} checked{% endif %} onchange="dataChanged();">
@@ -39,7 +43,7 @@
                                 </div>
                                 {% endfor %}
                             </div>
-        
+
                             <button id="question-pack-add-question-btn" onclick="openQuestionModal(round_num, category_num, null)">+</button>
                         </div>
                         {% endfor %}
@@ -53,7 +57,16 @@
             </div>
         </div>
 
-        <button id="question-pack-save-all" onclick="saveData();">Save</button>
+        <button id="question-pack-save-btn" onclick="saveData('{{ id }}');">
+            <div class="save-btn-regular d-none">Save</div>
+            <div class="save-btn-pending loading-icon d-none"></div>
+            <div class="save-btn-success d-none">
+                <img src="{{ url_for('static', filename='img/success.png') }}">
+            </div>
+            <div class="save-btn-fail d-none">
+                <img src="{{ url_for('static', filename='img/error.png') }}">
+            </div>
+        </button>
     </div>
 
     <!-- Question Modal -->
@@ -66,6 +79,7 @@
             <input id="question-pack-modal-question">
             <input id="question-pack-modal-answer">
             <input type="number" min="1" max="10000" id="question-pack-modal-value">
+            <input type="number" min="3" max="60" id="question-pack-modal-buzztime">
     
             <input id="question-pack-modal-multiple_choice" type="checkbox" onchange="modalSetMultipleChoice()">
                 <label>Multiple Choice</label>

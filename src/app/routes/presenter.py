@@ -1,6 +1,6 @@
 import json
+import os
 import random
-from datetime import datetime
 from time import time
 from dataclasses import dataclass, field
 from typing import Dict, List
@@ -12,7 +12,11 @@ from mhooge_flask.auth import get_user_details
 from mhooge_flask.logging import logger
 from mhooge_flask.routing import socket_io, make_template_context, make_text_response
 
-from app.routes.util import redirect_to_login
+from api.database import Database
+from api.config import STATIC_FOLDER
+from api.enums import PowerUp, Stage
+from api.orm.models import GameQuestion
+from app.routes.shared import ContestantMetadata, redirect_to_login, get_data_path_for_question_pack, get_contestant_metadata
 from api.util import JEOPARDY_ITERATION, JEOPADY_EDITION, JEOPARDY_REGULAR_ROUNDS, MONTH_NAMES
 from api.lan import is_lan_ongoing, get_latest_lan_info
 
@@ -114,75 +118,18 @@ BUZZ_IN_SOUNDS = {
 }
 
 @dataclass
-class PowerUp:
-    power_id: str
-    name: str
-    enabled: bool = False
-    used: bool = False
+class GameMetadata:
+    question_asked_time: float | None = field(default=None, init=False)
+    buzz_winner_decided: bool = field(default=False, init=False)
+    power_use_decided: bool = field(default=False, init=False)
 
-    def to_json(self):
-        return json.dumps(self.__dict__, default=lambda o: list(o))
+def _get_game_metadata(config, game_id: str):
+    data = config["GAME_METADATA"].get(game_id)
+    if data is None:
+        data = GameMetadata()
+        config["GAME_METADATA"][game_id] = data
 
-    def __eq__(self, other: object) -> bool:
-        return self.power_id == other.power_id
-
-    def __hash__(self) -> int:
-        return hash(self.power_id)
-
-def _init_powerups():
-    return [
-        PowerUp("hijack", "Hijack"),
-        PowerUp("freeze", "Freeze"),
-        PowerUp("rewind", "Rewind"),
-    ]
-
-POWER_UP_IDS = [power.power_id for power in _init_powerups()]
-
-@dataclass
-class Contestant:
-    disc_id: int
-    index: int
-    name: str
-    avatar: str
-    color: str
-    score: int = 0
-    buzzes: int = 0
-    hits: int = 0
-    misses: int = 0
-    ping: int = field(default=30, init=False)
-    sid: str = field(default=None, init=False)
-    n_ping_samples: int = field(default=10, init=False)
-    latest_buzz: int = field(default=None, init=False)
-    power_ups: List[PowerUp] = field(default_factory=_init_powerups, init=False)
-    finale_wager: int = field(default=0, init=False)
-    finale_answer: int = field(default=None, init=False)
-    _ping_samples: list[float] = field(default=None, init=False)
-
-    def calculate_ping(self, time_sent, time_received):
-        if self._ping_samples is None:
-            self._ping_samples = []
-
-        self._ping_samples.append((time_received - time_sent) / 2)
-        self.ping = sum(self._ping_samples) / self.n_ping_samples
-
-        if len(self._ping_samples) == self.n_ping_samples:
-            self._ping_samples.pop(0)
-
-    @staticmethod
-    def from_json(json_str: str):
-        data = json.loads(json_str)
-        data["disc_id"] = int(data["disc_id"])
-        return Contestant(**data)
-
-    def to_json(self):
-        return json.dumps(self.__dict__)
-
-    def get_power(self, power_id: str) -> PowerUp:
-        for power_up in self.power_ups:
-            if power_up.power_id == power_id:
-                return power_up
-
-        return None
+    return data
 
 presenter_page = flask.Blueprint("presenter", __name__, template_folder="templates")
 
@@ -191,24 +138,26 @@ def lobby(game_id: str):
     if get_user_details() is None:
         return redirect_to_login("presenter.lobby", game_id=game_id)
 
-    active_contestants = flask.current_app.config["JEOPARDY_DATA"]["contestants"]
-    joined_players = [contestant.__dict__ for contestant in active_contestants.values()]
-    guild_name = "CoreNibbas"
-    if is_lan_ongoing(time()):
-        guild_name = get_latest_lan_info().guild_name
+    database: Database = flask.current_app.config["DATABASE"]
 
-    pregame_state = State(0, "Lobby", joined_players)
-    now = datetime.now()
-    date = f"{MONTH_NAMES[now.month-1]} {now.year}"
+    game_data = database.get_game_from_id(game_id)
 
-    flask.current_app.config["JEOPARDY_DATA"]["state"] = pregame_state
+    if game_data is None:
+        return flask.abort(404)
+
+    join_url = f"https://mhooge.com/jeoparty/{game_id}"
+
+    data_path = get_data_path_for_question_pack(game_data.pack_id, False)
+    if os.path.exists(os.path.join(STATIC_FOLDER, data_path, "lobby_music.mp3")):
+        lobby_music_path = os.path.join(data_path, "lobby_music.mp3")
+    else:
+        lobby_music_path = None
 
     return make_template_context(
         "jeopardy/presenter_lobby.html",
-        **pregame_state.__dict__,
-        edition=JEOPADY_EDITION,
-        date=date,
-        guild_name=guild_name
+        **game_data.json,
+        join_url=join_url,
+        lobby_music=lobby_music_path
     )
 
 @presenter_page.route("/reset_questions", methods=["POST"])
@@ -229,12 +178,6 @@ def reset_questions():
         json.dump(used_questions, fp, indent=4)
 
     return make_text_response("Questions reset", 200)
-
-def _sync_contestants(player_data, contestants):
-    for data in player_data:
-        disc_id = int(data["disc_id"])
-        if disc_id not in contestants:
-            contestants[disc_id] = Contestant(disc_id, data["index"], data["name"], data["avatar"], data["color"])
 
 def get_round_data(request_args):
     player_data = []
@@ -300,41 +243,40 @@ def get_round_data(request_args):
 
     return player_data, player_turn, question_num
 
-@presenter_page.route("/question/<jeopardy_round>/<category>/<tier>")
-def question(jeopardy_round, category, tier):
+@presenter_page.route("<game_id>/question")
+def question(game_id: str):
     if get_user_details() is None:
-        return redirect_to_login("presenter.question_view", jeopardy_round=jeopardy_round, category=category, tier=tier)
+        return redirect_to_login("presenter.question", game_id=game_id)
 
-    jeopardy_round = int(jeopardy_round)
-    tier = int(tier) - 1
+    database: Database = flask.current_app.config["DATABASE"]
+    game_data = database.get_game_from_id(game_id)
+    if game_data is None:
+        return flask.abort(404)
 
-    with open(QUESTIONS_FILE, encoding="utf-8") as fp:
-        questions = json.load(fp)
+    jeopardy_round = game_data.round
 
-    with open(USED_QUESTIONS_FILE, encoding="utf-8") as fp:
-        used_questions = json.load(fp)
+    game_question: GameQuestion = game_data.get_active_question()
+    if game_question is None or game_question.used:
+        # If question does not exist or has already been answered, redirect back to selection
+        return flask.redirect(flask.url_for(".selection", game_id=game_id))
 
-    if jeopardy_round < FINALE_ROUND:
-        question = questions[category]["tiers"][tier]["questions"][jeopardy_round - 1]
-    else:
-        # If we are at Final Jeopardy, choose a random question from the relevant category
-        question = random.choice(questions[category]["tiers"][tier]["questions"])
+    # Store a GameMetadata object in memory, to be used when
+    # deciding who buzzed in first among other things
+    _get_game_metadata(flask.current_app.config, game_id)
 
-    question["id"] = jeopardy_round - 1
-    buzz_time = questions[category].get("buzz_time", 10)
+    is_daily_double = game_data.use_daily_doubles and game_question.daily_double
 
-    if TRACK_UNUSED:
-        used_questions[category][tier]["used"].append(question["id"])
-        used_questions[category][tier]["active"] = False
-
-        with open(USED_QUESTIONS_FILE, "w", encoding="utf-8") as fp:
-            json.dump(used_questions, fp, indent=4)
-
-    is_daily_double = DO_DAILY_DOUBLE and used_questions[category][tier]["double"]
+    question_data = game_question.question
 
     # If question is multiple-choice, randomize order of choices
-    if "choices" in question:
-        random.shuffle(question["choices"])
+    if "choices" in question_data.extra:
+        random.shuffle(question_data.json["extra"]["choices"])
+
+    # Disable all power-ups except hijack unless question is daily double
+    for power_up in game_data.power_ups:
+        power_up.enabled = power_up.power_up is PowerUp.HIJACK and not is_daily_double
+
+    database.save_game(game_data)
 
     with flask.current_app.config["JEOPARDY_JOIN_LOCK"]:
         # Get player names and scores from query parameters
@@ -382,7 +324,11 @@ def question(jeopardy_round, category, tier):
 @presenter_page.route("/selection/<jeopardy_round>")
 def selection(jeopardy_round):
     if get_user_details() is None:
-        return redirect_to_login("presenter.selection_view", jeopardy_round=jeopardy_round)
+        return redirect_to_login("presenter.selection", jeopardy_round=jeopardy_round)
+
+    # Get currently active question (if any) and mark it as inactive and used
+    game_question.used = True
+    database.save_game_question(game_question)
 
     jeopardy_round = int(jeopardy_round)
 
@@ -480,7 +426,7 @@ def selection(jeopardy_round):
 @presenter_page.route("/finale")
 def finale():
     if get_user_details() is None:
-        return redirect_to_login("presenter.finale_view")
+        return redirect_to_login("presenter.finale")
 
     question_id = 0
 
@@ -516,7 +462,7 @@ def finale():
 @presenter_page.route("/endscreen")
 def endscreen():
     if get_user_details() is None:
-        return redirect_to_login("presenter.endscreen_view")
+        return redirect_to_login("presenter.endscreen")
 
     with flask.current_app.config["JEOPARDY_JOIN_LOCK"]:
         player_data = get_round_data(flask.request.args)[0]
@@ -616,6 +562,10 @@ def join_lobby(disc_id: str, nickname: str, avatar: str, color: str):
         join_room("contestants")
         contestant.sid = flask.request.sid
         active_contestants[disc_id] = contestant
+
+@socket_io.event
+def mark_question_active(game_id: str, user_id: str):
+    
 
 @socket_io.event
 def enable_buzz(active_players_str: str):

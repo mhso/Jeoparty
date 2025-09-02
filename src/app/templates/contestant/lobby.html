@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    {% include 'contestant/head.html' %}
+
+    <body>
+        <div id="contestant-lobby-wrapper">
+            <h1>Welcome to the Jeoparty!</h1>
+
+            <form action="{{ url_for('contestant.join_lobby', _external=True) }}" method="post">
+                <div id="contestant-lobby-avatar-wrapper">
+                    {% if is_default_avatar %}
+                    <input type="hidden" name="default_avatar" value="1">
+                    {% endif %}
+                    <input id="contestant-lobby-avatar-input" type="file" name="avatar" value="{{ avatar }}">
+                    <img id="contestant-lobby-avatar-img" src="{{ avatar }}">
+                </div>
+    
+                <input id="contestant-lobby-name" name="name" required value="{{ player_name }}" maxlength="10" placeholder="Dit Navn">
+
+                <input id="contestant-lobby-color" name="color" type="color">
+
+                {% if has_password %}
+                <label for="password">Password</label>
+                <input id="contestant-lobby-password" name="password" type="password">
+                {% endif %}
+
+                {% if error %}
+                <div id="contestant-lobby-error">{{ error }}</div>
+                {% endif %}
+
+                {% if user_id %}
+                <input name="user_id" type="hidden" value="{{ user_id }}">
+                {% endif %}
+                <input name="game_id" type="hidden" value="{{ game_id }}">
+    
+                <input id="contestant-lobby-join" type="submit" value="Join">
+            </form>
+
+        </div>
+    </body>
+    
+    <script>
+        setRandomColor();
+    </script>
+</html>

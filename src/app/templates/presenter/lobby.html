@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+    {% include 'head.html' %}
+    
+    <body>
+        <div id="bg-image"></div>
+
+        <div id="menu-wrapper">
+            {% include 'jeopardy/logo.html' %}
+            <h2>{{ title }}</h2>
+
+            <div id="menu-lobby-url">Go to <span id="menu-join-url">{{ join_url }}</span>{% if password %} and provide the password{% endif %} to join!</div>
+
+            <h3>Contestants</h3>
+            <div id="menu-contestants">
+                {% if not contestants %}
+                <p id="menu-no-contestants-placeholder">Nobody yet...</p>
+                {% endif %}
+            </div>
+
+            <img id="menu-naafiri" src="{{ url_for('static', _external=True, filename='img/naafiri_dance.gif') }}">
+            <img id="menu-alistar" src="{{ url_for('static', _external=True, filename='img/alistar_dance.gif') }}">
+            <img id="menu-teemo" src="{{ url_for('static', _external=True, filename='img/teemo_dance.gif') }}">
+            <img id="menu-ivern" src="{{ url_for('static', _external=True, filename='img/ivern_dance.gif') }}">
+            <img id="menu-brand" src="{{ url_for('static', _external=True, filename='img/brand_dance.gif') }}">
+            <img id="menu-nidalee" src="{{ url_for('static', _external=True, filename='img/nidalee_dance.gif') }}">
+            <img id="menu-quinn" src="{{ url_for('static', _external=True, filename='img/quinn_thonk.gif') }}">
+            <img id="menu-vi" src="{{ url_for('static', _external=True, filename='img/vi_point.gif') }}">
+        </div>
+
+        {% if lobby_music %}
+        <audio id="menu-lobby-music" loop>
+            <source src="{{ url_for('static', _external=True, filename=lobby_music) }}" type="audio/mpeg">
+        </audio>
+        {% if lobby_music %}
+    </body>
+
+    <script>
+        socket.on("connect", function() {
+            socket.emit("presenter_joined");
+            socket.on("player_joined", addPlayerDiv);
+        });
+
+        {% for player in contestants %}
+        addPlayerDiv("{{ player['id'] }}", "{{ player['index'] }}", "{{ player['name'] }}", "{{ player['avatar'] }}", "{{ player['color'] }}");
+        {% endfor %}
+
+        let showAlert = true;
+
+        setTimeout(function() {
+            if (showAlert) {
+                alert("HUSK AT RESETTE SPØRGSMÅL OG START MUSIKKEN!!!!")
+            }
+        }, 5000);
+
+        window.onkeydown = function(e) {
+            if (e.code == PRESENTER_ACTION_KEY) {
+                showAlert = false;
+                let audio = document.getElementById("menu-lobby-music");
+                audio.volume = 0.1;
+                audio.play();
+                setTimeout(function() {
+                    window.onkeydown = function(e) {
+                        if (e.code == PRESENTER_ACTION_KEY) {
+                            beginJeopardy();
+                        }
+                    }
+                }, 1000);
+            }
+        }
+    </script>
+</html>
