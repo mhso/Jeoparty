@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+    {% include 'presenter/head.html' %}
+    <body>
+        <div id="bg-image"></div>
+
+        <div id="selection-wrapper">
+            <!-- Logo -->
+            {% include 'logo.html' %}
+
+            <!-- Categories -->
+            {% if stage == "selection" %}
+
+            <!-- Regular rounds question selection -->
+            <div id="selection-categories-wrapper">
+                {% for category_data in categories %}
+                <div class="selection-category-entry">
+                    <div class="selection-category-header">
+                        <span>{{ category_data["name"] }}</span>
+                    </div>
+                    {% for question_data in category_data["questions"] %}
+                    <div class="selection-question-box{% if question_data['used'] %} inactive{% endif %}" onclick="goToQuestion(event.target, '{{ question_data['question_id'] }}', {{ question_data['daily_double'] | tojson }})">
+                        <span>{{ question_data["value"] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if first_round %}
+            <audio id="selection-start-sound">
+                <source src="{{ url_for('static', _external=True, filename='data/its_happening.mp3') }}" type="audio/mpeg">
+            </audio>
+            {% endif %}
+
+            {% else %}
+
+            <!-- Finale category reveal -->
+            <div id="selection-finale-wrapper">
+                <h1>{{ round_name }}</h1>
+                <h2 id="selection-finale-header1">The category is...</h2>
+                <h2 id="selection-finale-header2">{{ questions[0]["category"] }}</h2>
+                <h3 id="selection-finale-header3">Time to go all in!</h3>
+            </div>
+
+            <!-- Jeopardy theme music -->
+            <audio id="selection-jeopardy-theme">
+                <source src="{{ url_for('static', _external=True, filename='img/jeopardy/jeopardy_theme.mp3') }}" type="audio/mpeg">
+            </audio>
+            {% endif %}
+
+            <!-- Contestants -->
+            {% include 'jeopardy/contestants_footer.html' %}
+        </div>
+    </body>
+
+    <script>
+        initialize(
+            {{ game_id }},
+            {{ round }},
+            {{ total_rounds }},
+            {{ game_contestants | tojson }},
+            {{ question_num }}
+        );
+
+        const arrowKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
+
+        socket.on("connect", function() {
+            socket.emit("presenter_joined", (success) => {
+                if (!success) {
+                    console.error("Presenter was not able to join the lobby!");
+                    return;
+                }
+
+                window.onkeydown = function(e) {
+                    {% if jeopardy_round == 1 and player_turn == -1 %}
+                    if (e.code == PRESENTER_ACTION_KEY) {
+                        let startSound = document.getElementById("selection-start-sound");
+                        startSound.volume = 0.3;
+                        startSound.play();
+                        chooseStartingPlayer(function(turn) {
+                            setPlayerTurn(turn, true);
+                            document.querySelectorAll(".selection-question-box").forEach((elem) => {
+                                elem.classList.remove("inactive");
+                            });
+                            let playerId = playerIds[turn];
+                            socket.emit("first_turn", playerId);
+                        });
+                    }
+                    {% endif %}
+                    if (arrowKeys.includes(e.code)) {
+                        tabulateCategorySelection(e.code, {{ categories | length - 1 }});
+                    }
+                    else if (e.code == "Enter") {
+                        goToSelectedCategory();
+                    }
+                };
+                {% if jeopardy_round < total_rounds %}
+                setPlayerTurn({{ player_turn }});
+                {% else %}
+                showFinaleCategory({{ total_rounds }}, '{{ categories[0] }}');
+                socket.on("contestant_ready", setPlayerReady);
+                {% endif %}
+            });
+        });
+    </script>
+</html>

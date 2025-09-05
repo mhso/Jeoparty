@@ -31,7 +31,11 @@ class Database(SQLAlchemyDatabase):
 
     def get_questions_for_user(self, user_id: str, pack_id: str = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:
-            filters = [QuestionPack.created_at == user_id or QuestionPack.public == False or QuestionPack.public == include_public]
+            if include_public:
+                filters = [(QuestionPack.created_by == user_id) | (QuestionPack.public == True)]
+            else:
+                filters = [QuestionPack.created_by == user_id]
+
             if pack_id is not None:
                 filters.append(QuestionPack.id == pack_id)
 
@@ -44,6 +48,9 @@ class Database(SQLAlchemyDatabase):
             ).filter(*filters)
 
             data = session.execute(statement).scalars().all()
+
+            if data == []:
+                return [] if pack_id is None else None
 
             return data if pack_id is None else data[0]
 
@@ -123,6 +130,7 @@ class Database(SQLAlchemyDatabase):
 
     def create_game(self, game_model: Game):
         with self as session:
+
             session.add(game_model)
             session.flush()
 
@@ -132,7 +140,7 @@ class Database(SQLAlchemyDatabase):
                     game_id=game_model.id,
                     question_id=question.id,
                 ) 
-                for question in self.get_questions_for_user(game_model.created_by, game_model.pack_id, True)
+                for question in self.get_questions_for_user(game_model.created_by, game_model.pack_id, True).get_all_questions()
             ]
             session.add_all(game_questions)
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from sqlalchemy import String, Integer, Boolean, DateTime, Enum, JSON, ForeignKey
@@ -8,6 +8,7 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship, reconstructor
 from api.orm.base import Base
 from api.enums import Stage, PowerUp
 from api.config import REGULAR_ROUNDS
+from app.routes.shared import get_avatar_path
 
 class QuestionPack(Base):
     __tablename__ = "question_packs"
@@ -23,6 +24,15 @@ class QuestionPack(Base):
     rounds = relationship("QuestionRound", back_populates="pack", cascade="all, delete-orphan", order_by="QuestionRound.round.asc()")
     games = relationship("Game", back_populates="pack", cascade="all, delete-orphan", order_by="Game.started_at.asc()")
     buzzer_sounds = relationship("BuzzerSound", back_populates="pack", cascade="all, delete-orphan", order_by="BuzzerSound.id.asc()")
+
+    def get_all_questions(self):
+        questions = []
+        for round_data in self.rounds:
+            for category_data in round_data.categories:
+                for question_data in category_data.questions:
+                    questions.append(question_data)
+
+        return questions
 
 class QuestionRound(Base):
     __tablename__ = "question_rounds"
@@ -81,14 +91,31 @@ class Contestant(Base):
     buzz_sound: Mapped[Optional[str]] = mapped_column(String(128))
     bg_image: Mapped[Optional[str]] = mapped_column(String(128))
 
-    game_contestants = relationship("GameContestant", back_populates="contestants", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
+    game_contestants = relationship("GameContestant", back_populates="contestant", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
+
+    @property
+    def extra_fields(self):
+        return {
+            "avatar": f"{get_avatar_path()}/{self.avatar}"
+        }
+
+class GamePowerUp(Base):
+    __tablename__ = "game_power_ups"
+
+    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"), primary_key=True)
+    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("game_contestants.id"), primary_key=True)
+    power_up: Mapped[PowerUp] = mapped_column(Enum(PowerUp), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    contestant = relationship("GameContestant", back_populates="power_ups")
 
 class GameContestant(Base):
     __tablename__ = "game_contestants"
 
-    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"))
-    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("contestants.id"))
-    connection_id: Mapped[Optional[str]] = mapped_column(String(64))
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
+    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"), primary_key=True)
+    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("contestants.id"), primary_key=True)
     has_turn: Mapped[bool] = mapped_column(Boolean, default=False)
     score: Mapped[int] = mapped_column(Integer, default=0)
     buzzes: Mapped[int] = mapped_column(Integer, default=0)
@@ -100,7 +127,7 @@ class GameContestant(Base):
 
     game = relationship("Game", back_populates="game_contestants")
     contestant = relationship("Contestant", back_populates="game_contestants")
-    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by="GamePowerUp.game_id.asc(), GamePowerUp.contestant_id.asc(), GamePowerUp.power_up.asc()")
+    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by="GamePowerUp.power_up.asc()")
 
     def __init__(self, **kw: Any):
         super().__init__(**kw)
@@ -122,7 +149,7 @@ class GameContestant(Base):
         if len(self._ping_samples) == self.n_ping_samples:
             self._ping_samples.pop(0)
 
-    def get_power(self, power: PowerUp) -> PowerUp | None:
+    def get_power(self, power: PowerUp) -> GamePowerUp | None:
         for power_up in self.power_ups:
             if power_up.power_up is power:
                 return power_up
@@ -161,14 +188,15 @@ class Game(Base):
     pack = relationship("QuestionPack", back_populates="games")
     questions = relationship("GameQuestion", back_populates="game", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
     game_contestants = relationship("GameContestant", back_populates="game", cascade="all, delete-orphan", order_by="GameContestant.joined_at.asc()")
-    power_ups = relationship("GamePowerUp", back_populates="game", cascade="all, delete-orphan", order_by="GamePowerUp.game_id.asc(), GamePowerUp.contestant_id.asc(), GamePowerUp.power_up.asc()")
 
     @property
     def extra_fields(self):
         player_with_turn = self.get_contestant_with_turn()
+
         return {
-            "total_rounds": self.regular_rounds + 1 if self.pack.include_finale else self.regular_rounds,
-            "player_with_turn": player_with_turn.json if player_with_turn else None
+            "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
+            "player_with_turn": player_with_turn.json if player_with_turn else None,
+            "max_value": max(gq.question.value for gq in self.get_questions_for_round()) if self.questions else 0,
         }
 
     def get_contestant(self, contestant_id: str | None) -> GameContestant | None:
@@ -181,12 +209,25 @@ class Game(Base):
 
         return None
 
+    def get_question(self, question_id: str) -> GameQuestion | None:
+        for question in self.questions:
+            if question.question_id == question_id:
+                return question
+            
+        return None
+
     def get_contestant_with_turn(self) -> GameContestant | None:
         for contestant in self.game_contestants:
             if contestant.has_turn:
                 return contestant
 
         return None
+
+    def get_questions_for_round(self) -> List[GameQuestion]:
+        return [
+            game_question for game_question in self.questions
+            if game_question.question.category.round == self.round
+        ]
 
     def get_active_question(self) -> GameQuestion | None:
         for question in self.questions:
@@ -195,14 +236,22 @@ class Game(Base):
 
         return None
 
-class GamePowerUp(Base):
-    __tablename__ = "game_power_ups"
+    def get_game_winners(self):
+        sorted_contestants = sorted(
+            self.game_contestants,
+            key=lambda x: x.score,
+            reverse=True
+        )
 
-    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"), primary_key=True)
-    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("game_contestants.id"), primary_key=True)
-    power_up: Mapped[PowerUp] = mapped_column(Enum(PowerUp), primary_key=True)
-    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    used: Mapped[bool] = mapped_column(Boolean, default=False)
+        ties = 0
+        for index, contessant in enumerate(sorted_contestants[1:], start=1):
+            if sorted_contestants[index-1].score > contessant.score:
+                break
 
-    game = relationship("Game", back_populates="power_ups")
-    contestant = relationship("GameContestant", back_populates="power_ups")
+            ties += 1
+
+        return sorted_contestants[:ties + 1]
+
+    def set_contestant_turn(self, contestant_id: str):
+        for contestant in self.game_contestants:
+            contestant.has_turn = contestant.contestant_id == contestant_id

@@ -13,7 +13,7 @@
 
             <h3>Contestants</h3>
             <div id="menu-contestants">
-                {% if not contestants %}
+                {% if not game_contestants %}
                 <p id="menu-no-contestants-placeholder">Nobody yet...</p>
                 {% endif %}
             </div>
@@ -41,31 +41,28 @@
             socket.on("player_joined", addPlayerDiv);
         });
 
-        {% for player in contestants %}
-        addPlayerDiv("{{ player['id'] }}", "{{ player['index'] }}", "{{ player['name'] }}", "{{ player['avatar'] }}", "{{ player['color'] }}");
+        {% for contestant in game_contestants %}
+        addPlayerDiv("{{ contestant['contestant_id'] }}", "{{ contestant['contestant']['name'] }}", "{{ contestant['contestant']['avatar'] }}", "{{ contestant['contestant']['color'] }}");
         {% endfor %}
-
-        let showAlert = true;
-
-        setTimeout(function() {
-            if (showAlert) {
-                alert("HUSK AT RESETTE SPØRGSMÅL OG START MUSIKKEN!!!!")
-            }
-        }, 5000);
 
         window.onkeydown = function(e) {
             if (e.code == PRESENTER_ACTION_KEY) {
-                showAlert = false;
                 let audio = document.getElementById("menu-lobby-music");
-                audio.volume = 0.1;
-                audio.play();
-                setTimeout(function() {
-                    window.onkeydown = function(e) {
-                        if (e.code == PRESENTER_ACTION_KEY) {
-                            beginJeopardy();
+                if (audio != null) {
+                    audio.volume = 0.1;
+                    audio.play();
+
+                    setTimeout(function() {
+                        window.onkeydown = function(e) {
+                            if (e.code == PRESENTER_ACTION_KEY) {
+                                beginJeopardy();
+                            }
                         }
-                    }
-                }, 1000);
+                    }, 1000);
+                }
+                else {
+                    beginJeopardy();
+                }
             }
         }
     </script>

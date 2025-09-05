@@ -1,4 +1,3 @@
-import json
 from mhooge_flask.logging import logger
 from mhooge_flask import init
 from mhooge_flask.init import Route
@@ -16,7 +15,7 @@ def main():
     ]
 
     database = Database()
-    app_name = "jeopardy"
+    app_name = "jeoparty"
 
     # Create Flask app.
     web_app = init.create_app(
@@ -24,11 +23,8 @@ def main():
         f"/{app_name}/",
         routes,
         database,
-        game_metadata={},
-        contestant_metadata={},
-        join_locks={},
-        buzz_locks={},
-        exit_code=0
+        persistent_variables={"app_name": app_name.capitalize()}
+        exit_code=0,
     )
 
     ports_file = "../../flask_ports.json"

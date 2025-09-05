@@ -1,10 +1,10 @@
 <head>
-    {% if questions %}
-    <title>LoL {{ round_name }}</title>
-    {% elif question %}
-    <title>LoL {{ round_name }} - {{ category_name }}{% if jeopardy_round < total_rounds %} for {{ question_value }} GBP{% endif %}</title>
+    {% if stage == "selection" or stage == "finale_wager" %}
+    <title>{{ round_name }}</title>
+    {% elif stage == "question" or stage == "finale_question" %}
+    <title>{{ round_name }} - {{ question["category"]["name"] }}{% if stage == "question" %} for {{ question["value"] }} points{% endif %}</title>
     {% else %}
-    <title>LoL Jeopardy!</title>
+    <title>{{ app_name }}!</title>
     {% endif %}
     <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
     <link rel="icon" type="image/png" href="{{ url_for('static', _external=True, filename='img/favicon-32.png') }}" sizes="32x32">
@@ -13,6 +13,9 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/jeopardy_presenter.css') }}">
     <script src="{{ url_for('static', _external=True, filename='js/bootstrap/jquery.min.js') }}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    {% if game_id %}
+    <script>game_id = {{ game_id }}</script>
+    {% endif %}
     <script src="{{ url_for('static', _external=True, filename='js/jeopardy_presenter.js') }}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {

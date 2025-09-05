@@ -1,38 +1,7 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 import flask
 
 from api.config import STATIC_FOLDER
-from api.orm.models import GameContestant
-
-_PING_SAMPLES = 10
-
-@dataclass
-class ContestantMetadata:
-    ping: float = 30
-    latest_buzz: int | None = field(init=False, default=None)
-    _ping_samples: List[float] = field(init=False, default_factory=list)
-    
-    def calculate_ping(self, time_sent: float, time_received: float):
-        if self._ping_samples is None:
-            self._ping_samples = []
-
-        self._ping_samples.append((time_received - time_sent) / 2)
-        self.ping = sum(self._ping_samples) / _PING_SAMPLES
-
-        if len(self._ping_samples) == _PING_SAMPLES:
-            self._ping_samples.pop(0)
-
-def get_contestant_metadata(config: Dict[str, Any], game_id: str, contestant_id: str) -> ContestantMetadata:
-    data = config["CONTESTANT_METADATA"].get(game_id, {}).get(contestant_id)
-    if data is None:
-        if game_id not in config["CONTESTANT_METADATA"]:
-            config["CONTESTANT_METADATA"][game_id] = {}
-
-        data = ContestantMetadata()
-        config["CONTESTANT_METADATA"][game_id][contestant_id] = data
-
-    return data
 
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.sign_in", redirect=endpoint, **params, _external=True))
@@ -66,9 +35,6 @@ def validate_param(
             return None, f"'{key.capitalize()}' must be less than {max_len} characters"
 
     return val, None
-
-def get_game_winner(contestants: List[GameContestant]):
-    pass
 
 def get_data_path_for_question_pack(pack_id: str, full: bool = True):
     prefix = f"{STATIC_FOLDER}/" if full else ""

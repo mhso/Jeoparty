@@ -5,7 +5,9 @@ class Stage(Enum):
     LOBBY = "lobby"
     SELECTION = "selection"
     QUESTION = "question"
-    FINALE = "finale"
+    FINALE_WAGER = "finale_wager"
+    FINALE_QUESTION = "finale_question"
+    FINALE_RESULT = "finale_result"
     ENDED = "ended"
 
 class PowerUp(Enum):

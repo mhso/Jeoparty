@@ -2,18 +2,15 @@ import os
 from typing import Any, Dict
 
 import flask
-from flask_socketio import emit
 
-from mhooge_flask.routing import socket_io, make_template_context
+from mhooge_flask.routing import make_template_context
 
 from api.database import Database
 from api.orm.models import Contestant, GameContestant
 from app.routes.shared import (
-    ContestantMetadata,
     validate_param,
     get_avatar_path,
     get_bg_image_path,
-    get_contestant_metadata
 )
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
@@ -93,6 +90,10 @@ def join_lobby():
             )
 
         index = len(game_data.game_contestants)
+        if index == game_data.max_contestants:
+            return flask.redirect(
+                flask.url_for(".lobby", error="Failed to join: Lobby is already full")
+            )
 
         # Try to get existitng user
         existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
@@ -167,25 +168,34 @@ def game_view(game_id: str):
     if contestant_data.bg_image is not None:
         contestant_data.json["bg_image"] = os.path.join(get_bg_image_path(False), contestant_data.bg_image)
 
-    game_data.json["game_id"] = game_data.json["id"]
+    # Get question data
+    game_question = game_data.get_active_question()
+    if game_question is not None:
+        question = game_question.question.json
+        question["daily_double"] = game_question.daily_double
+    else:
+        question = None
+
     del game_data.json["id"]
+
+    del game_contestant_data.json["contestant_id"]
+    del game_data.json["power_ups"]
 
     contestant_data.json["user_id"] = contestant_data.json["id"]
     del contestant_data.json["id"]
 
     question_num = sum(1 if gq.used else 0 for gq in game_data.questions) + 1
-    total_questions = sum(1 if gq.question.category.round == game_data.round else 0 for gq in game_data.questions)
-
-    # Add metadata
-    contestant: ContestantMetadata = get_contestant_metadata(flask.current_app.config, game_id, user_id)
+    total_questions = len(game_data.get_questions_for_round())
 
     return make_template_context(
         "contestant/game.html",
-        ping=contestant.ping,
+        ping=30,
+        question=question,
         question_num=question_num,
         total_questions=total_questions,
         **game_data.json,
         **contestant_data.json,
+        **game_contestant_data.json,
     )
 
 @contestant_page.route("/<game_id>")
@@ -201,9 +211,7 @@ def lobby(game_id: str):
     if user_id is not None:
         user_data = database.get_contestant_from_id(user_id).json
 
-    if "avatar" in user_data:
-        user_data["avatar"] = os.path.join(get_avatar_path(False), user_data["avatar"])
-    else:
+    if "avatar" not in user_data:
         user_data["avatar"] = flask.url_for("static", filename="img/questionmark.png")
         user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
 
@@ -216,64 +224,3 @@ def lobby(game_id: str):
         has_password=game_data.password is not None,
         error=error,
     )
-
-@socket_io.event
-def ping_request(timestamp: float):
-    emit("ping_response", timestamp)
-
-@socket_io.event
-def calculate_ping(user_id: str, game_id: str, timestamp_sent: float, timestamp_received: float):
-    contestant: ContestantMetadata = get_contestant_metadata(flask.current_app.config, game_id, user_id)
-    contestant.calculate_ping(timestamp_sent, timestamp_received)
-
-    emit("ping_calculated", f"{min(999.0, max(contestant.ping, 1.0)):.1f}")
-
-@socket_io.event
-def make_daily_wager(disc_id: str, amount: str):
-    jeopardy_data = flask.current_app.config["JEOPARDY_DATA"]
-    contestant: Contestant = jeopardy_data["contestants"][int(disc_id)]
-    state = jeopardy_data["state"]
-
-    max_wager = max(contestant.score, 500 * state.jeopardy_round)
-
-    try:
-        amount = int(amount)
-    except ValueError:
-        emit("invalid_wager", max_wager)
-        return
-
-    if 100 <= amount <= max_wager:
-        emit("daily_wager_made", amount)
-        emit("daily_wager_made", amount, to="presenter")
-    else:
-        emit("invalid_wager", max_wager)
-
-@socket_io.event
-def make_finale_wager(disc_id: str, amount: str):
-    disc_id = int(disc_id)
-    jeopardy_data = flask.current_app.config["JEOPARDY_DATA"]
-    contestant: Contestant = jeopardy_data["contestants"][int(disc_id)]
-
-    max_wager = max(contestant.score, 1000)
-
-    try:
-        amount = int(amount)
-    except ValueError:
-        emit("invalid_wager", max_wager)
-        return
-
-    if 0 <= amount <= max_wager:
-        print(f"Made finale wager for {disc_id} (#{contestant.index}) for {amount} points")
-        contestant.finale_wager = amount
-        emit("finale_wager_made")
-        emit("contestant_ready", contestant.index, to="presenter")
-    else:
-        emit("invalid_wager", max_wager)
-
-@socket_io.event
-def give_finale_answer(disc_id: str, answer: str):
-    contestant: Contestant = flask.current_app.config["JEOPARDY_DATA"]["contestants"][int(disc_id)]
-    contestant.finale_answer = answer
-
-    emit("finale_answer_given")
-    emit("contestant_ready", contestant.index, to="presenter")
