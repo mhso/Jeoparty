@@ -13,9 +13,7 @@ const PRESENTER_ACTION_KEY = "Space"
 
 var countdownInterval = null;
 var countdownPaused = false;
-var activeRound;
-var totalRounds;
-var activeQuestionId;
+var activeStage;
 var activeAnswer;
 var activeValue = null;
 var answeringPlayer = null;
@@ -27,65 +25,35 @@ var activePowerUp = null;
 var hijackBonus = false;
 var freezeTimeout = null;
 
-let playerTurn = -1;
-var questionNum = 0;
+let playerTurn = null;
 var playerIds = [];
-var playerNames = [];
-var playerScores = [];
-let playerColors = [];
+var playerNames = {};
+var playerScores = {};
+let playerColors = {};
 let playersBuzzedIn = [];
 
 function canPlayersBuzzIn() {
-    return activeRound < totalRounds && !isDailyDouble;
+    return activeStage == "question" && !isDailyDouble;
 }
 
 function getBaseURL() {
-    return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port + "/intfar/jeopardy/presenter";
+    return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port + "/presenter";
 }
 
-function getQueryParams() {
-    // Encode player information and turns into URL query strings
-    let playerIdQueries = new Array();
-    playerIds.forEach((discId, index) => {
-        playerIdQueries.push(`i${index+1}=${encodeURIComponent(discId)}`);
-    });
-    let idsQueryStr = playerIdQueries.join("&");
-
-    let playerNameQueries = new Array();
-    playerNames.forEach((name, index) => {
-        playerNameQueries.push(`n${index+1}=${encodeURIComponent(name)}`);
-    });
-    let namesQueryStr = playerNameQueries.join("&");
-
-    let playerScoreQueries = new Array();
-    playerScores.forEach((score, index) => {
-        playerScoreQueries.push(`s${index+1}=${encodeURIComponent(score)}`);
-    });
-    let scoresQueryStr = playerScoreQueries.join("&");
-
-    let playerColorQueries = new Array();
-    playerColors.forEach((color, index) => {
-        playerColorQueries.push(`c${index+1}=${encodeURIComponent(color)}`);
-    });
-    let colorsQueryStr = playerColorQueries.join("&");
-
-    return `${idsQueryStr}&${scoresQueryStr}&${namesQueryStr}&${colorsQueryStr}&turn=${playerTurn}&question=${questionNum}`
+function getSelectionURL() {
+    return `${getBaseURL()}/${game_id}/selection`;
 }
 
-function getSelectionURL(round) {
-    return `${getBaseURL()}/${round}?${getQueryParams()}`;
-}
-
-function getQuestionURL(round, category, difficulty) {
-    return `${getBaseURL()}/${round}/${category}/${difficulty}?${getQueryParams()}`;
+function getQuestionURL() {
+    return `${getBaseURL()}/${game_id}/question`;
 }
 
 function getFinaleURL() {
-    return `${getBaseURL()}/finale?${getQueryParams()}`;
+    return `${getBaseURL()}/${game_id}/finale`;
 }
 
 function getEndscreenURL() {
-    return `${getBaseURL()}/endscreen?${getQueryParams()}`;
+    return `${getBaseURL()}/${game_id}/endscreen`;
 }
 
 function playCorrectSound() {
@@ -166,7 +134,7 @@ function afterQuestion() {
 
     window.onkeydown = function(e) {
         if (e.code == PRESENTER_ACTION_KEY) {
-            window.location.href = getSelectionURL(activeRound);
+            window.location.href = getSelectionURL();
         }
     }
 }
@@ -174,7 +142,7 @@ function afterQuestion() {
 function afterAnswer() {
     // Reset who is answering
     answeringPlayer = null;
-    setPlayerTurn(-1, false);
+    setPlayerTurn(null, false);
 
     let buzzFeed = document.getElementById("question-buzz-feed");
     buzzFeed.classList.add("d-none");
@@ -213,10 +181,11 @@ function afterAnswer() {
     }
 }
 
-function updatePlayerScore(player, delta) {
-    playerScores[player] += delta;
-    let scoreElem = document.getElementsByClassName("footer-contestant-entry-score").item(player);
-    scoreElem.textContent = `${playerScores[player]} GBP`;
+function updatePlayerScore(playerId, delta) {
+    playerScores[playerId] += delta;
+    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
+    let scoreElem = playerEntry.querySelector(".footer-contestant-entry-score");
+    scoreElem.textContent = `${playerScores[playerId]} points`;
 }
 
 function correctAnswer() {
@@ -243,11 +212,6 @@ function correctAnswer() {
     activeValue = Math.ceil(activeValue);
 
     valueElem.textContent = "+" + activeValue;
-
-    let coinElem = elem.getElementsByClassName("question-result-gbp").item(0);
-    if (coinElem.classList.contains("d-none")) {
-        coinElem.classList.remove("d-none");
-    }
 
     revealAnswerImageIfPresent();
 
@@ -510,14 +474,6 @@ function startAnswerCountdown(duration) {
     }
 }
 
-function getPlayerNameAndColor(playerId) {
-    let playerFooterElem = document.querySelector(`.footer-contestant-${playerId}`);
-    let color = playerFooterElem.style.backgroundColor;
-    let name = playerFooterElem.getElementsByClassName("footer-contestant-entry-name").item(0).textContent;
-
-    return [name, color];
-}
-
 function addToGameFeed(text) {
     let wrapper = document.getElementById("question-buzz-feed");
     wrapper.classList.remove("d-none");
@@ -531,16 +487,18 @@ function addToGameFeed(text) {
 }
 
 function addBuzzToFeed(playerId, timeTaken) {
-    if (playersBuzzedIn.includes(userId)) {
+    if (playersBuzzedIn.includes(playerId)) {
         return;
     }
 
-    let [name, color] = getPlayerNameAndColor(playerId);
+    let name = playerNames[playerId];
+    let color = playerColors[playerId];
     addToGameFeed(`<span style="color: ${color}; font-weight: 800">${name}</span> buzzede ind efter ${timeTaken} sekunder`);
 }
 
 function addPowerUseToFeed(playerId, powerId) {
-    let [name, color] = getPlayerNameAndColor(playerId);
+    let name = playerNames[playerId];
+    let color = playerColors[playerId];
     addToGameFeed(`<span color='${color}'>${name}</span> brugte sin <strong>${powerId}</strong> power-up!`);
 }
 
@@ -582,7 +540,10 @@ function playerBuzzedFirst(playerId) {
     activePlayers[playerId] = false;
     document.getElementById("question-buzzer-sound").play();
     setTimeout(function() {
-        document.getElementById(`question-buzzer-${playerId}`).play();
+        let playerSound = document.getElementById(`question-buzzer-${playerId}`);
+        if (playerSound != null) {
+            playerSound.play();
+        }
     }, 600);
 
     afterBuzzIn(playerId);
@@ -678,7 +639,7 @@ function afterHijackUsed(playerId) {
 function powerUpUsed(playerId, powerId) {
     activePowerUp = powerId;
 
-    console.log(`Player ${playerId} used power '${powerId}'`);
+    console.log(`Player ${playerNames[playerId]} used power '${powerId}'`);
 
     callback = null;
     if (powerId == "freeze") {
@@ -901,23 +862,21 @@ function scaleAnswerChoices() {
     }
 }
 
-function initialize(gameId, round, maxRounds, playerData, question, answer=null, value=null, questionId=null, buzzTime=10, dailyDouble=false) {
-    activeRound = round;
-    totalRounds = maxRounds;
-    playerData.forEach((data, index) => {
-        playerIds.push(data["contestant_id"]);
-        playerScores.push(data["score"]);
-        playerNames.push(data["name"]);
-        playerColors.push(data["color"]);
+function initialize(playerData, answer=null, value=null, buzzTime=10, dailyDouble=false) {
+    playerData.forEach((data) => {
+        let playerId = data["contestant_id"];
+        playerIds.push(playerId);
+        playerScores[playerId] = data["score"];
+        playerNames[playerId] = data["contestant"]["name"];
+        playerColors[playerId]= data["contestant"]["color"];
 
         if (data["has_turn"]) {
-            playerTurn = index;
+            playerTurn = data["contestant_id"];
         }
     });
-    questionNum = question;
+
     activeAnswer = answer;
     activeValue = value;
-    activeQuestionId = questionId;
     buzzInTime = buzzTime;
     isDailyDouble = dailyDouble;
 }
@@ -949,7 +908,7 @@ function goToQuestion(div, questionId, isDouble) {
     div.style.transform = `translate(${distX}px, ${distY}px) scale(11)`;
 
     setTimeout(() => {
-        window.location.href = getQuestionURL(activeRound, category, tier);
+        window.location.href = getQuestionURL();
     }, 2800);
 }
 
@@ -1023,20 +982,19 @@ function setContestantTextColors() {
     }
 }
 
-function setPlayerTurn(player, save) {
-    let playerEntries = document.getElementsByClassName("footer-contestant-entry");
-    for (let i = 0; i < playerEntries.length; i++) {
-        let entry = playerEntries.item(i);
+function setPlayerTurn(playerId, save) {
+    let playerEntries = document.querySelectorAll(".footer-contestant-entry");
+    playerEntries.forEach((entry) => {
         if (entry.classList.contains("active-contestant-entry")) {
             entry.classList.remove("active-contestant-entry");
         }
+    });
 
-        if (i == player) {
-            entry.classList.add("active-contestant-entry");
-        }
-    }
+    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
+    playerEntry.classList.add("active-contestant-entry");
+
     if (save) {
-        playerTurn = player;
+        playerTurn = playerId;
     }
 }
 
@@ -1052,14 +1010,16 @@ function chooseStartingPlayer(callback) {
         let wait = minWait + (maxWait - minWait) * (iter / iters);
 
         setTimeout(() => {
-            player = iter % playerEntries.length;
-            setPlayerTurn(player, false);
+            let player = iter % playerEntries.length;
+            let playerId = playerIds[player];
+
+            setPlayerTurn(playerId, false);
 
             if (iter < iters) {
                 showStartPlayerCandidate(iter + 1);
             }
             else {
-                callback(player);
+                callback(playerId);
             }
         }, wait);
     }
@@ -1073,24 +1033,7 @@ function chooseStartingPlayer(callback) {
 }
 
 function beginJeopardy() {
-    let contestantEntries = document.getElementsByClassName("menu-contestant-entry");
-
-    playerIds = [];
-    playerNames = [];
-    playerColors = [];
-    playerScores = [];
-    playerTurn = -1;
-
-    for (let i = 0; i < contestantEntries.length; i++) {
-        let elem = contestantEntries.item(i);
-        let nameElem = elem.getElementsByClassName("menu-contestant-id").item(0);
-        playerIds.push(elem.dataset["disc_id"]);
-        playerNames.push(nameElem.textContent);
-        playerColors.push(elem.dataset["color"].replace("#", ""));
-        playerScores.push(0);
-    }
-
-    window.location.href = getSelectionURL(1);
+    window.location.href = getSelectionURL();
 }
 
 function resetUsedQuestions(button) {
@@ -1117,8 +1060,6 @@ function addPlayerDiv(id, name, avatar, color) {
     let div = existingDiv != null ? existingDiv : document.createElement("div");
 
     div.id = divId;
-    div.dataset["user_id"] = id;
-    div.dataset["color"] = color;
     div.className = "menu-contestant-entry";
     div.style.border = "2px solid " + color;
 
@@ -1138,20 +1079,18 @@ function addPlayerDiv(id, name, avatar, color) {
     }
 }
 
-function setPlayerReady(index) {
-    console.log("Setting ready state for player:", index);
-    let wrappers = document.getElementsByClassName("footer-contestant-entry");
-    for (let i = 0; i < wrappers.length; i++) {
-        let wrapper = wrappers.item(i);
-        if (wrapper.dataset["index"] == index) {
-            let readyIcon = wrapper.getElementsByClassName("footer-contestant-entry-ready").item(0);
-            readyIcon.style.display = "block";
-            break;
-        }
+function setPlayerReady(playerId) {
+    console.log("Setting ready state for player:", playerId);
+
+    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
+
+    if (playerEntry) {
+        let readyIcon = playerEntry.querySelector(".footer-contestant-entry-ready");
+        readyIcon.style.display = "block";
     }
 }
 
-function showFinaleCategory(final_round, category) {
+function showFinaleCategory() {
     window.onkeydown = function(e) {
         if (e.code == PRESENTER_ACTION_KEY) {
             let header1 = document.getElementById("selection-finale-header1");
@@ -1171,7 +1110,7 @@ function showFinaleCategory(final_round, category) {
 
                 window.onkeydown = function(e) {
                     if (e.code == PRESENTER_ACTION_KEY) {
-                        window.location.href = getQuestionURL(final_round, category, 5);
+                        window.location.href = getQuestionURL();
                     }
                 }
             }, 3000);
@@ -1198,15 +1137,15 @@ function showFinaleResult() {
         }
         else {
             let playerElem = document.getElementsByClassName("finale-result-name").item(player);
-            playerElem.style.color = "#" + playerColors[player];
+            let playerId = playerIds[player];
+            playerElem.style.color = "#" + playerColors[playerId];
             playerElem.style.opacity = 1;
     
             window.onkeydown = function(e) {
                 let descElem = wagerDescElems.item(player);
-
                 let amountRaw = wagerInputElems.item(player).textContent;
                 let amount = 0;
-                if (amountRaw != "intet") {
+                if (amountRaw != "nothing") {
                     amount = parseInt(amountRaw);
                 }
 
@@ -1217,20 +1156,20 @@ function showFinaleResult() {
 
                     if (amount == 0) { // Current player did not answer
                         className = "wager-answer-skipped";
-                        desc = "og intet ændrer sig"
+                        desc = "and nothing changes"
                     }
                     else if (e.key == 1) { // Current player answered correctly
                         className = "wager-answer-correct";
-                        desc = `og <strong>vinder ${amount} GBP</strong>!`;
+                        desc = `and <strong>wins ${amount} points</strong>!`;
                     }
                     else if (e.key == 2) { // Current player answered incorrectly
                         className = "wager-answer-wrong";
-                        desc = `og <strong>taber ${amount} GBP</strong>!`;
+                        desc = `and <strong>loses ${amount} points</strong>!`;
                     }
 
                     descElem.classList.add(className);
                     descElem.innerHTML = desc;
-                    updatePlayerScore(player, amount);
+                    updatePlayerScore(playerId, amount);
                 }
                 else if (e.code == PRESENTER_ACTION_KEY) {
                     showNextResult(player + 1);

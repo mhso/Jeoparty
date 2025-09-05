@@ -161,13 +161,6 @@ def game_view(game_id: str):
     if contestant_data is None: # User haven't joined the game yet
         return flask.redirect(flask.url_for(".lobby", _external=True, game_id=game_id))
 
-    # Get avatar and background image
-    if contestant_data.avatar is not None:
-        contestant_data.json["avatar"] = os.path.join(get_avatar_path(False), contestant_data.avatar)
-
-    if contestant_data.bg_image is not None:
-        contestant_data.json["bg_image"] = os.path.join(get_bg_image_path(False), contestant_data.bg_image)
-
     # Get question data
     game_question = game_data.get_active_question()
     if game_question is not None:
@@ -179,7 +172,6 @@ def game_view(game_id: str):
     del game_data.json["id"]
 
     del game_contestant_data.json["contestant_id"]
-    del game_data.json["power_ups"]
 
     contestant_data.json["user_id"] = contestant_data.json["id"]
     del contestant_data.json["id"]

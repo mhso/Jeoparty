@@ -9,7 +9,7 @@ from mhooge_flask.routing import socket_io, make_template_context
 
 from api.database import Database
 from api.config import STATIC_FOLDER
-from api.enums import PowerUp, Stage
+from api.enums import PowerUpType, StageType
 from api.orm.models import Game, GameQuestion, GamePowerUp
 from app.routes.socket import GameSocketHandler
 from app.routes.shared import  redirect_to_login, get_data_path_for_question_pack
@@ -61,6 +61,8 @@ def _request_decorator(func):
             # Inject game data to the route handler
             return func(game_data, *remain, **kwargs)
 
+    wrapper.__setattr__("__name__", func.__name__)
+
     return wrapper
 
 @presenter_page.route("/<game_id>")
@@ -73,6 +75,9 @@ def lobby(game_data: Game):
         lobby_music_path = os.path.join(data_path, "lobby_music.mp3")
     else:
         lobby_music_path = None
+
+    game_data.json["game_id"] = game_data.json["id"]
+    del game_data.json["id"]
 
     return make_template_context(
         "jeopardy/presenter_lobby.html",
@@ -89,7 +94,7 @@ def _get_question_answer_sounds(game_data: Game):
 
     if correct_sounds == []:
         # Get default correct answer sound
-        correct_sound = "data/correct_answer.mp3"
+        correct_sound = "data/sounds/correct_answer.mp3"
     else:
         correct_sound = random.choice(correct_sounds)
 
@@ -102,7 +107,7 @@ def _get_question_answer_sounds(game_data: Game):
     # if we don't have enough custom ones
     if len(wrong_sounds) < game_data.max_contestants:
         # Add default wrong answer sound
-        wrong_sounds = wrong_sounds + ["data/wrong_answer.mp3" for _ in range(game_data.max_contestants - len(wrong_sounds))]
+        wrong_sounds = wrong_sounds + ["data/sounds/wrong_answer.mp3" for _ in range(game_data.max_contestants - len(wrong_sounds))]
 
     random.shuffle(wrong_sounds)
     wrong_sounds = wrong_sounds[:game_data.max_contestants]
@@ -121,28 +126,31 @@ def question(game_data: Game):
 
     is_daily_double = game_data.use_daily_doubles and game_question.daily_double
     question_data = game_question.question
+    question_data.json["daily_double"] = game_question.daily_double
 
     # If question is multiple-choice, randomize order of choices
     if "choices" in question_data.extra:
         random.shuffle(question_data.json["extra"]["choices"])
 
     # Set stage to 'question' or 'finale_question'
-    game_data.stage = Stage.FINALE_QUESTION if game_data.stage == Stage.FINALE_WAGER else Stage.QUESTION
+    game_data.stage = StageType.FINALE_QUESTION if game_data.stage == StageType.FINALE_WAGER else StageType.QUESTION
 
     # Disable all power-ups except hijack unless question is daily double or we are at the finale
     for contestant in game_data.game_contestants:
         for power_up in contestant.power_ups:
             power_up.enabled = (
-                power_up.power_up is PowerUp.HIJACK
+                power_up.power_up.type is PowerUpType.HIJACK
                 and not is_daily_double
-                and game_data.stage is not Stage.FINALE_QUESTION
+                and game_data.stage is not StageType.FINALE_QUESTION
             )
 
     database.save_game(game_data)
 
     # Get random sounds that plays for correct/wrong answers
     correct_sound, wrong_sounds = _get_question_answer_sounds(game_data)
-    power_ups = [power.value for power in PowerUp]
+    power_ups = [power.value for power in PowerUpType]
+
+    # Get videos that play when a power-up is used
 
     # Make sure no dictionary keys conflict
     game_data.json["game_id"] = game_data.json["id"]
@@ -154,8 +162,8 @@ def question(game_data: Game):
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
     return make_template_context(
-        "jeopardy/presenter_question.html",
-        buzz_sounds=BUZZ_IN_SOUNDS,
+        "presenter/question.html",
+        base_folder=get_data_path_for_question_pack(game_data.pack_id, False),
         correct_sound=correct_sound,
         wrong_sounds=wrong_sounds,
         power_ups=power_ups,
@@ -177,7 +185,7 @@ def selection(game_data: Game):
         database.save_game_question(previous_question)
 
     # Set game stage to 'selection'
-    game_data.stage = Stage.SELECTION
+    game_data.stage = StageType.SELECTION
 
     # Check if we are done with all questions in the current round
     questions = game_data.get_questions_for_round()
@@ -206,7 +214,7 @@ def selection(game_data: Game):
             game_data.set_contestant_turn(lowers_score_id)
 
         if is_finale:
-            game_data.stage = Stage.FINALE_WAGER
+            game_data.stage = StageType.FINALE_WAGER
 
     game_questions = game_data.get_questions_for_round()
     if is_finale:
@@ -240,9 +248,10 @@ def selection(game_data: Game):
             GamePowerUp(
                 game_id=game_data.id,
                 contestant_id=contestant.id,
-                power_up=power_up,
+                power_id=power_up.id,
+                type=power_up.type
             )
-            for power_up in PowerUp
+            for power_up in game_data.pack.power_ups
         ]
 
     # Make sure no dictionary keys conflict
@@ -265,7 +274,12 @@ def selection(game_data: Game):
 @presenter_page.route("<game_id>/finale")
 @_request_decorator
 def finale(game_data: Game):
+    database: Database = flask.current_app.config["DATABASE"]
+
     game_question = game_data.get_active_question().question
+    game_data.stage = StageType.FINALE_RESULT
+
+    database.save_game(game_data)
 
     for contestant in game_data.game_contestants:
         wager = contestant.finale_wager

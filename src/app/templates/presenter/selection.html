@@ -29,7 +29,7 @@
 
             {% if first_round %}
             <audio id="selection-start-sound">
-                <source src="{{ url_for('static', _external=True, filename='data/its_happening.mp3') }}" type="audio/mpeg">
+                <source src="{{ url_for('static', _external=True, filename='data/sounds/its_happening.mp3') }}" type="audio/mpeg">
             </audio>
             {% endif %}
 
@@ -37,9 +37,9 @@
 
             <!-- Finale category reveal -->
             <div id="selection-finale-wrapper">
-                <h1>{{ round_name }}</h1>
+                <h1>{{ name }}</h1>
                 <h2 id="selection-finale-header1">The category is...</h2>
-                <h2 id="selection-finale-header2">{{ questions[0]["category"] }}</h2>
+                <h2 id="selection-finale-header2">{{ categories[0]["name"] }}</h2>
                 <h3 id="selection-finale-header3">Time to go all in!</h3>
             </div>
 
@@ -55,13 +55,7 @@
     </body>
 
     <script>
-        initialize(
-            {{ game_id }},
-            {{ round }},
-            {{ total_rounds }},
-            {{ game_contestants | tojson }},
-            {{ question_num }}
-        );
+        initialize({{ game_contestants | tojson }});
 
         const arrowKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
 

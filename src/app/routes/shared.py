@@ -4,7 +4,7 @@ import flask
 from api.config import STATIC_FOLDER
 
 def redirect_to_login(endpoint: str, **params):
-    return flask.redirect(flask.url_for("login.sign_in", redirect=endpoint, **params, _external=True))
+    return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
 
 def validate_param(
     params: Dict[str, Any],
@@ -43,6 +43,10 @@ def get_data_path_for_question_pack(pack_id: str, full: bool = True):
 def get_avatar_path(full: bool = True):
     prefix = f"{STATIC_FOLDER}/" if full else ""
     return f"{prefix}img/avatars"
+
+def get_buzz_sound_path(full: bool = True):
+    prefix = f"{STATIC_FOLDER}/" if full else ""
+    return f"{prefix}data/sounds"
 
 def get_bg_image_path(full: bool = True):
     prefix = f"{STATIC_FOLDER}/" if full else ""

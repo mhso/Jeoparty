@@ -38,13 +38,7 @@
     </body>
 
     <script>
-        setVariables(
-            {{ total_rounds }},
-            {{ total_rounds }},
-            {{ player_data | tojson }},
-            null,
-            1
-        );
+        initialize({{ player_data | tojson }});
 
         socket.on("connect", function() {
             socket.emit("presenter_joined");

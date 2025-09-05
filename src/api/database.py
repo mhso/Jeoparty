@@ -6,11 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from mhooge_flask.database import SQLAlchemyDatabase
-from mhooge_flask.logging import logger
 
 from api.config import ROUND_NAMES, FINALE_NAME
-from api.enums import Stage
-from api.orm.base import Base
+from api.enums import StageType
 from api.orm.models import *
 
 def format_value(key, value):
@@ -27,7 +25,7 @@ def row_factory(cursor, row):
 
 class Database(SQLAlchemyDatabase):
     def __init__(self):
-        super().__init__("../resources/database.db", "api/orm", Base, True)
+        super().__init__("../resources/database.db", "api/orm", True)
 
     def get_questions_for_user(self, user_id: str, pack_id: str = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:
@@ -77,9 +75,7 @@ class Database(SQLAlchemyDatabase):
             ).options(
                 selectinload(Game.questions).selectinload(GameQuestion.question)
             ).options(
-                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
-            ).options(
-                selectinload(Game.power_ups)
+                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups).selectinload(GamePowerUp.power_up)
             ).filter(Game.created_by == user_id)
 
             return session.execute(statement).scalars().all()
@@ -148,7 +144,7 @@ class Database(SQLAlchemyDatabase):
             session.refresh(game_model)
 
     def save_game(self, game_model: Game):
-        if game_model.stage is Stage.ENDED:
+        if game_model.stage is StageType.ENDED:
             game_model.ended_at = datetime.now()
 
         with self as session:

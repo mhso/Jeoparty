@@ -24,7 +24,7 @@ function setRandomColor() {
     colorInput.value = `#${randRed}${randGreen}${randBlue}`;
 }
 
-function makeDailyDoubleWager(userId) {
+function makeDailyDoubleWager(playerId) {
     let btn = document.getElementById("contestant-wager-btn");
     if (btn.disabled) {
         return;
@@ -35,31 +35,31 @@ function makeDailyDoubleWager(userId) {
     socket.once("daily_wager_made", function(amount) {
         btn.style.backgroundColor = "#00b000";
     });
-    socket.emit("make_daily_wager", userId, value);
+    socket.emit("make_daily_wager", playerId, value);
 }
 
-function makeFinalJeopardyWager(userId) {
+function makeFinalJeopardyWager(playerId) {
     let btn = document.getElementById("contestant-wager-btn");
 
     let value = document.getElementById("finale-wager-amount").value;
     socket.once("finale_wager_made", function() {
         btn.style.backgroundColor = "#00b000";
     });
-    socket.emit("make_finale_wager", userId, value);
+    socket.emit("make_finale_wager", playerId, value);
 }
 
-function giveFinalJeopardyAnswer(userId) {
+function giveFinalJeopardyAnswer(playerId) {
     let btn = document.getElementById("contestant-wager-btn");
 
     let answer = document.getElementById("finale-answer").value;
     socket.once("finale_answer_given", function() {
         btn.style.backgroundColor = "#00b000";
     });
-    socket.emit("give_finale_answer", userId, answer);
+    socket.emit("give_finale_answer", playerId, answer);
 }
 
-function pressBuzzer(userId) {
-    console.log("Pressing buzzer:", userId);
+function pressBuzzer(playerId) {
+    console.log("Pressing buzzer:", playerId);
     let activeBuzzer = document.getElementById("buzzer-active");
     if (activeBuzzer.classList.contains("d-none")) {
         return;
@@ -69,7 +69,7 @@ function pressBuzzer(userId) {
 
     document.getElementById("buzzer-pressed").classList.remove("d-none");
 
-    socket.emit("buzzer_pressed", userId);
+    socket.emit("buzzer_pressed", playerId);
 }
 
 function resetBuzzerStatusImg(elem) {
@@ -233,7 +233,7 @@ function monitorGame(userId) {
     socket.on("invalid_wager", function(maxWager) {
         let btn = document.getElementById("contestant-wager-btn");
         btn.disabled = false;
-        alert("Ugyldig mængde point, skal være mellem 100 og " + maxWager);
+        alert("Invalid amount of points, should be between 100 and " + maxWager);
     });
 }
 

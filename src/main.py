@@ -11,7 +11,7 @@ def main():
         Route("dashboard", "dashboard_page"),
         Route("contestant", "contestant_page"),
         Route("presenter", "presenter_page", "presenter"),
-        Route("login", "login_page", "login")
+        Route("login", "login_page")
     ]
 
     database = Database()
@@ -23,7 +23,7 @@ def main():
         f"/{app_name}/",
         routes,
         database,
-        persistent_variables={"app_name": app_name.capitalize()}
+        persistent_variables={"app_name": app_name.capitalize()},
         exit_code=0,
     )
 

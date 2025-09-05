@@ -10,7 +10,7 @@ from flask_socketio import Namespace
 from mhooge_flask.logging import logger
 
 from api.database import Database
-from api.enums import PowerUp
+from api.enums import PowerUpType
 from api.orm.models import Game
 
 _PING_SAMPLES = 10
@@ -148,7 +148,7 @@ class GameSocketHandler(Namespace):
         for contestant_id in player_ids:
             contestant = self.game_data.get_contestant(contestant_id)
             metadata = self.contestant_metadata[contestant_id]
-            power_up = contestant.get_power(PowerUp(power_id))
+            power_up = contestant.get_power(PowerUpType(power_id))
             if power_up.used:
                 skip_contestants.append(metadata.sid)
                 continue
@@ -171,7 +171,7 @@ class GameSocketHandler(Namespace):
         else:
             player_ids = [contestant_id for contestant_id in self.contestant_metadata]
 
-        power_ids = [PowerUp(power_id)] if power_id is not None else list(PowerUp)
+        power_ids = [PowerUpType(power_id)] if power_id is not None else list(PowerUpType)
         for contestant_id in player_ids:
             contestant = self.game_data.get_contestant(contestant_id)
             for power_up in power_ids:
@@ -184,9 +184,83 @@ class GameSocketHandler(Namespace):
         self.emit("power_ups_disabled", power_ids, room=send_to)
 
     @_presenter_event
+    def on_correct_answer(self, user_id: str, value: int):
+        contestant_data = self.game_data.get_contestant(user_id)
+
+        contestant_data.hits += 1
+        contestant_data.score += value
+        contestant_data.has_turn = True
+
+        self.database.save_game(self.game_data)
+
+    @_presenter_event
+    def on_wrong_answer(self, user_id: int, value: int):
+        contestant_data = self.game_data.get_contestant(user_id)
+
+        contestant_data.misses += 1
+        contestant_data.score -= value
+
+        self.database.save_game(self.game_data)
+
+    @_presenter_event
+    def on_disable_buzz(self):
+        self.game_metadata.buzz_winner_decided = True
+
+        self.emit("buzz_disabled", room="contestants")
+
+    @_presenter_event
+    def on_first_turn(self, user_id: str):
+        self.emit("turn_chosen", user_id, room="contestants")
+
+    @_presenter_event
+    def use_power_up(self, user_id: str, power_id: str, value: int | None = None):
+        contestant_data = self.game_data.get_contestant(user_id)
+        contestant_metadata = self.contestant_metadata[user_id]
+        power = PowerUpType(power_id)
+
+        print(f"Power up '{power}' used by {contestant_data.contestant.name}", flush=True)
+
+        with self.power_lock:
+            if self.game_metadata.power_use_decided:
+                return
+
+            self.game_metadata.power_use_decided = True
+
+            power_up = contestant_data.get_power(power)
+            if power_up.used: # Contestant has already used this power_up
+                return
+
+            power_up.used = True
+
+            if power is PowerUpType.REWIND:
+                # Refund points lost from wrong answer
+                contestant_data.score += value
+
+            self.database.save_game(self.game_data)
+
+            if power_id in (PowerUpType.HIJACK, PowerUpType.REWIND):
+                self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
+
+            self.emit("power_ups_disabled", list(PowerUpType), room="contestants")
+            self.emit("power_up_used", (user_id, power_id), room="presenter")
+            self.emit("power_up_used", power_id, room=contestant_metadata.sid)
+
+    @_presenter_event
+    def enable_finale_wager(self):
+        self.emit("finale_wager_enabled", room="contestants")
+
+    @_presenter_event
+    def reveal_finale_category(self):
+        self.emit("finale_category_revealed", room="contestants")
+
+    @_contestants_event
     def on_buzzer_pressed(self, user_id: str):
         contestant_metadata = self.contestant_metadata[user_id]
         contestant_data = self.game_data.get_contestant(user_id)
+
+        if contestant_metadata.latest_buzz is not None:
+            # Player already buzzed in this round, simply return
+            return
 
         contestant_metadata.latest_buzz = time() - (contestant_metadata.ping / 1000)
         time_taken = f"{contestant_metadata.latest_buzz - self.game_metadata.question_asked_time:.2f}"
@@ -225,76 +299,6 @@ class GameSocketHandler(Namespace):
             self.emit("buzz_winner", room=earliest_buzz_player.sid)
             self.emit("buzz_winner", earliest_buzz_id, room="presenter")
             self.emit("buzz_loser", room="contestants", skip_sid=earliest_buzz_player.sid)
-
-    @_presenter_event
-    def on_correct_answer(self, user_id: str, value: int):
-        contestant_data = self.game_data.get_contestant(user_id)
-
-        contestant_data.hits += 1
-        contestant_data.score += value
-        contestant_data.has_turn = True
-
-        self.database.save_game(self.game_data)
-
-    @_presenter_event
-    def on_wrong_answer(self, user_id: int, value: int):
-        contestant_data = self.game_data.get_contestant(user_id)
-
-        contestant_data.misses += 1
-        contestant_data.score -= value
-
-        self.database.save_game(self.game_data)
-
-    @_presenter_event
-    def on_disable_buzz(self):
-        self.game_metadata.buzz_winner_decided = True
-
-        self.emit("buzz_disabled", room="contestants")
-
-    @_presenter_event
-    def on_first_turn(self, user_id: str):
-        self.emit("turn_chosen", user_id, room="contestants")
-
-    @_presenter_event
-    def use_power_up(self, user_id: str, power_id: str, value: int | None = None):
-        contestant_data = self.game_data.get_contestant(user_id)
-        contestant_metadata = self.contestant_metadata[user_id]
-        power = PowerUp(power_id)
-
-        print(f"Power up '{power}' used by {contestant_data.contestant.name}", flush=True)
-
-        with self.power_lock:
-            if self.game_metadata.power_use_decided:
-                return
-
-            self.game_metadata.power_use_decided = True
-
-            power_up = contestant_data.get_power(power)
-            if power_up.used: # Contestant has already used this power_up
-                return
-
-            power_up.used = True
-
-            if power is PowerUp.REWIND:
-                # Refund points lost from wrong answer
-                contestant_data.score += value
-
-            self.database.save_game(self.game_data)
-
-            if power_id in (PowerUp.HIJACK, PowerUp.REWIND):
-                self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
-
-            self.emit("power_ups_disabled", list(PowerUp), room="contestants")
-            self.emit("power_up_used", (user_id, power_id), room="presenter")
-            self.emit("power_up_used", power_id, room=contestant_metadata.sid)
-
-    @_presenter_event
-    def enable_finale_wager(self):
-        self.emit("finale_wager_enabled", room="contestants")
-
-    @_presenter_event
-    def reveal_finale_category(self):
-        self.emit("finale_category_revealed", room="contestants")
 
     @_contestants_event
     def on_ping_request(self, timestamp: float):

@@ -3,20 +3,32 @@ from mhooge_flask import routing, auth
 
 login_page = flask.Blueprint("login", __name__)
 
-@login_page.route("/", methods=["GET", "POST"])
-def sign_in():
+@login_page.route("/login", methods=["GET", "POST"])
+def login():
+    redirect_page = flask.request.args.get("redirect_url", "dashboard.home")
+    if redirect_page == "":
+        redirect_page = "dashboard.home"
+
+    redirect_args = {arg: flask.request.args[arg] for arg in flask.request.args if arg != "redirect_page"}
+
     if flask.request.method == "POST":
         # Login attempted.
         data = flask.request.form
-        redirect_page = flask.request.args.pop("request_page")
 
-        return auth.login(data, "user", "pass", redirect_page, "login.html", **flask.request.args)
-
-    redirect_page = flask.request.args.pop("request_page")
-    variables = {**flask.request.args}
-    if redirect_page is None:
-        redirect_page = "dashboard.home"
+        return auth.login(data, "user", "pass", redirect_page, "login.html", **redirect_args)
 
     # Display login form.
-    redirect_url = flask.url_for(redirect_page, **variables, _external=True)
+    redirect_url = flask.url_for(redirect_page, **redirect_args, _external=True)
     return routing.make_template_context("login.html", status=200, redirect_url=redirect_url)
+
+@login_page.route("/signup", methods=["GET", "POST"])
+def signup():
+    if flask.request.method == "POST":
+        # Sign up attempted.
+        data = flask.request.form
+
+        return auth.signup(data, "user", "pass", "dashboard.home", "login.html")
+
+    # Display login form.
+    error = flask.request.args.get("error")
+    return routing.make_template_context("login.html", status=200, error=error)

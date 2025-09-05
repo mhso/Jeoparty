@@ -1,17 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Jeopardy Login</title>
+    <title>{{ app_name }} Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/presenter_style.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/dashboard_style.css') }}">
 </head>
-<body>
+<body style="text-align: center;">
     <div id="login-wrapper">
-        <h1>Jeopardy</h1>
-        <form action="{{ redirect_url }}" method="POST">
-            <input type="hidden" value="admin" name="user">
-            <input type="password" name="pass">
-            <input type="submit" value="Login" class="btn">
+        <h1>Login to {{ app_name }}</h1>
+        <form action="{{ url_for('login.login', redirect_url=redirect_url) }}" method="POST">
+            <div class="login-field">
+                <label for="name">Username</label>
+                <input type="text" name="user">
+            </div class="login-field">
+    
+            <div class="login-field">
+                <label for="pass">Password</label>
+                <input type="password" name="pass">
+            </div>
+    
+            <input class="login-submit-btn" type="submit" value="Login" class="btn">
+            <input class="login-submit-btn" type="submit" value="Sign Up" class="btn" formaction="{{ url_for('login.signup') }}">
         </form>
 
         <p id="login-error-msg">{% if error %}{{ error }}{% endif %}</p>

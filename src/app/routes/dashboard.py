@@ -8,7 +8,7 @@ from mhooge_flask.routing import make_template_context, make_text_response
 
 from api.database import Database
 from api.orm.models import *
-from api.enums import Stage
+from api.enums import StageType
 from app.routes.shared import redirect_to_login, validate_param, get_data_path_for_question_pack
 
 dashboard_page = flask.Blueprint("dashboard", __name__, template_folder="templates")
@@ -26,7 +26,7 @@ def home():
     games = database.get_games_for_user(user_id)
     games_json = []
     for game in games:
-        if game.stage is not Stage.ENDED:
+        if game.stage is not StageType.ENDED:
             game.json["url"] = flask.url_for(f"presenter.{game.stage.value}", game_id=game.id)
             games_json.append(game.json)
 

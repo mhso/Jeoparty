@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class Stage(Enum):
+class StageType(Enum):
     LOBBY = "lobby"
     SELECTION = "selection"
     QUESTION = "question"
@@ -10,7 +10,7 @@ class Stage(Enum):
     FINALE_RESULT = "finale_result"
     ENDED = "ended"
 
-class PowerUp(Enum):
+class PowerUpType(Enum):
     HIJACK = "hijack"
     FREEZE = "freeze"
     REWIND = "rewind"

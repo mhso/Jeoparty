@@ -5,10 +5,35 @@ from uuid import uuid4
 from sqlalchemy import String, Integer, Boolean, DateTime, Enum, JSON, ForeignKey
 from sqlalchemy.orm import mapped_column, Mapped, relationship, reconstructor
 
-from api.orm.base import Base
-from api.enums import Stage, PowerUp
+from mhooge_flask.database import Base
+
+from api.enums import StageType, PowerUpType
 from api.config import REGULAR_ROUNDS
-from app.routes.shared import get_avatar_path
+from app.routes.shared import (
+    get_avatar_path,
+    get_bg_image_path,
+    get_buzz_sound_path,
+    get_data_path_for_question_pack
+)
+
+class PowerUp(Base):
+    __tablename__ = "power_ups"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
+    pack_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_packs.id"))
+    type: Mapped[PowerUpType] = mapped_column(Enum(PowerUpType))
+    icon: Mapped[Optional[str]] = mapped_column(String(128))
+    video: Mapped[Optional[str]] = mapped_column(String(128))
+
+    game_power_ups = relationship("GamePowerUp", back_populates="power_up", cascade="all, delete-orphan", order_by="GamePowerUp.id.asc()")
+    pack = relationship("QuestionPack", back_populates="power_ups")
+
+    @property
+    def extra_fields(self):
+        return {
+            "icon": f"img/{self.type.value}.png" if not self.icon else f"{get_data_path_for_question_pack(self.pack_id, False)}/{self.icon}",
+            "video": f"img/{self.type.value}.webm" if not self.icon else f"{get_data_path_for_question_pack(self.pack_id, False)}/{self.video}",
+        }
 
 class QuestionPack(Base):
     __tablename__ = "question_packs"
@@ -17,13 +42,14 @@ class QuestionPack(Base):
     name: Mapped[str] = mapped_column(String(64))
     public: Mapped[bool] = mapped_column(Boolean, default=False)
     include_finale: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_by: Mapped[str] = mapped_column(String(32))
+    created_by: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
 
     rounds = relationship("QuestionRound", back_populates="pack", cascade="all, delete-orphan", order_by="QuestionRound.round.asc()")
     games = relationship("Game", back_populates="pack", cascade="all, delete-orphan", order_by="Game.started_at.asc()")
     buzzer_sounds = relationship("BuzzerSound", back_populates="pack", cascade="all, delete-orphan", order_by="BuzzerSound.id.asc()")
+    power_ups = relationship("PowerUp", back_populates="pack", cascade="all, delete-orphan", order_by="PowerUp.pack_id.asc()")
 
     def get_all_questions(self):
         questions = []
@@ -56,6 +82,12 @@ class QuestionCategory(Base):
 
     round = relationship("QuestionRound", back_populates="categories")
     questions = relationship("Question", back_populates="category", cascade="all, delete-orphan", order_by="Question.value.asc()")
+
+    @property
+    def extra_fields(self):
+        return {
+            "bg_image": None if not self.bg_image else f"{get_bg_image_path(False)}/{self.bg_image}",
+        }
 
 class Question(Base):
     __tablename__ = "questions"
@@ -96,18 +128,23 @@ class Contestant(Base):
     @property
     def extra_fields(self):
         return {
-            "avatar": f"{get_avatar_path()}/{self.avatar}"
+            "avatar": None if not self.avatar else f"{get_avatar_path(False)}/{self.avatar}",
+            "buzz_sound": None if not self.buzz_sound else f"{get_buzz_sound_path(False)}/{self.buzz_sound}",
+            "bg_image": None if not self.bg_image else f"{get_bg_image_path(False)}/{self.bg_image}",
         }
 
 class GamePowerUp(Base):
     __tablename__ = "game_power_ups"
 
-    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"), primary_key=True)
-    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("game_contestants.id"), primary_key=True)
-    power_up: Mapped[PowerUp] = mapped_column(Enum(PowerUp), primary_key=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
+    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"))
+    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("game_contestants.id"))
+    power_id: Mapped[str] = mapped_column(String(128), ForeignKey("power_ups.id"))
+    type: Mapped[PowerUpType] = mapped_column(Enum(PowerUpType))
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    power_up = relationship("PowerUp", back_populates="game_power_ups")
     contestant = relationship("GameContestant", back_populates="power_ups")
 
 class GameContestant(Base):
@@ -127,7 +164,7 @@ class GameContestant(Base):
 
     game = relationship("Game", back_populates="game_contestants")
     contestant = relationship("Contestant", back_populates="game_contestants")
-    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by="GamePowerUp.power_up.asc()")
+    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by="GamePowerUp.type.asc()")
 
     def __init__(self, **kw: Any):
         super().__init__(**kw)
@@ -149,9 +186,9 @@ class GameContestant(Base):
         if len(self._ping_samples) == self.n_ping_samples:
             self._ping_samples.pop(0)
 
-    def get_power(self, power: PowerUp) -> GamePowerUp | None:
+    def get_power(self, power: PowerUpType) -> GamePowerUp | None:
         for power_up in self.power_ups:
-            if power_up.power_up is power:
+            if power_up.power.type is power:
                 return power_up
 
         return None
@@ -178,10 +215,10 @@ class Game(Base):
     max_contestants: Mapped[int] = mapped_column(Integer)
     use_daily_doubles: Mapped[bool] = mapped_column(Boolean, default=True)
     use_powerups: Mapped[bool] = mapped_column(Boolean, default=True)
-    stage: Mapped[Stage] = mapped_column(Enum(Stage), default=Stage.LOBBY)
+    stage: Mapped[StageType] = mapped_column(Enum(StageType), default=StageType.LOBBY)
     round: Mapped[int] = mapped_column(Integer, default=0)
     password: Mapped[Optional[str]] = mapped_column(String(128))
-    created_by: Mapped[str] = mapped_column(String(32))
+    created_by: Mapped[str] = mapped_column(String(64))
     started_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=lambda: datetime.now())
 

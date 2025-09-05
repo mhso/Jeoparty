@@ -74,7 +74,7 @@
                         {% if has_turn %}
                             {% set max_wager = [score, max_value] | max %}
 
-                            <h3 class="player-has-turn">Your move! How many points will you wager?<br>(Min. 100, max. {{ max_wager }})</h3>
+                            <h3 class="player-has-turn">Your move! How many points dare you wager?<br>(Min. 100, max. {{ max_wager }})</h3>
                             <input id="question-wager-input" type="number" min="100" max="{{ max_wager }}">
                             <button id="contestant-wager-btn" onclick="makeDailyDoubleWager('{{ user_id }}');">OK</button>
 
@@ -100,9 +100,9 @@
                     <!-- Power-Ups -->
                     <div id="contestant-power-ups">
                         {% for power_up in power_ups %}
-                        <button id="contestant-power-btn-{{ power_up['power_up'] }}" {% if not power_up['used'] and power_up['enabled'] %}onclick="usePowerUp('{{ user_id }}', '{{ power_up['power_up'] }}')"{% else %}disabled{% endif %}>
+                        <button id="contestant-power-btn-{{ power_up['type'] }}" {% if not power_up['used'] and power_up['enabled'] %}onclick="usePowerUp('{{ user_id }}', '{{ power_up['type'] }}')"{% else %}disabled{% endif %}>
                             <img src="{{ url_for('static', _external=True, filename='img/forbidden.png') }}" class="contestant-power-used {% if not power_up['used'] %}d-none{% endif %}">
-                            <img src="{{ url_for('static', _external=True, filename='img/jeopardy/power_' + power_up['power_up'] + '.png') }}" class="contestant-power-icon {% if not power_up['enabled'] or power_up['used'] %}power-disabled{% endif %}">
+                            <img src="{{ url_for('static', _external=True, filename=power_up['power_up']['icon']) }}" class="contestant-power-icon {% if not power_up['enabled'] or power_up['used'] %}power-disabled{% endif %}">
                         </button>
                         {% endfor %}
                     </div>

@@ -1,16 +1,16 @@
 <div id="contestants-footer">
     <div id="footer-contestants">
-        {% for contestant in game_data["contestants"] %}
+        {% for contestant in game_contestants %}
         <div class="footer-contestant-entry footer-contestant-{{ contestant['id'] }}" style="background-color: #{{ contestant['color'] }};">
             <div class="footer-contestant-buzzes">
                 <div class="footer-contestant-entry-hits">{{ contestant["hits"] }}</div>
                 <div class="footer-contestant-entry-misses">{{ contestant["misses"] }}</div>
             </div>
             <div class="footer-contestant-header">
-                <div class="footer-contestant-entry-name">{{ contestant["name"] }}</div>
+                <div class="footer-contestant-entry-name">{{ contestant["contestant"]["name"] }}</div>
                 <div class="footer-contestant-entry-score">{{ contestant["score"] }} points</div>
             </div>
-            <img class="footer-contestant-entry-avatar" src="{{ player_dict['avatar'] }}">
+            <img class="footer-contestant-entry-avatar" src="{{ url_for('static', _external=True, filename=player_dict['avatar']) }}">
             <img class="footer-contestant-entry-ready" src="{{ url_for('static', _external=True, filename='img/check.png') }}">
             <div class="footer-contestant-entry-powers">
                 {% for power_up in contestant['power_ups'] %}
@@ -18,7 +18,7 @@
                     {% if power_up['used'] %}
                     <img src="{{ url_for('static', _external=True, filename='img/forbidden.png') }}" class="footer-contestant-entry-power-used">
                     {% endif %}
-                    <img src="{{ url_for('static', _external=True, filename='img/jeopardy/power_' + power_up['power_up'] + '.png') }}" class="footer-contestant-entry-power-icon">
+                    <img src="{{ url_for('static', _external=True, filename=power_up['power_up']['icon']) }}" class="footer-contestant-entry-power-icon">
                 </div>
                 {% endfor %}
             </div>
