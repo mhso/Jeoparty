@@ -45,13 +45,13 @@
                 <div class="dashboard-list-header">Your Question Packs</div>
 
                 {% for question_data in questions %}
+                <div class="dashboard-questions-entry-wrapper" onclick="window.location.href = '{{ url_for('dashboard.questions_view', pack_id=question_data['id'] ) }}'">
                     <h3>{{ question_data['name'] }}</h3>
                     <div class="dashboard-question-entry-questions">Questions: {{ question_data['questions'] | length }}</div>
                     <div class="dashboard-question-entry-created">Created: {{ question_data['created_at'] }}</div>
                     <div class="dashboard-question-entry-changed">Changed: {{ question_data['changed_at'] }}</div>
-                    <button class="default-button">
-                        <a href="{{ url_for('dashboard.questions_view', pack_id=question_data['id'] ) }}">Open</a>
-                    </button>
+                    <div class="dashboard-question-entry-public {% if question_data['public'] %}pack-public{% else %}pack-private{% endif %}">{% if question_data['public'] %}Public{% else %}Private{% endif %}</div>
+                </div>
                 {% endfor %}
 
                 {% if not questions %}

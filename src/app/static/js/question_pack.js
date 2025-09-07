@@ -1,4 +1,5 @@
 var questionData = {};
+var lastSaveState = null;
 
 function showRoundView(round) {
     let selectButtons = document.querySelectorAll(".question-pack-round-select-button");
@@ -18,7 +19,7 @@ function showRoundView(round) {
 
 function dataChanged() {
     let saveBtn = document.getElementById("question-pack-save-btn");
-    saveBtn.disabled = false;
+    saveBtn.disabled = JSON.stringify(questionData) == lastSaveState
 }
 
 function getNextId(round=null, category=null) {
@@ -32,6 +33,32 @@ function getNextId(round=null, category=null) {
     }
 
     return roundData["categories"][category]["questions"].length;
+}
+
+function getElementId(prefix, index) {
+    let elem = document.querySelectorAll(`.${prefix}`)[index];
+    for (let i = 0; i < elem.classList.length; i++) {
+        if (elem.classList[i].startsWith(`${prefix}-`)) {
+            return Number.parseInt(elem.classList[i].replace(`${prefix}-`, ""));
+        }
+    }
+
+    return null;
+}
+
+function getElementIndex(prefix, id) {
+    let elem = document.querySelector(`.${prefix}-${id}`);
+    if (elem == null) {
+        return null;
+    }
+
+    let parent = elem.parentElement;
+    for (let i = 0; i < parent.children.length; i++) {
+        if (parent.children[i] == elem) {
+            return i;
+        }
+    }
+    return null;
 }
 
 function syncQuestionData(round, category, question) {
@@ -70,10 +97,11 @@ function addQuestion(value, round, category) {
         questionData["rounds"][round]["categories"][category]["questions"] = [];
     }
 
-    let questionElem = document.createElement("div");
-    questionElem.textContent = value;
+    let questionElem = document.createElement("input");
+    questionElem.value = value;
     questionElem.classList.add("question-pack-question-wrapper");
     questionElem.classList.add(`question-pack-question-wrapper-${question}`);
+    questionElem.readonly = true;
     questionElem.onclick = function() {
         openQuestionModal(round, category, question);
     }
@@ -88,7 +116,7 @@ function deleteQuestion(round, category, question) {
 
     if (questionElem != null) {
         categoryWrapper.removeChild(questionElem);
-        questionData["rounds"][round]["categories"][category]["questions"][question] = null;
+        questionData["rounds"][round]["categories"][category]["questions"][question]["deleted"] = true;
     }
 
     dataChanged();
@@ -126,6 +154,10 @@ function addCategory(round) {
 
     let input = document.createElement("input");
     input.classList.add("question-pack-category-name");
+    input.onchange = function() {
+        syncCategoryData(round, category);
+        dataChanged();
+    };
     input.value = "New Category";
 
     let dataDiv = document.createElement("div");
@@ -153,7 +185,7 @@ function deleteCategory(round, category) {
 
     if (categoryElem != null) {
         categoryWrapper.removeChild(categoryElem);
-        questionData["rounds"][round]["categories"][category] = null;
+        questionData["rounds"][round]["categories"][category]["deleted"] = true;
         if (questionData["rounds"][round]["categories"].length == 0) {
             let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
             placeholder.classList.remove("d-none");
@@ -194,6 +226,10 @@ function addRound() {
 
     let input = document.createElement("input");
     input.classList.add("question-pack-round-name");
+    input.onchange = function() {
+        syncRoundData(round);
+        dataChanged();
+    };
     input.value = `Round ${roundNum + 1}`;
 
     let placeholderDiv = document.createElement("div");
@@ -205,16 +241,16 @@ function addRound() {
     let addCategoryBtn = document.createElement("button");
     addCategoryBtn.textContent = "+";
     addCategoryBtn.classList.add("question-pack-add-category-btn");
-    addCategory.onclick = function() {
+    addCategoryBtn.onclick = function() {
         addCategory(round);
     }
 
     roundElem.appendChild(input);
-    roundElem.appendChild(placeholderDiv);
     roundElem.appendChild(dataDiv);
+    roundElem.appendChild(placeholderDiv);
     roundElem.appendChild(addCategoryBtn);
 
-    dataWrapper.appendChild(roundElem);
+    dataWrapper.insertBefore(roundElem, dataWrapper.lastElementChild);
 
     // Add to round selection tab
     let selectWrapper = document.querySelector("#question-pack-data-header > div");
@@ -236,7 +272,7 @@ function addRound() {
     };
     switchRoundBtn.appendChild(deleteRoundBtn);
 
-    selectWrapper.insertBefore(switchRoundBtn, selectWrapper.lastChild);
+    selectWrapper.insertBefore(switchRoundBtn, selectWrapper.lastElementChild);
 
     syncRoundData(round);
     showRoundView(round);
@@ -260,26 +296,26 @@ function deleteRound(event, round) {
     let roundSelected = selectElem.classList.contains("question-pack-round-selected");
 
     if (roundElem != null) {
-        if (roundSelected) {
-            let switchToRound = round < questionData["rounds"].length - 1 ? round + 1 : round;
-            showRoundView(switchToRound);
-        }
-
-        let nodeIndex = 0;
+        let elemIndex = 0;
         selectElems.forEach((elem, index) => {
             if (elem == selectElem) {
-                nodeIndex = index;
+                elemIndex = index;
                 return;
             }
         });
 
         headerWrapper.removeChild(selectElem);
         bodyWrapper.removeChild(roundElem);
-    
-        questionData["rounds"][round] = null;
+
+        if (roundSelected) {
+            let switchToRound = elemIndex < selectElem.length - 1 ? elemIndex + 1 : elemIndex;
+            showRoundView(getElementId("question-pack-round-wrapper", switchToRound));
+        }
+
+        questionData["rounds"][round]["deleted"] = true;
 
         // Shift all rounds after the deleted one back by one
-        for (let i = nodeIndex; i < selectElems.length - 1; i++) {
+        for (let i = elemIndex; i < selectElems.length - 1; i++) {
             selectElems[i].getElementsByTagName("span").item(0).textContent = `Round ${i}`;
         }
 
@@ -303,25 +339,30 @@ function toggleFinale() {
     }
 }
 
-function syncGeneralData() {
+function syncPackName() {
     let name = document.getElementById("question-pack-name").value;
-    let public = document.getElementById("question-pack-public").checked;
-    let finale = document.getElementById("question-pack-finale").checked;
-
     questionData["name"] = name;
+}
+
+function syncPackPublic() {
+    let public = document.getElementById("question-pack-public").checked;
     questionData["public"] = public;
+}
+
+function syncPackFinale() {
+    let finale = document.getElementById("question-pack-finale").checked;
     questionData["include_finale"] = finale;
 }
 
 function getBaseURL() {
-    return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port + "/jeopardy";
+    return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port + "/jeoparty";
 }
 
 function fade(elem, out, duration) {
     elem.style.transition = null;
     elem.offsetHeight;
 
-    popupElem.style.opacity = out ? 1 : 0;
+    elem.style.opacity = out ? 1 : 0;
     elem.style.transition = `opacity ${duration}s`;
 
     elem.offsetHeight;
@@ -340,17 +381,31 @@ function fade(elem, out, duration) {
     }
 }
 
-function showPopup(text) {
-    let popupElem = document.getElementById("question-pack-popup");
-    popupElem.textContent = text;
-    fade(popupElem, false, 1);
+function showPopup(text, error) {
+    let popup = document.getElementById("question-pack-popup");
+    popup.classList.remove("d-none");
+    if (error) {
+        popup.classList.add("popup-error");
+        popup.classList.remove("popup-success");
+    }
+    else {
+        popup.classList.add("popup-success");
+        popup.classList.remove("popup-error");
+    }
+
+    popup.textContent = text;
+    popup.style.animationName = null;
+    popup.offsetHeight;
+    popup.style.animationName = "popup-animate";
+
+    setTimeout(function() {
+        popup.classList.add("d-none");
+    }, 5000);
 }
 
 function saveData(packId) {
-    let saveBtn = document.getElementById("question-pack-save-all");
+    let saveBtn = document.getElementById("question-pack-save-btn");
     saveBtn.disabled = true;
-
-    syncGeneralData();
 
     let btnRegularState = saveBtn.querySelector(".save-btn-regular");
     let btnPendingState = saveBtn.querySelector(".save-btn-pending");
@@ -361,15 +416,45 @@ function saveData(packId) {
     fade(btnPendingState, false, 1);
 
     let baseURL = getBaseURL();
+    let jsonData = JSON.stringify(questionData);
 
-    $.ajax(
-        `${baseURL}/${packId}/save`,
-        data=questionData,
-        method="POST"
-    ).always(function(response) {
-        showPopup(response);
+    $.ajax(`${baseURL}/${packId}/save`, 
+        {
+            data: jsonData,
+            method: "POST",
+            contentType: "application/json",
+            content: "application/json"
+        }
+    ).always(function(a, b, c) {
+        let response;
+        if (typeof(a) == "object" && Object.hasOwn("status")) {
+            response = a;
+        }
+        else {
+            response = c;
+        }
+
+        let error = response.status != 200;
+        if (!error) {
+            showPopup("Question pack saved successfully.", false)
+        }
+        else if (response.getResponseHeader("content-type") == "text/plain") {
+            showPopup(response.responseText, error);
+        }
+        else if (response.status == 404) {
+            showPopup("The question pack was not found on the server or you do not have access to it.", true);
+        }
+        else if (response.status == 500) {
+            showPopup("Internal server error", true);
+        }
+        else {
+            showPopup("An error happened, try again later.", true);
+        }
+
         fade(btnPendingState, true, 1);
     }).done(function() {
+        lastSaveState = jsonData;
+
         fade(btnSuccessState, false, 1);
         setTimeout(function() {
             fade(btnSuccessState, true, 1);
@@ -437,7 +522,12 @@ function openQuestionModal(round, category, question) {
         actionHeader.textContent = "Add question to"
         questionInput.value = "";
         answerInput.value = "";
-        valueInput.value = 100 * (question + 1) * (round + 1);
+
+        let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
+        let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${category}`);
+        let questionIndex = categoryWrapper.querySelectorAll(".question-pack-question-wrapper").length;
+        let roundIndex = getElementIndex("question-pack-round-wrapper", round);
+        valueInput.value = 100 * (questionIndex + 1) * (roundIndex + 1);
         buzzInput.value = 10;
         multipleChoiceCheck.checked = false;
         choicesWrapper.classList.add("d-none");
@@ -469,16 +559,16 @@ function openQuestionModal(round, category, question) {
             addQuestion(valueInput.value, round, category);
         }
 
-        dataChanged();
         syncQuestionData(round, category, question);
+        dataChanged();
         closeQuestionModal();
     };
     
     if (!newQuestion) {
         deleteBtn.onclick = function() {
             deleteQuestion(round, category, question);
+            closeQuestionModal();
         }
-        closeQuestionModal();
     }
 
     modal.classList.remove("d-none");

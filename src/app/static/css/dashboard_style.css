@@ -22,7 +22,7 @@
     cursor: pointer;
 }
 
-.default-button:hover {
+.default-button:hover:not(:disabled) {
     filter: brightness(0.5);
 }
 
@@ -61,6 +61,7 @@
     LOGIN
 */
 #login-wrapper {
+    color: white;
     margin-top: 5vh;
     display: inline-flex;
     flex-direction: column;
@@ -75,7 +76,7 @@
 
 .login-submit-btn {
     width: 80px;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .login-submit-btn:first-of-type {
@@ -84,8 +85,7 @@
 
 #login-error-msg {
     color: red;
-    position: absolute;
-    bottom: -72px;
+    position: relative;
     font-size: 17px;
 }
 
@@ -138,6 +138,30 @@
     margin-bottom: 20px;
 }
 
+.dashboard-questions-entry-wrapper {
+    cursor: pointer;
+    border: 2px solid white;
+    background-color: #0c0c98;
+    padding: 10px;
+}
+
+.dashboard-questions-entry-wrapper:hover {
+    filter: brightness(0.8);
+}
+
+.dashboard-questions-entry-wrapper > h3 {
+    text-align: center;
+    margin-top: 0;
+}
+
+.dashboard-question-entry-public.pack-public {
+    color: rgb(0, 108, 0);
+}
+
+.dashboard-question-entry-public.pack-private {
+    color: rgb(205, 106, 0);
+}
+
 .dashboard-create-btn {
     margin-top: 20px;
     font-size: 18px;
@@ -146,11 +170,6 @@
 .dashboard-create-btn > a {
     color: black;
     text-decoration: none;
-}
-
-#question-pack-popup {
-    opacity: 0;
-    transition: opacity 1s;
 }
 
 /*
@@ -207,12 +226,14 @@
     QUESTION PACK
 */
 #question-pack-wrapper {
+    position: relative;
     width: 30vw;
     min-width: 350px;
     margin: 0 auto;
     margin-top: 5vh;
     text-align: left;
     color: white;
+    z-index: 10;
     padding: 20px;
     background-color: #2139bc;
     border: solid 2px black;
@@ -222,6 +243,47 @@
 
 #question-pack-wrapper .input-field {
     width: 100%;
+}
+
+@keyframes popup-animate {
+    0% {
+        transform: translateY(-100%);
+    }
+    20% {
+        transform: translateY(0px);
+    }
+    80% {
+        transform: translateY(0px);
+    }
+    100% {
+        transform: translateY(-100%);
+    }
+}
+
+#question-pack-popup {
+    color: white;
+    width: 30vw;
+    min-width: 350px;
+    margin: 0 auto;
+    font-size: 1.5rem;
+    text-align: center;
+    background-color: #16163b;
+    border-radius: 10px;
+    top: -10px;
+    position: relative;
+    border: 1px solid white;
+    font-weight: 800;
+    padding-top: 20px;
+    padding-bottom: 15px;
+
+    transform: translateY(-100%);
+
+    animation-duration: 5s;
+    animation-direction: alternate;
+}
+
+#question-pack-popup.popup-error {
+    color: red;
 }
 
 #question-pack-data-wrapper {
@@ -237,6 +299,15 @@
 
 #question-pack-data-header > div {
     display: inline-block;
+}
+
+.question-pack-round-select-button {
+    width: 110px;
+}
+
+.question-pack-add-round-btn {
+    cursor: pointer;
+    font-weight: bold;
 }
 
 .question-pack-round-select-button, .question-pack-add-round-btn {
@@ -265,7 +336,7 @@
 }
 
 .question-pack-round-select-finale {
-    margin-left: 5px;
+    border-left: 3px solid black;
 }
 
 #question-pack-data-body {
@@ -273,26 +344,28 @@
 }
 
 .question-pack-round-name {
-    margin-bottom: 10px;
+    display: block;
     font-size: 18px;
+    margin: 0 auto;
+    margin-bottom: 10px;
 }
 
 .question-pack-round-wrapper {
     position: relative;
-    text-align: center;
 }
 
 .question-pack-round-wrapper > div {
-    display: flex;
+    display: inline-flex;
     flex-direction: row;
     justify-content: left;
 }
 
 .question-pack-category-wrapper {
+    text-align: center;
     flex-shrink: 1;
 }
 
-.question-pack-category-name {
+.question-pack-category-name, .question-pack-question-wrapper {
     color: white;
     background-color: rgb(15, 12, 118);
     text-align: center;
@@ -300,15 +373,103 @@
     height: 50px;
 }
 
-#question-pack-add-category-btn {
-    position: absolute;
-    right: 0;
-    bottom: 0;
+.question-pack-category-name {
+    font-weight: 800;
+    margin: 0 5px;
+}
+
+.question-pack-question-wrapper {
+    cursor: pointer;
+    display: block;
+    margin: 0 auto;
+    margin-top: 10px;
+}
+
+.question-pack-question-wrapper:hover {
+    filter: brightness(0.8);
+}
+
+.question-pack-add-question-btn, .question-pack-add-category-btn {
+    position: relative;
+    border: 2px dotted gray;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.question-pack-add-question-btn {
+    border-top: none;
+    top: -1px;
+}
+
+.question-pack-add-category-btn {
+    border-left: none;
+    left: -6px;
 }
 
 #question-pack-save-btn {
+    position: relative;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+
+    color: white;
+    border: 2px solid black;
+    width: 70px;
+    height: 46px;
     margin-top: 20px;
+    background-color: rgb(2, 154, 2);
+    font-weight: bold;
+    font-size: 18px;
+    border-radius: 5px;
+    padding: 0;
 }
+
+#question-pack-save-btn:disabled {
+    cursor: default;
+    background-color: rgb(75, 75, 75);
+}
+
+#question-pack-save-btn > .save-btn-regular {
+    position: absolute;
+}
+
+#question-pack-save-btn > .save-btn-pending {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    margin: 0 auto;
+}
+
+#question-pack-save-btn > .save-btn-pending > .loading-icon {
+    height: 75%;
+    width: 75%;
+}
+
+#question-pack-save-btn > .save-btn-success {
+    position: absolute;
+    height: 70%;
+}
+
+#question-pack-save-btn > .save-btn-success > img {
+    position: relative;
+    height: 100%;
+    width: auto;
+}
+
+#question-pack-save-btn > .save-btn-fail {
+    position: absolute;
+    height: 70%;
+}
+
+#question-pack-save-btn > .save-btn-fail > img {
+    position: relative;
+    height: 100%;
+    width: auto;
+}
+
+/*
+    QUESTION PACK MODAL
+*/
 
 #question-pack-modal-wrapper {
     top: 0;
@@ -317,13 +478,15 @@
     text-align: center;
     position: fixed;
     backdrop-filter: blur(5px);
+    z-index: 99;
 }
 
 #question-pack-modal {
+    position: relative;
     width: 30vw;
     min-width: 350px;
     margin: 0 auto;
-    margin-top: 10vh;
+    top: 15vh;
     padding: 10px;
     border-radius: 10px;
     color: white;
@@ -335,6 +498,10 @@
     position: relative;
 }
 
+#question-pack-modal-header > h2 {
+    margin-top: 0;
+}
+
 #question-pack-modal-category {
     font-style: italic;
 }
@@ -342,5 +509,26 @@
 #question-pack-modal-header > button {
     position: absolute;
     right: 5px;
-    top: 5px;
+    top: 0;
+    font-weight: bold;
+    font-size: 18px;
+    background-color: white;
+    border-radius: 5px;
+    border: 2px solid black;
+    cursor: pointer;
+}
+
+#question-pack-modal-footer > button {
+    color: white;
+    padding: 10px;
+    margin: 0 5px;
+    border: 2px solid black;
+}
+
+#question-pack-modal-save-btn {
+    background-color: rgb(2, 154, 2);
+}
+
+#question-pack-modal-delete-btn {
+    background-color: rgb(203, 10, 10);
 }
