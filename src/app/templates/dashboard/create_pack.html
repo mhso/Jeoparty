@@ -1,24 +1,32 @@
 <!DOCTYPE html>
 <html>
 {% include 'dashboard/head.html' %}
-<body>
+<body style="text-align: center;">
+    {% include 'logo.html' %}
+
     <div id="create-pack-wrapper">
         <h1>Create Question Pack</h1>
 
         <form action="{{ url_for('dashboard.create_pack') }}" method="POST">
-            <label for="name">Pack Name</label>
-            <input type="text" name="name" minlength="1" maxlength="64" value="{{ user_name }}'s Question Pack">
-    
-            <label for="public">Make Public</label>
-            <input type="checkbox" name="public">
+            <div class="input-field">
+                <label for="name">Pack Name</label>
+                <input type="text" name="name" minlength="1" maxlength="64" value="{{ user_name }}'s Question Pack">
+            </div>
+   
+            <div class="input-field">
+                <label style="display: inline;" name="public">Make Public</label>
+                <input type="checkbox" name="public">
+            </div>
 
-            <label for="finale">Include Final Jeopardy</label>
-            <input type="checkbox" name="finale">
+            <div class="input-field">
+                <label style="display: inline;" for="finale">Include Final Jeopardy</label>
+                <input type="checkbox" name="finale" checked>
+            </div>
 
-            <input type="submit" value="Create" class="btn">
+            <input type="submit" value="Create" class="default-button">
         </form>
-
-        <p id="dashboard-form-error">{% if error %}Error: {{ error }}{% endif %}</p>
     </div>
+
+    <p id="dashboard-form-error">{% if error %}Error: {{ error }}{% endif %}</p>
 </body>
 </html>

@@ -1,0 +1,17 @@
+body {
+    background-color: rgb(23, 23, 23);
+}
+
+.d-none {
+    display: none !important;
+}
+
+#logo-wrapper {
+    text-align: center;
+    margin-top: 5vh;
+}
+
+#logo-wrapper img {
+    width: 20vw;
+    min-width: 300px;
+}

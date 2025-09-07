@@ -1,4 +1,5 @@
 <div id="logo-wrapper">
-    <img id="lol-logo" src="{{ url_for('static', _external=True, filename='img/lol_logo.webp') }}">
-    <img id="jeopardy-logo" src="{{ url_for('static', _external=True, filename='img/jeopardy_logo.webp') }}">
+    <a href="{{ url_for('dashboard.home') }}">
+        <img id="jeopardy-logo" src="{{ url_for('static', _external=True, filename='img/jeopardy_logo.webp') }}">
+    </a>
 </div>

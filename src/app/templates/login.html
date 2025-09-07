@@ -9,18 +9,18 @@
     <div id="login-wrapper">
         <h1>Login to {{ app_name }}</h1>
         <form action="{{ url_for('login.login', redirect_url=redirect_url) }}" method="POST">
-            <div class="login-field">
+            <div class="input-field">
                 <label for="name">Username</label>
                 <input type="text" name="user">
             </div class="login-field">
     
-            <div class="login-field">
+            <div class="input-field">
                 <label for="pass">Password</label>
                 <input type="password" name="pass">
             </div>
     
-            <input class="login-submit-btn" type="submit" value="Login" class="btn">
-            <input class="login-submit-btn" type="submit" value="Sign Up" class="btn" formaction="{{ url_for('login.signup') }}">
+            <input class="login-submit-btn default-button" type="submit" value="Login" class="btn">
+            <input class="login-submit-btn default-button" type="submit" value="Sign Up" class="btn" formaction="{{ url_for('login.signup') }}">
         </form>
 
         <p id="login-error-msg">{% if error %}{{ error }}{% endif %}</p>

@@ -6,19 +6,32 @@ function showRoundView(round) {
         elem.classList.remove("question-pack-round-selected");
     });
 
-    selectButtons[round].classList.add("question-pack-round-selected");
+    document.querySelector(`.question-pack-round-select-button-${round}`).classList.add("question-pack-round-selected");
 
     let roundWrappers = document.querySelectorAll(".question-pack-round-wrapper");
     roundWrappers.forEach((elem) => {
         elem.classList.add("d-none");
     });
 
-    roundWrappers[round].classList.remove("d-none");
+    document.querySelector(`.question-pack-round-wrapper-${round}`).classList.remove("d-none");
 }
 
 function dataChanged() {
-    let saveBtn = document.getElementById("question-pack-save-all");
+    let saveBtn = document.getElementById("question-pack-save-btn");
     saveBtn.disabled = false;
+}
+
+function getNextId(round=null, category=null) {
+    if (round == null) {
+        return questionData["rounds"].length;
+    }
+
+    let roundData = questionData["rounds"][round];
+    if (category == null) {
+        return roundData["categories"].length;
+    }
+
+    return roundData["categories"][category]["questions"].length;
 }
 
 function syncQuestionData(round, category, question) {
@@ -49,10 +62,10 @@ function syncQuestionData(round, category, question) {
 }
 
 function addQuestion(value, round, category) {
-    let roundElem = document.querySelectorAll(".question-pack-round-wrapper > div")[round];
-    let categoryWrapper = roundElem.querySelectorAll(".question-pack-category-wrapper > div")[category];
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > div`);
+    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > div`);
 
-    let question = categoryWrapper.querySelectorAll(".question-pack-question-wrapper").length;
+    let question = getNextId(round, category);
     if (question == 0) {
         questionData["rounds"][round]["categories"][category]["questions"] = [];
     }
@@ -60,6 +73,7 @@ function addQuestion(value, round, category) {
     let questionElem = document.createElement("div");
     questionElem.textContent = value;
     questionElem.classList.add("question-pack-question-wrapper");
+    questionElem.classList.add(`question-pack-question-wrapper-${question}`);
     questionElem.onclick = function() {
         openQuestionModal(round, category, question);
     }
@@ -68,18 +82,20 @@ function addQuestion(value, round, category) {
 }
 
 function deleteQuestion(round, category, question) {
-    let roundElem = document.querySelectorAll(".question-pack-round-wrapper > div")[round];
-    let categoryWrapper = roundElem.querySelectorAll(".question-pack-category-wrapper > div")[category];
-    let questionElem = categoryWrapper.querySelectorAll(".question-pack-question-wrapper")[question];
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > div`);
+    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > div`);
+    let questionElem = categoryWrapper.querySelector(`.question-pack-question-wrapper-${question}`);
 
     if (questionElem != null) {
         categoryWrapper.removeChild(questionElem);
-        questionData["rounds"][round]["categories"][category]["questions"].splice(question, 1);
+        questionData["rounds"][round]["categories"][category]["questions"][question] = null;
     }
+
+    dataChanged();
 }
 
 function syncCategoryData(round, category) {
-    let wrapper = document.querySelectorAll(".question-pack-category-wrapper")[category];
+    let wrapper = document.querySelector(`.question-pack-category-wrapper-${category}`);
     let name = wrapper.querySelector(".question-pack-category-name").value;
 
     let questionDataCategories = questionData["rounds"][round]["categories"];
@@ -94,10 +110,11 @@ function syncCategoryData(round, category) {
 
 function addCategory(round) {
     // Add new category for given round
-    let roundWrapper = document.querySelectorAll(".question-pack-round-wrapper > div")[round];
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
 
-    let category = roundWrapper.querySelectorAll(".question-pack-category-wrapper").length;
-    if (category == 0) {
+    let category = getNextId(round);
+    let categoryNum = roundWrapper.querySelectorAll(".question-pack-category-wrapper").length;
+    if (categoryNum == 0) {
         questionData["rounds"][round]["categories"] = [];
         let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
         placeholder.classList.add("d-none");
@@ -105,6 +122,7 @@ function addCategory(round) {
 
     let categoryElem = document.createElement("div");
     categoryElem.classList.add("question-pack-category-wrapper");
+    categoryElem.classList.add(`question-pack-category-wrapper-${category}`);
 
     let input = document.createElement("input");
     input.classList.add("question-pack-category-name");
@@ -123,28 +141,30 @@ function addCategory(round) {
     categoryElem.appendChild(dataDiv);
     categoryElem.appendChild(addQuestionBtn);
 
-    roundWrapper.appendChild(categoryElem);
+    roundWrapper.querySelector("div").appendChild(categoryElem);
 
     syncCategoryData(round, category)
     dataChanged();
 }
 
 function deleteCategory(round, category) {
-    let roundElem = document.querySelectorAll(".question-pack-round-wrapper > div")[round];
-    let categoryElem = roundElem.querySelectorAll(".question-pack-category-wrapper")[category];
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > div`);
+    let categoryElem = roundElem.querySelector(`.question-pack-category-wrapper-${category}`);
 
     if (categoryElem != null) {
         categoryWrapper.removeChild(categoryElem);
-        questionData["rounds"][round]["categories"].splice(category, 1);
+        questionData["rounds"][round]["categories"][category] = null;
         if (questionData["rounds"][round]["categories"].length == 0) {
             let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
             placeholder.classList.remove("d-none");
         }
     }
+
+    dataChanged();
 }
 
 function syncRoundData(round) {
-    let wrapper = document.querySelectorAll(".question-pack-round-wrapper")[round];
+    let wrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
     let name = wrapper.querySelector(".question-pack-round-name").value;
 
     let questionDataRounds = questionData["rounds"];
@@ -159,47 +179,128 @@ function syncRoundData(round) {
 
 function addRound() {
     // Add new round
-    let dataWrapper = document.querySelector("#question-pack-data-wrapper > div");
+    let dataWrapper = document.querySelector("#question-pack-data-body");
 
-    let round = dataWrapper.querySelectorAll(".question-pack-round-wrapper").length;
+    let round = getNextId();
+    let roundNum = dataWrapper.querySelectorAll(".question-pack-round-wrapper").length - 1;
+
     if (round == 0) {
         questionData["rounds"] = [];
     }
 
     let roundElem = document.createElement("div");
     roundElem.classList.add("question-pack-round-wrapper");
+    roundElem.classList.add(`question-pack-round-wrapper-${round}`);
 
     let input = document.createElement("input");
     input.classList.add("question-pack-round-name");
-    input.value = `Round ${round + 1}`;
+    input.value = `Round ${roundNum + 1}`;
+
+    let placeholderDiv = document.createElement("div");
+    placeholderDiv.textContent = "Add a category below to get started!";
+    placeholderDiv.classList = "question-pack-categories-placeholder";
 
     let dataDiv = document.createElement("div");
 
     let addCategoryBtn = document.createElement("button");
     addCategoryBtn.textContent = "+";
     addCategoryBtn.classList.add("question-pack-add-category-btn");
+    addCategory.onclick = function() {
+        addCategory(round);
+    }
 
     roundElem.appendChild(input);
+    roundElem.appendChild(placeholderDiv);
     roundElem.appendChild(dataDiv);
     roundElem.appendChild(addCategoryBtn);
 
     dataWrapper.appendChild(roundElem);
 
     // Add to round selection tab
-    let selectWrapper = document.querySelector("#question-pack-round-select > div");
+    let selectWrapper = document.querySelector("#question-pack-data-header > div");
 
     let switchRoundBtn = document.createElement("button");
-    switchRoundBtn.textContent = `Round ${round + 1}`;
-    switchRoundBtn.className = "question-pack-round-select-button question-pack-round-selected";
+    switchRoundBtn.className = `question-pack-round-select-button question-pack-round-select-button-${round} question-pack-round-selected`;
     switchRoundBtn.onclick = function() {
         showRoundView(round);
     };
 
-    selectWrapper.appendChild(switchRoundBtn);
+    let switchRoundText = document.createElement("span");
+    switchRoundText.textContent = `Round ${roundNum + 1}`;
+    switchRoundBtn.appendChild(switchRoundText);
+
+    let deleteRoundBtn = document.createElement("div");
+    deleteRoundBtn.innerHTML = "&times;";
+    deleteRoundBtn.onclick = function(event) {
+        deleteRound(event, round);
+    };
+    switchRoundBtn.appendChild(deleteRoundBtn);
+
+    selectWrapper.insertBefore(switchRoundBtn, selectWrapper.lastChild);
 
     syncRoundData(round);
     showRoundView(round);
     dataChanged();
+}
+
+function deleteRound(event, round) {
+    event.stopPropagation();
+
+    if (questionData["rounds"].length == 1) {
+        return;
+    }
+
+    let headerWrapper = document.querySelector("#question-pack-data-header > div");
+    let bodyWrapper = document.querySelector("#question-pack-data-body");
+
+    let selectElems = document.querySelectorAll(".question-pack-round-select-button");
+    let selectElem = document.querySelector(`.question-pack-round-select-button-${round}`);
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round}`)
+
+    let roundSelected = selectElem.classList.contains("question-pack-round-selected");
+
+    if (roundElem != null) {
+        if (roundSelected) {
+            let switchToRound = round < questionData["rounds"].length - 1 ? round + 1 : round;
+            showRoundView(switchToRound);
+        }
+
+        let nodeIndex = 0;
+        selectElems.forEach((elem, index) => {
+            if (elem == selectElem) {
+                nodeIndex = index;
+                return;
+            }
+        });
+
+        headerWrapper.removeChild(selectElem);
+        bodyWrapper.removeChild(roundElem);
+    
+        questionData["rounds"][round] = null;
+
+        // Shift all rounds after the deleted one back by one
+        for (let i = nodeIndex; i < selectElems.length - 1; i++) {
+            selectElems[i].getElementsByTagName("span").item(0).textContent = `Round ${i}`;
+        }
+
+        dataChanged();
+    }
+}
+
+function toggleFinale() {
+    let enabled = document.getElementById("question-pack-finale").checked;
+    let finaleSelect = document.querySelector(".question-pack-round-select-finale");
+
+    if (enabled) {
+        finaleSelect.classList.remove("d-none");
+    }
+    else {
+        finaleSelect.classList.add("d-none");
+        if (finaleSelect.classList.contains("question-pack-round-selected")) {
+            let lastRound = document.querySelectorAll(".question-pack-round-select-button").length - 2;
+            showRoundView(lastRound);
+        }
+    }
 }
 
 function syncGeneralData() {
@@ -312,12 +413,14 @@ function modalSetMultipleChoice() {
 }
 
 function openQuestionModal(round, category, question) {
-    let modal = document.getElementById("question-pack-modal");
+    let modal = document.getElementById("question-pack-modal-wrapper");
     let saveBtn = document.getElementById("question-pack-modal-save-btn");
     let deleteBtn = document.getElementById("question-pack-modal-delete-btn");
 
     let newQuestion = question == null;
 
+    let actionHeader = document.getElementById("question-pack-modal-action");
+    let categoryHeader = document.getElementById("question-pack-modal-category");
     let questionInput = document.getElementById("question-pack-modal-question");
     let answerInput = document.getElementById("question-pack-modal-answer");
     let valueInput = document.getElementById("question-pack-modal-value");
@@ -326,11 +429,12 @@ function openQuestionModal(round, category, question) {
     let choicesWrapper = document.getElementById("question-pack-modal-choices");
     let choicesInnerWrapper = document.querySelector("#question-pack-modal-choices > div");
 
+    categoryHeader.textContent = questionData["rounds"][round]["categories"][category]["name"];
+
     if (newQuestion) {
         question = questionData["rounds"][round]["categories"][category]["questions"].length;
 
-        deleteBtn.disabled = true;
-
+        actionHeader.textContent = "Add question to"
         questionInput.value = "";
         answerInput.value = "";
         valueInput.value = 100 * (question + 1) * (round + 1);
@@ -338,9 +442,13 @@ function openQuestionModal(round, category, question) {
         multipleChoiceCheck.checked = false;
         choicesWrapper.classList.add("d-none");
         choicesInnerWrapper.innerHTML = "";
+
+        deleteBtn.classList.add("d-none");
     }
     else {
         let data = questionData["rounds"][round]["categories"][category]["questions"][question];
+    
+        actionHeader.textContent = "Edit question for"
         questionInput.value = data["question"];
         answerInput.value = data["answer"];
         valueInput.value = data["value"];
@@ -352,6 +460,8 @@ function openQuestionModal(round, category, question) {
         else {
             choicesWrapper.classList.add("d-none");
         }
+
+        deleteBtn.classList.remove("d-none");
     }
 
     saveBtn.onclick = function() {
@@ -359,22 +469,23 @@ function openQuestionModal(round, category, question) {
             addQuestion(valueInput.value, round, category);
         }
 
-        syncQuestionData(round, category, question);
         dataChanged();
+        syncQuestionData(round, category, question);
         closeQuestionModal();
     };
     
     if (!newQuestion) {
         deleteBtn.onclick = function() {
-            
+            deleteQuestion(round, category, question);
         }
+        closeQuestionModal();
     }
 
     modal.classList.remove("d-none");
 }
 
 function closeQuestionModal() {
-    document.getElementById("question-pack-modal").classList.remove("d-none");
+    document.getElementById("question-pack-modal-wrapper").classList.add("d-none");
 }
 
 document.addEventListener("DOMContentLoaded", function() {

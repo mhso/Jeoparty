@@ -1,44 +1,62 @@
 <!DOCTYPE html>
 <html>
 {% include 'dashboard/head.html' %}
-<body>
+<body style="text-align: center;">
+    {% include 'logo.html' %}
+
     <div id="create-game-wrapper">
         <h1>Create Game</h1>
 
         <form action="{{ url_for('dashboard.create_game') }}" method="POST">
-            <label for="title">Lobby Name</label>
-            <input type="text" name="title" minlength="1" maxlength="64" value="{{ user_name }}'s Game">
+            <div class="input-field">
+                <label for="title">Lobby Name</label>
+                <input type="text" name="title" minlength="1" maxlength="64" value="{{ user_name }}'s Game">
+            </div>
 
-            <label for="password">Password</label>
-            <input type="text" name="password">
+            <div class="input-field">
+                <label for="password">Password</label>
+                <input type="text" name="password">
+            </div>
             
-            <label for="rounds">Rounds</label>
-            <input type="number" name="rounds" minlength="1" maxlength="9" value="2">
+            <div class="input-field">
+                <label for="rounds">Regular Rounds</label>
+                <input type="number" name="rounds" minlength="1" maxlength="9" value="2">
+            </div>
 
-            <label for="contestants">Contestants</label>
-            <input type="number" name="contestants" minlength="1" maxlength="9" value="4">
+            <div class="input-field">
+                <label for="contestants">Contestants</label>
+                <input type="number" name="contestants" minlength="1" maxlength="9" value="4">
+            </div>
 
-            <label for="daily_doubles">Allow Daily Doubles</label>
-            <input type="checkbox" name="daily_doubles" checked>
+            <div class="input-field">
+                <label for="daily_doubles" style="display: inline;">Allow Daily Doubles</label>
+                <input type="checkbox" name="daily_doubles" checked>
+            </div>
 
-            <label for="power_ups">Allow Power-Ups</label>
-            <input type="checkbox" name="power_ups" checked>
+            <div class="input-field">
+                <label style="display: inline;" for="power_ups">Allow Power-Ups</label>
+                <input type="checkbox" name="power_ups" checked>
+            </div>
 
-            <select>
+            <div class="input-field">
                 <label>Question Pack</label>
-                {% for question_data in questions %}
-                <option value="{{ question_data['id'] }}">{{ question_data['title'] }}</option>
-                {% endfor %}
-                <option value="missing" selected>Select Pack</option>
-            </select>
+                <select>
+                    {% for question_data in questions %}
+                    <option value="{{ question_data['id'] }}">{{ question_data['title'] }}</option>
+                    {% endfor %}
+                    <option value="missing" selected>Select Pack</option>
+                </select>
+            </div>
 
-            <label for="music">Lobby Music</label>
-            <input type="file" name="music">
+            <div class="input-field">
+                <label for="music">Lobby Music</label>
+                <input type="file" name="music">
+            </div>
 
-            <input type="submit" value="Create" class="btn">
+            <input type="submit" value="Create" class="default-button">
         </form>
-
-        <p id="dashboard-form-error">{% if error %}Error: {{ error }}{% endif %}</p>
     </div>
+
+    <p id="dashboard-form-error">{% if error %}Error: {{ error }}{% endif %}</p>
 </body>
 </html>

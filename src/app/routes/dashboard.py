@@ -130,7 +130,7 @@ def create_game():
     if user_details is None:
         return redirect_to_login("dashboard.create_game")
 
-    user_id = user_details[0]
+    user_id, user_name = user_details
     database: Database = flask.current_app.config["DATABASE"]
 
     if flask.request.method == "POST":
@@ -160,6 +160,7 @@ def create_game():
 
     return make_template_context(
         "dashboard/create_game.html",
+        user_name=user_name,
         user_id=user_id,
         questions=questions,
         error=error,
@@ -178,6 +179,35 @@ def save_pack(pack_id: str):
         return make_text_response("You are not authorized to edit this question package", 401)
 
     data: Dict[str, Any] = flask.request.json
+
+    if not data["include_finale"]:
+        data["rounds"][-1] = None
+
+    # Filter out deleted entries
+    non_empty_rounds = []
+    for round_data in data["rounds"]:
+        if round_data is None:
+            continue
+
+        non_empty_categories = []
+        for category_data in round_data["categories"]:
+            if category_data is None:
+                continue
+
+            non_empty_questions = []
+            for question_data in category_data["questions"]:
+                if question_data is None:
+                    continue
+
+                non_empty_questions.append(question_data)
+
+            category_data["questions"] = non_empty_questions
+
+        round_data["categories"] = non_empty_categories
+        non_empty_rounds.append(round_data)    
+
+    data["rounds"] = non_empty_rounds
+
     pack_model = QuestionPack(**data)
 
     database.save_question_pack(pack_model)
@@ -198,6 +228,5 @@ def questions_view(pack_id: str):
     return make_template_context(
         "dashboard/question_pack.html",
         user_name=user_name,
-        pack_id=pack_id,
         **question_data.json,
     )

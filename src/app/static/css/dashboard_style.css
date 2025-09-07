@@ -11,11 +11,57 @@
     animation: spin 2s linear infinite;
 }
 
+.default-button {
+    background-color: rgb(244, 244, 244);
+    color: black;
+    padding: 5px;
+    border-radius: 8px;
+    border: solid 2px white;
+    box-shadow: 0px 1px 4px rgb(27, 27, 27);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.default-button:hover {
+    filter: brightness(0.5);
+}
+
+.default-button[type="submit"] {
+    margin-top: 10px;
+}
+
+.input-field {
+    display: block;
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.input-field > label {
+    display: block;
+    font-size: 20px;
+    margin-bottom: 5px;
+}
+
+.input-field > input[type="text"], .input-field > input[type="password"] {
+    color: white;
+    width: calc(100% - 20px);
+    background-color: rgba(40, 40, 40, 0.75);
+    padding: 5px;
+    border-radius: 5px;
+    border: groove 2px white;
+}
+
+#dashboard-form-error {
+    color: red;
+    font-weight: 800;
+    font-size: 20px;
+}
+
 /*
     LOGIN
 */
 #login-wrapper {
-    margin-top: 15vh;
+    margin-top: 5vh;
     display: inline-flex;
     flex-direction: column;
     align-items: center;
@@ -24,27 +70,12 @@
 
 #login-wrapper > form {
     width: 100%;
-}
-
-.login-field {
-    display: block;
-    margin-bottom: 10px;
-}
-
-.login-field > label {
-    display: block;
-    font-size: 18px;
+    text-align: center;
 }
 
 .login-submit-btn {
-    font-size: 14px;
-    background-color: #3755cb;
-    color: white;
-    padding: 5px;
     width: 80px;
-    border-radius: 8px;
-    border: solid 2px black;
-    box-shadow: 0px 1px 4px black;
+    font-size: 14px;
 }
 
 .login-submit-btn:first-of-type {
@@ -59,14 +90,257 @@
 }
 
 /*
-    QUESTION PACK
+    HOME
 */
+#dashboard-wrapper {
+    margin-top: 5vh;
+}
+
+#dashboard-wrapper > h1 {
+    text-align: center;
+    font-size: 3.5rem;
+    color: #f4f4f4;
+    text-shadow: 0px 1px 3px #454545;
+}
+
+#dashboard-inner-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#dashboard-games-list, #dashboard-questions-list {
+    color: white;
+    width: 25vw;
+    min-width: 300px;
+    padding: 20px;
+    background-color: #2139bc;
+    border: solid 2px black;
+    border-radius: 20px;
+}
+
+#dashboard-inner-wrapper > div > h2 {
+    margin: 0;
+    margin-bottom: 15px;
+}
+
+#dashboard-games-list {
+    margin-bottom: 20px;
+}
+
+#dashboard-questions-list-empty, #dashboard-game-list-empty {
+    font-style: italic;
+}
+
+.dashboard-list-header {
+    font-size: 2rem;
+    text-decoration: underline;
+    margin-bottom: 20px;
+}
+
+.dashboard-create-btn {
+    margin-top: 20px;
+    font-size: 18px;
+}
+
+.dashboard-create-btn > a {
+    color: black;
+    text-decoration: none;
+}
+
 #question-pack-popup {
     opacity: 0;
     transition: opacity 1s;
 }
 
-#dashboard-form-error {
-    color: red;
+/*
+    CREATE GAME
+*/
+#create-game-wrapper {
+    margin-top: 5vh;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: left;
+    color: white;
+    padding: 20px;
+    background-color: #2139bc;
+    border: solid 2px black;
+    border-radius: 20px;
+}
+
+#create-game-wrapper > h1 {
+    margin-top: 0.5rem;
+}
+
+#create-game-wrapper > form {
+    width: 100%;
+    text-align: center;
+}
+
+/*
+    CREATE PACK
+*/
+#create-pack-wrapper {
+    margin-top: 5vh;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: left;
+    color: white;
+    padding: 20px;
+    background-color: #2139bc;
+    border: solid 2px black;
+    border-radius: 20px;
+}
+
+#create-pack-wrapper > h1 {
+    margin-top: 0.5rem;
+}
+
+#create-pack-wrapper > form {
+    width: 100%;
+    text-align: center;
+}
+
+/*
+    QUESTION PACK
+*/
+#question-pack-wrapper {
+    width: 30vw;
+    min-width: 350px;
+    margin: 0 auto;
+    margin-top: 5vh;
+    text-align: left;
+    color: white;
+    padding: 20px;
+    background-color: #2139bc;
+    border: solid 2px black;
+    border-radius: 20px;
+    text-align: center;
+}
+
+#question-pack-wrapper .input-field {
+    width: 100%;
+}
+
+#question-pack-data-wrapper {
+    background-color: #454545;
+    border: 2px solid white;
+    border-radius: 5px;
+    text-align: left;
+}
+
+#question-pack-data-header {
+    border-bottom: 1px solid white;
+}
+
+#question-pack-data-header > div {
+    display: inline-block;
+}
+
+.question-pack-round-select-button, .question-pack-add-round-btn {
+    border: 1px solid black;
+    font-size: 16px;
+    padding: 4px 8px;
+}
+
+.question-pack-round-selected {
+    filter: brightness(0.8);
     font-weight: 800;
+}
+
+.question-pack-round-select-button > div {
+    display: inline-block;
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 0.7;
+    position: relative;
+    margin-left: 3px;
+    top: 1px;
+}
+
+#question-pack-name {
+    font-size: 20px;
+}
+
+.question-pack-round-select-finale {
+    margin-left: 5px;
+}
+
+#question-pack-data-body {
+    padding: 10px;
+}
+
+.question-pack-round-name {
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.question-pack-round-wrapper {
+    position: relative;
+    text-align: center;
+}
+
+.question-pack-round-wrapper > div {
+    display: flex;
+    flex-direction: row;
+    justify-content: left;
+}
+
+.question-pack-category-wrapper {
+    flex-shrink: 1;
+}
+
+.question-pack-category-name {
+    color: white;
+    background-color: rgb(15, 12, 118);
+    text-align: center;
+    padding: 0 5px;
+    height: 50px;
+}
+
+#question-pack-add-category-btn {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+}
+
+#question-pack-save-btn {
+    margin-top: 20px;
+}
+
+#question-pack-modal-wrapper {
+    top: 0;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    position: fixed;
+    backdrop-filter: blur(5px);
+}
+
+#question-pack-modal {
+    width: 30vw;
+    min-width: 350px;
+    margin: 0 auto;
+    margin-top: 10vh;
+    padding: 10px;
+    border-radius: 10px;
+    color: white;
+    border: 2px solid white;
+    background-color: #0c0c98;
+}
+
+#question-pack-modal-header {
+    position: relative;
+}
+
+#question-pack-modal-category {
+    font-style: italic;
+}
+
+#question-pack-modal-header > button {
+    position: absolute;
+    right: 5px;
+    top: 5px;
 }

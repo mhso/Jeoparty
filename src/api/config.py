@@ -1,5 +1,5 @@
 ROUND_NAMES = [
-    "Jeopart!",
+    "Jeoparty!",
     "Double Jeoparty!",
     "Triple Jeoparty!",
 ]
