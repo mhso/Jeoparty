@@ -8,7 +8,7 @@ from mhooge_flask.logging import logger
 from mhooge_flask.routing import socket_io, make_template_context
 
 from api.database import Database
-from api.config import STATIC_FOLDER
+from api.config import Config
 from api.enums import PowerUpType, StageType
 from api.orm.models import Game, GameQuestion, GamePowerUp
 from app.routes.socket import GameSocketHandler
@@ -24,7 +24,7 @@ def _request_decorator(func):
     - SocketIO namespace is set up for the given game
     """
     def wrapper(*args, **kwargs):
-        game_id, *remain = args
+        game_id = kwargs.pop("game_id")
 
         # Setup socket namespace for the given game
         game_namespace = f"{game_id}/"
@@ -33,33 +33,28 @@ def _request_decorator(func):
         else:
             namespaces = socket_io.namespace_handlers
 
-        game_data = None
+        registered = False
         for namespace in namespaces:
             if namespace == game_namespace:
-                game_data = namespace.game_data
+                registered = True
                 break
 
-        registered = game_data is not None
-
         database: Database = flask.current_app.config["DATABASE"]
-        with database as session:
+        with database:
             # Ensure user is logged in or redirect to login
             if get_user_details() is None:
                 return redirect_to_login(f"presenter.{func.__name__}", game_id=game_id)
     
-            if not registered:
-                # Retrieve the game data for the given game ID or abort if it is missing
-                game_data = database.get_game_from_id(game_id)
-                if game_data is None:
-                    return flask.abort(404)
-            else:
-                session.add(game_data)
+            # Retrieve the game data for the given game ID or abort if it is missing
+            game_data = database.get_game_from_id(game_id)
+            if game_data is None:
+                return flask.abort(404)
 
             if not registered:
                 socket_io.on_namespace(GameSocketHandler(game_namespace, game_data))
 
             # Inject game data to the route handler
-            return func(game_data, *remain, **kwargs)
+            return func(game_data=game_data, *args, **kwargs)
 
     wrapper.__setattr__("__name__", func.__name__)
 
@@ -68,10 +63,10 @@ def _request_decorator(func):
 @presenter_page.route("/<game_id>")
 @_request_decorator
 def lobby(game_data: Game):
-    join_url = f"https://mhooge.com/jeoparty/{game_data.id}"
+    join_url = f"mhooge.com/jeoparty/{game_data.join_code}"
 
     data_path = get_data_path_for_question_pack(game_data.pack_id, False)
-    if os.path.exists(os.path.join(STATIC_FOLDER, data_path, "lobby_music.mp3")):
+    if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "lobby_music.mp3")):
         lobby_music_path = os.path.join(data_path, "lobby_music.mp3")
     else:
         lobby_music_path = None
@@ -79,11 +74,18 @@ def lobby(game_data: Game):
     game_data.json["game_id"] = game_data.json["id"]
     del game_data.json["id"]
 
+    lan_mode = (
+        game_data.pack.name.startswith("LoL Jeopardy")
+        and game_data.created_by == Config.ADMIN_ID
+        and False
+    )
+
     return make_template_context(
-        "jeopardy/presenter_lobby.html",
-        **game_data.json,
+        "presenter/lobby.html",
         join_url=join_url,
-        lobby_music=lobby_music_path
+        lan_mode=lan_mode,
+        lobby_music=lobby_music_path,
+        **game_data.json,
     )
 
 def _get_question_answer_sounds(game_data: Game):

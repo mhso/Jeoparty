@@ -10,7 +10,6 @@ from api.orm.models import Contestant, GameContestant
 from app.routes.shared import (
     validate_param,
     get_avatar_path,
-    get_bg_image_path,
 )
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
@@ -33,7 +32,7 @@ def _get_user_id_from_cookie(cookies) -> str:
     return cookies.get(_COOKIE_ID)
 
 def _validate_join_params(params: Dict[str, Any]) -> Contestant | str:
-    name, error = validate_param(params, "name", str, 1, 32)
+    name, error = validate_param(params, "name", str, 2, 16)
     if error:
         return error
 
@@ -41,8 +40,8 @@ def _validate_join_params(params: Dict[str, Any]) -> Contestant | str:
     if error:
         return error
 
-    if "game_id" not in params:
-        return "Failed to join: Game ID is missing"
+    if "join_code" not in params:
+        return "Failed to join: Lobby ID is missing"
 
     if not "default_avatar" in flask.request.form and "avatar" in flask.request.files:
         file = flask.request.files["avatar"]
@@ -75,24 +74,27 @@ def join_lobby():
     database: Database = flask.current_app.config["DATABASE"]
 
     contestant_model_or_error = _validate_join_params(flask.request.form)
+    join_code = flask.request.form.get("join_code")
 
     if not isinstance(contestant_model_or_error, Contestant) and contestant_model_or_error is not None:
-        return flask.redirect(flask.url_for(".create_game", error=contestant_model_or_error, _external=True))
+        if join_code is None:
+            return flask.abort(400)
 
-    game_id = flask.request.form["game_id"]
+        return flask.redirect(flask.url_for(".lobby", join_code=join_code, error=contestant_model_or_error, _external=True))
+
     user_id = flask.request.form.get("user_id")
 
     with database:
-        game_data = database.get_game_from_id(game_id)
+        game_data = database.get_game_from_code(join_code)
         if game_data is None:
             return flask.redirect(
-                flask.url_for(".lobby", error="Failed to join: Game does not exist")
+                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Game does not exist")
             )
 
         index = len(game_data.game_contestants)
         if index == game_data.max_contestants:
             return flask.redirect(
-                flask.url_for(".lobby", error="Failed to join: Lobby is already full")
+                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Lobby is already full")
             )
 
         # Try to get existitng user
@@ -119,17 +121,17 @@ def join_lobby():
         if not "default_avatar" in flask.request.form and "avatar" in flask.request.files:
             contestant_model_or_error.avatar = _save_contestant_avatar(flask.request.files["avatar"], user_id)
 
-        database.save_contenstant(contestant_model_or_error)
+        database.save_or_update(contestant_model_or_error, existing_model)
 
         if not user_already_joined:
             # If user isn't already in the game, add them
             game_contestant_model = GameContestant(
-                game_id=game_id,
+                game_id=game_data.id,
                 contestant_id=contestant_model_or_error.id
             )
             database.add_contestant_to_game(game_contestant_model)
 
-    response = flask.redirect(flask.url_for(".game_view", _external=True))
+    response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
 
     # Save user ID to cookie
     cookie_id, data, max_age = _save_user_id_to_cookie(contestant_model_or_error.id)
@@ -137,19 +139,19 @@ def join_lobby():
 
     return response
 
-@contestant_page.route("/game/<game_id>")
+@contestant_page.route("/<game_id>/game")
 def game_view(game_id: str):
     user_id = _get_user_id_from_cookie(flask.request.cookies)
-
-    # Validate that user_id is saved as a cookie
-    if user_id is None:
-        return flask.redirect(flask.url_for(".lobby", _external=True, game_id=game_id))
 
     database: Database = flask.current_app.config["DATABASE"]
 
     game_data = database.get_game_from_id(game_id)
     if game_data is None:
         return make_template_context("contestant/nogame.html")
+
+    # Validate that user_id is saved as a cookie
+    if user_id is None:
+        return flask.redirect(flask.url_for(".lobby", join_code=game_data.join_code, _external=True))
 
     # Find the game contestant matching the given user_id
     game_contestant_data = game_data.get_contestant(user_id)
@@ -176,7 +178,7 @@ def game_view(game_id: str):
     contestant_data.json["user_id"] = contestant_data.json["id"]
     del contestant_data.json["id"]
 
-    question_num = sum(1 if gq.used else 0 for gq in game_data.questions) + 1
+    question_num = sum(1 if gq.used else 0 for gq in game_data.game_questions) + 1
     total_questions = len(game_data.get_questions_for_round())
 
     return make_template_context(
@@ -190,11 +192,11 @@ def game_view(game_id: str):
         **game_contestant_data.json,
     )
 
-@contestant_page.route("/<game_id>")
-def lobby(game_id: str):
+@contestant_page.route("/<join_code>")
+def lobby(join_code: str):
     database: Database = flask.current_app.config["DATABASE"]
 
-    game_data = database.get_game_from_id(game_id)
+    game_data = database.get_game_from_code(join_code)
     if game_data is None:
         return make_template_context("contestant/nogame.html")
 
@@ -210,9 +212,9 @@ def lobby(game_id: str):
     error = flask.request.args.get("error")
 
     return make_template_context(
-        "jeopardy/contestant_lobby.html",
+        "contestant/lobby.html",
         **user_data,
-        game_id=game_id,
+        join_code=join_code,
         has_password=game_data.password is not None,
         error=error,
     )

@@ -1,28 +1,8 @@
 // Create socket bound to specific game ID.
 // 'game_id' is defined before this JS file is imported
-const socket = io({"transports": ["websocket", "polling"]}).of(game_id);
+const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"]});
 
 var pingActive = true;
-
-function setRandomColor() {
-    let colorInput = document.getElementById("contestant-lobby-color");
-
-    let randRed = (Math.random() * 255).toString(16).split(".")[0];
-    if (randRed == "0") {
-        randRed = "00";
-    }
-    let randGreen = (Math.random() * 255).toString(16).split(".")[0];
-    if (randGreen == "0") {
-        randGreen = "00";
-    }
-    let randBlue = (Math.random() * 255).toString(16).split(".")[0];
-    if (randBlue == "0") {
-        randBlue = "00";
-    }
-
-    colorInput.type = "color";
-    colorInput.value = `#${randRed}${randGreen}${randBlue}`;
-}
 
 function makeDailyDoubleWager(playerId) {
     let btn = document.getElementById("contestant-wager-btn");

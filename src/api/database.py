@@ -1,14 +1,13 @@
 from datetime import datetime
 import json
 from typing import List
-import traceback
 
-from sqlalchemy import select, delete, update
+from sqlalchemy import select, delete, update, func
 from sqlalchemy.orm import selectinload, Session
 
 from mhooge_flask.database import SQLAlchemyDatabase
 
-from api.config import ROUND_NAMES, FINALE_NAME
+from api.config import Config
 from api.enums import StageType
 from api.orm.models import *
 
@@ -25,8 +24,8 @@ def row_factory(cursor, row):
     return {key: format_value(key, value) for key, value in zip(fields, row)}
 
 class Database(SQLAlchemyDatabase):
-    def __init__(self):
-        super().__init__("../resources/database.db", "api/orm", True)
+    def __init__(self, db_file="database.db"):
+        super().__init__(f"{Config.RESOURCES_FOLDER}/{db_file}", "api/orm", True)
 
     def get_questions_for_user(self, user_id: str, pack_id: str = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:
@@ -57,24 +56,47 @@ class Database(SQLAlchemyDatabase):
         with self as session:
             statement = select(Game).options(
                 selectinload(Game.pack).options(
-                    selectinload(QuestionPack.rounds), selectinload(QuestionPack.buzzer_sounds)
-                ).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions)
+                    selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
+                    selectinload(QuestionPack.buzzer_sounds)
+                )
             ).options(
-                selectinload(Game.questions).selectinload(GameQuestion.question)
+                selectinload(Game.game_questions).selectinload(GameQuestion.question)
             ).options(
                 selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
-            ).options(
-                selectinload(Game.power_ups)
             ).filter(Game.id == game_id)
 
             return session.execute(statement).scalar_one()
+
+    def get_game_from_code(self, join_code: str):
+        with self as session:
+            statement = select(Game).options(
+                selectinload(Game.pack).options(
+                    selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
+                    selectinload(QuestionPack.buzzer_sounds)
+                )
+            ).options(
+                selectinload(Game.game_questions).selectinload(GameQuestion.question)
+            ).options(
+                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
+            ).filter(Game.join_code == join_code)
+
+            return session.execute(statement).scalar_one()
+
+    def get_unique_join_code(self, join_code: str):
+        with self as session:
+            statement = select(func.count).select_from(Game).where(Game.join_code == join_code)
+            count = session.execute(statement).scalar()
+            if not count:
+                return join_code
+
+            return f"{join_code}_{count}"
 
     def get_games_for_user(self, user_id: str):
         with self as session:
             statement = select(Game).options(
                 selectinload(Game.pack).selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions)
             ).options(
-                selectinload(Game.questions).selectinload(GameQuestion.question)
+                selectinload(Game.game_questions).selectinload(GameQuestion.question)
             ).options(
                 selectinload(Game.game_contestants).selectinload(GameContestant.power_ups).selectinload(GamePowerUp.power_up)
             ).filter(Game.created_by == user_id)
@@ -104,9 +126,9 @@ class Database(SQLAlchemyDatabase):
 
             rounds_to_create = []
             if pack_model.rounds == []:
-                rounds_to_create = [(1, ROUND_NAMES[0])]
+                rounds_to_create = [(1, Config.ROUND_NAMES[0])]
                 if pack_model.include_finale:
-                    rounds_to_create.append((2, FINALE_NAME))
+                    rounds_to_create.append((2, Config.FINALE_NAME))
 
             for (round_num, name) in rounds_to_create:
                 session.add(QuestionRound(pack_id=pack_model.id, name=name, round=round_num))
@@ -134,12 +156,46 @@ class Database(SQLAlchemyDatabase):
             session.commit()
             session.refresh(game_model)
 
-    def save_model(self, model: Base):
+    def _get_update_statement(self, old_model: Base, new_model: Base, id_key: str = "id"):
+        changed_columns = {}
+        for c in old_model.__table__.columns:
+            key = c.name
+            if key == id_key:
+                continue
+
+            old_value = getattr(old_model, key)
+            new_value = getattr(new_model, key)
+
+            if old_value != new_value:
+                changed_columns[key] = new_value
+
+        if changed_columns == {}:
+            return None
+
+        _class = type(old_model)
+        return update(_class).where(getattr(_class, id_key) == getattr(old_model, id_key)).values(**changed_columns)
+
+    def save_or_update(self, model: Base, old_model: Base | None = None, id_key: str = "id"):
         with self as session:
-            session.add(model)
+            update_stmt = None
+            if old_model is not None:
+                update_stmt = self._get_update_statement(old_model, model, id_key)
+
+            if update_stmt is None:
+                session.add(model)
+            else:
+                session.execute(update_stmt)
+
+            session.commit()
+            session.refresh(model)
+
+    def save_models(self, *models: Base | List[Base]):
+        with self as session:
+            session.add_all(models)
             session.commit()
 
-            session.refresh(model)
+            for model in models:
+                session.refresh(model)
 
     def save_game(self, game_model: Game):
         if game_model.stage is StageType.ENDED:
@@ -199,25 +255,6 @@ class Database(SQLAlchemyDatabase):
         session.add(model_instance)
 
         return model_instance
-
-    def _get_update_statement(self, old_model: Base, new_model: Base, id_key: str = "id"):
-        changed_columns = {}
-        for c in old_model.__table__.columns:
-            key = c.name
-            if key == id_key:
-                continue
-
-            old_value = getattr(old_model, key)
-            new_value = getattr(new_model, key)
-
-            if old_value != new_value:
-                changed_columns[key] = new_value
-
-        if changed_columns == {}:
-            return None
-
-        _class = type(old_model)
-        return update(_class).where(getattr(_class, id_key) == getattr(old_model, id_key)).values(**changed_columns)
 
     def update_question_pack(self, data: Dict[str, Any]):
         data_to_delete = []

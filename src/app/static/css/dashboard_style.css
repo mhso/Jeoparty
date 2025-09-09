@@ -105,8 +105,8 @@
 
 #dashboard-inner-wrapper {
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    flex-direction: row;
+    justify-content: center;
 }
 
 #dashboard-games-list, #dashboard-questions-list {
@@ -119,13 +119,23 @@
     border-radius: 20px;
 }
 
-#dashboard-inner-wrapper > div > h2 {
+#dashboard-games-data, #dashboard-questions-data {
+    overflow-y: auto;
+    max-height: 50vh;
+}
+
+#dashboard-inner-wrapper > div > h3 {
     margin: 0;
     margin-bottom: 15px;
 }
 
 #dashboard-games-list {
     margin-bottom: 20px;
+    margin-right: 15px;
+}
+
+#dashboard-questions-list {
+    margin-left: 15px;
 }
 
 #dashboard-questions-list-empty, #dashboard-game-list-empty {
@@ -138,20 +148,24 @@
     margin-bottom: 20px;
 }
 
-.dashboard-questions-entry-wrapper {
+.dashboard-questions-entry-wrapper, .dashboard-game-entry-wrapper {
     cursor: pointer;
     border: 2px solid white;
     background-color: #0c0c98;
     padding: 10px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
 }
 
-.dashboard-questions-entry-wrapper:hover {
+.dashboard-questions-entry-wrapper:hover, .dashboard-game-entry-wrapper:hover {
     filter: brightness(0.8);
 }
 
 .dashboard-questions-entry-wrapper > h3 {
     text-align: center;
     margin-top: 0;
+    font-weight: bold;
 }
 
 .dashboard-question-entry-public.pack-public {
@@ -176,6 +190,7 @@
     CREATE GAME
 */
 #create-game-wrapper {
+    min-width: 350px;
     margin-top: 5vh;
     display: inline-flex;
     flex-direction: column;
@@ -225,24 +240,30 @@
 /*
     QUESTION PACK
 */
+#question-pack-outer-wrapper {
+    display: flex;
+    align-items: center;
+}
+
 #question-pack-wrapper {
     position: relative;
-    width: 30vw;
+    display: inline-block;
     min-width: 350px;
+    max-width: 90vw;
     margin: 0 auto;
     margin-top: 5vh;
-    text-align: left;
+    text-align: center;
     color: white;
     z-index: 10;
     padding: 20px;
     background-color: #2139bc;
     border: solid 2px black;
     border-radius: 20px;
-    text-align: center;
 }
 
 #question-pack-wrapper .input-field {
     width: 100%;
+    text-align: center;
 }
 
 @keyframes popup-animate {
@@ -333,6 +354,8 @@
 
 #question-pack-name {
     font-size: 20px;
+    max-width: 400px;
+    text-align: center;
 }
 
 .question-pack-round-select-finale {
@@ -365,6 +388,21 @@
     flex-shrink: 1;
 }
 
+.question-pack-category-header {
+    position: relative;
+}
+
+.question-pack-delete-category-btn {
+    position: absolute;
+    right: 8px;
+    top: 0;
+    background-color: transparent;
+    color: white;
+    cursor: pointer;
+    border: none;
+    font-size: 18px;
+}
+
 .question-pack-category-name, .question-pack-question-wrapper {
     color: white;
     background-color: rgb(15, 12, 118);
@@ -386,14 +424,21 @@
 }
 
 .question-pack-question-wrapper:hover {
-    filter: brightness(0.8);
+    filter: brightness(1.4);
 }
 
 .question-pack-add-question-btn, .question-pack-add-category-btn {
     position: relative;
-    border: 2px dotted gray;
+    border: 2px dashed #ddd;
     cursor: pointer;
     font-weight: bold;
+    background-color: transparent;
+    color: white;
+    font-size: 15px;
+}
+
+.question-pack-add-question-btn:hover, .question-pack-add-category-btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
 }
 
 .question-pack-add-question-btn {
@@ -516,6 +561,11 @@
     border-radius: 5px;
     border: 2px solid black;
     cursor: pointer;
+}
+
+#question-pack-modal-body > .input-field > input[type="text"] {
+    padding: 8px;
+    font-size: 16px;
 }
 
 #question-pack-modal-footer > button {

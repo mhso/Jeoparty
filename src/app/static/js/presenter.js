@@ -1,6 +1,6 @@
 // Create socket bound to specific game ID.
-// 'game_id' is defined before this JS file is imported
-const socket = io({"transports": ["websocket", "polling"]}).of(game_id);
+// 'GAME_ID' is defined before this JS file is imported
+const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"]});
 const TIME_FOR_ANSWERING = 6;
 const TIME_FOR_DOUBLE_ANSWER = 10;
 const TIME_FOR_WAGERING = 60;

@@ -89,8 +89,8 @@ function syncQuestionData(round, category, question) {
 }
 
 function addQuestion(value, round, category) {
-    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > div`);
-    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > div`);
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
+    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
 
     let question = getNextId(round, category);
     if (question == 0) {
@@ -110,8 +110,8 @@ function addQuestion(value, round, category) {
 }
 
 function deleteQuestion(round, category, question) {
-    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > div`);
-    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > div`);
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
+    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
     let questionElem = categoryWrapper.querySelector(`.question-pack-question-wrapper-${question}`);
 
     if (questionElem != null) {
@@ -152,6 +152,16 @@ function addCategory(round) {
     categoryElem.classList.add("question-pack-category-wrapper");
     categoryElem.classList.add(`question-pack-category-wrapper-${category}`);
 
+    let header = document.createElement("div");
+    header.className = "question-pack-category-header";
+
+    let deleteBtn = document.createElement("button");
+    deleteBtn.className = "question-pack-delete-category-btn";
+    deleteBtn.innerHTML = "&times;";
+    deleteBtn.onclick = function() {
+        deleteCategory(round, category);
+    }
+
     let input = document.createElement("input");
     input.classList.add("question-pack-category-name");
     input.onchange = function() {
@@ -159,6 +169,9 @@ function addCategory(round) {
         dataChanged();
     };
     input.value = "New Category";
+
+    header.appendChild(deleteBtn);
+    header.appendChild(input);
 
     let dataDiv = document.createElement("div");
 
@@ -169,7 +182,7 @@ function addCategory(round) {
         openQuestionModal(round, category, null);
     };
 
-    categoryElem.appendChild(input);
+    categoryElem.appendChild(header);
     categoryElem.appendChild(dataDiv);
     categoryElem.appendChild(addQuestionBtn);
 
@@ -184,7 +197,7 @@ function deleteCategory(round, category) {
     let categoryElem = roundElem.querySelector(`.question-pack-category-wrapper-${category}`);
 
     if (categoryElem != null) {
-        categoryWrapper.removeChild(categoryElem);
+        roundElem.removeChild(categoryElem);
         questionData["rounds"][round]["categories"][category]["deleted"] = true;
         if (questionData["rounds"][round]["categories"].length == 0) {
             let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
@@ -418,7 +431,7 @@ function saveData(packId) {
     let baseURL = getBaseURL();
     let jsonData = JSON.stringify(questionData);
 
-    $.ajax(`${baseURL}/${packId}/save`, 
+    $.ajax(`${baseURL}/pack/${packId}/save`, 
         {
             data: jsonData,
             method: "POST",

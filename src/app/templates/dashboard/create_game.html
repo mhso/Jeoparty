@@ -10,47 +10,42 @@
         <form action="{{ url_for('dashboard.create_game') }}" method="POST">
             <div class="input-field">
                 <label for="title">Lobby Name</label>
-                <input type="text" name="title" minlength="1" maxlength="64" value="{{ user_name }}'s Game">
+                <input id="create-game-title" type="text" name="title" minlength="1" maxlength="64" value="{{ user_name }}'s Game">
             </div>
 
             <div class="input-field">
                 <label for="password">Password</label>
-                <input type="text" name="password">
+                <input id="create-game-password" type="text" name="password" placeholder="Optional password">
             </div>
             
             <div class="input-field">
                 <label for="rounds">Regular Rounds</label>
-                <input type="number" name="rounds" minlength="1" maxlength="9" value="2">
+                <input id="create-game-rounds" type="number" name="rounds" minlength="1" maxlength="9" value="2">
             </div>
 
             <div class="input-field">
                 <label for="contestants">Contestants</label>
-                <input type="number" name="contestants" minlength="1" maxlength="9" value="4">
+                <input id="create-game-contestants" type="number" name="contestants" minlength="1" maxlength="9" value="4">
             </div>
 
             <div class="input-field">
                 <label for="daily_doubles" style="display: inline;">Allow Daily Doubles</label>
-                <input type="checkbox" name="daily_doubles" checked>
+                <input id="create-game-double" type="checkbox" name="daily_doubles" checked>
             </div>
 
             <div class="input-field">
                 <label style="display: inline;" for="power_ups">Allow Power-Ups</label>
-                <input type="checkbox" name="power_ups" checked>
+                <input id="create-game-powers" type="checkbox" name="power_ups" checked>
             </div>
 
             <div class="input-field">
                 <label>Question Pack</label>
-                <select>
+                <select id="create-game-pack" name="pack_id">
                     {% for question_data in questions %}
-                    <option value="{{ question_data['id'] }}">{{ question_data['title'] }}</option>
+                    <option value="{{ question_data['id'] }}">{{ question_data['name'] }}</option>
                     {% endfor %}
                     <option value="missing" selected>Select Pack</option>
                 </select>
-            </div>
-
-            <div class="input-field">
-                <label for="music">Lobby Music</label>
-                <input type="file" name="music">
             </div>
 
             <input type="submit" value="Create" class="default-button">

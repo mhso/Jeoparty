@@ -7,8 +7,8 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship, reconstructor
 
 from mhooge_flask.database import Base
 
-from api.enums import StageType, PowerUpType
-from api.config import REGULAR_ROUNDS
+from api.enums import StageType, PowerUpType, Language
+from api.config import Config
 from app.routes.shared import (
     get_avatar_path,
     get_bg_image_path,
@@ -42,6 +42,7 @@ class QuestionPack(Base):
     name: Mapped[str] = mapped_column(String(64))
     public: Mapped[bool] = mapped_column(Boolean, default=False)
     include_finale: Mapped[bool] = mapped_column(Boolean, default=True)
+    language: Mapped[Optional[Language]] = mapped_column(Enum(Language))
     created_by: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
@@ -117,13 +118,13 @@ class Contestant(Base):
     __tablename__ = "contestants"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    name: Mapped[str] = mapped_column(String(32))
+    name: Mapped[str] = mapped_column(String(16))
     color: Mapped[str] = mapped_column(String(16))
     avatar: Mapped[Optional[str]] = mapped_column(String(128))
     buzz_sound: Mapped[Optional[str]] = mapped_column(String(128))
     bg_image: Mapped[Optional[str]] = mapped_column(String(128))
 
-    game_contestants = relationship("GameContestant", back_populates="contestant", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
+    game_contestants = relationship("GameContestant", back_populates="contestant", cascade="all, delete-orphan", order_by="GameContestant.game_id.asc(), GameContestant.contestant_id.asc()")
 
     @property
     def extra_fields(self):
@@ -202,7 +203,7 @@ class GameQuestion(Base):
     used: Mapped[bool] = mapped_column(Boolean, default=False)
     daily_double: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    game = relationship("Game", back_populates="questions")
+    game = relationship("Game", back_populates="game_questions")
     question = relationship("Question", back_populates="game_questions")
 
 class Game(Base):
@@ -211,29 +212,31 @@ class Game(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
     pack_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_packs.id"))
     title: Mapped[str] = mapped_column(String(64))
-    regular_rounds: Mapped[int] = mapped_column(Integer, default=REGULAR_ROUNDS)
+    join_code: Mapped[str] = mapped_column(String(64))
+    regular_rounds: Mapped[int] = mapped_column(Integer, default=Config.REGULAR_ROUNDS)
     max_contestants: Mapped[int] = mapped_column(Integer)
     use_daily_doubles: Mapped[bool] = mapped_column(Boolean, default=True)
     use_powerups: Mapped[bool] = mapped_column(Boolean, default=True)
     stage: Mapped[StageType] = mapped_column(Enum(StageType), default=StageType.LOBBY)
-    round: Mapped[int] = mapped_column(Integer, default=0)
+    round: Mapped[int] = mapped_column(Integer, default=1)
     password: Mapped[Optional[str]] = mapped_column(String(128))
     created_by: Mapped[str] = mapped_column(String(64))
     started_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=lambda: datetime.now())
 
     pack = relationship("QuestionPack", back_populates="games")
-    questions = relationship("GameQuestion", back_populates="game", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
+    game_questions = relationship("GameQuestion", back_populates="game", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
     game_contestants = relationship("GameContestant", back_populates="game", cascade="all, delete-orphan", order_by="GameContestant.joined_at.asc()")
 
     @property
     def extra_fields(self):
         player_with_turn = self.get_contestant_with_turn()
+        questions_for_round = self.get_questions_for_round()
 
         return {
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
             "player_with_turn": player_with_turn.json if player_with_turn else None,
-            "max_value": max(gq.question.value for gq in self.get_questions_for_round()) if self.questions else 0,
+            "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
         }
 
     def get_contestant(self, contestant_id: str | None) -> GameContestant | None:
@@ -247,7 +250,7 @@ class Game(Base):
         return None
 
     def get_question(self, question_id: str) -> GameQuestion | None:
-        for question in self.questions:
+        for question in self.game_questions:
             if question.question_id == question_id:
                 return question
             
@@ -262,12 +265,12 @@ class Game(Base):
 
     def get_questions_for_round(self) -> List[GameQuestion]:
         return [
-            game_question for game_question in self.questions
+            game_question for game_question in self.game_questions
             if game_question.question.category.round == self.round
         ]
 
     def get_active_question(self) -> GameQuestion | None:
-        for question in self.questions:
+        for question in self.game_questions:
             if question.active:
                 return question
 

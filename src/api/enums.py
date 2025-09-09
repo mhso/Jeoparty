@@ -14,3 +14,7 @@ class PowerUpType(Enum):
     HIJACK = "hijack"
     FREEZE = "freeze"
     REWIND = "rewind"
+
+class Language(Enum):
+    DANISH = "danish"
+    ENGLISH = "english"

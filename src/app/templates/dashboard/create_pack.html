@@ -7,7 +7,7 @@
     <div id="create-pack-wrapper">
         <h1>Create Question Pack</h1>
 
-        <form action="{{ url_for('dashboard.create_pack') }}" method="POST">
+        <form action="{{ url_for('dashboard.create_pack') }}" method="POST" enctype="multipart/form-data">
             <div class="input-field">
                 <label for="name">Pack Name</label>
                 <input type="text" name="name" minlength="1" maxlength="64" value="{{ user_name }}'s Question Pack">
@@ -21,6 +21,11 @@
             <div class="input-field">
                 <label style="display: inline;" for="finale">Include Final Jeopardy</label>
                 <input type="checkbox" name="finale" checked>
+            </div>
+
+             <div class="input-field">
+                <label for="music">Lobby Music</label>
+                <input  id="create-game-music" type="file" name="music" accept=".mp3">
             </div>
 
             <input type="submit" value="Create" class="default-button">

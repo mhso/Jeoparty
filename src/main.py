@@ -1,6 +1,6 @@
 from mhooge_flask.logging import logger
 from mhooge_flask import init
-from mhooge_flask.init import Route
+from mhooge_flask.init import Route, SocketIOServerWrapper
 from mhooge_flask.restartable import restartable
 
 from api.database import Database
@@ -23,6 +23,7 @@ def main():
         f"/{app_name}/",
         routes,
         database,
+        server_cls=SocketIOServerWrapper,
         persistent_variables={"app_name": app_name.capitalize()},
         exit_code=0,
     )

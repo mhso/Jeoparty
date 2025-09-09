@@ -6,134 +6,139 @@
     
     {% include 'logo.html' %}
 
-    <div id="question-pack-wrapper">
-        <div class="input-field">
-            <label for="pack-name">Pack Name</label>
-            <input id="question-pack-name" name="pack-name" type="text" value="{{ name }}" placeholder="Name of Pack" oninput="syncPackName(); dataChanged();">
-        </div>
-
-        <div class="input-field">
-            <label for="pack-public" style="display: inline;">Public</label>
-            <input id="question-pack-public" name="pack-public" type="checkbox"{% if public %} checked{% endif %} onchange="syncPackPublic(); dataChanged();">
-        </div>
-
-        <div class="input-field">
-            <label for="pack-public" for="pack-finale" style="display: inline;">Final Jeopardy</label>
-            <input id="question-pack-finale" name="pack-finale" type="checkbox"{% if include_finale %} checked{% endif %} onchange="syncPackFinale(); dataChanged(); toggleFinale();">
-        </div>
-
-        <div id="question-pack-data-wrapper">
-            <div id="question-pack-data-header">
-                <div>
-                    {% for round_data in rounds -%}
-                    {% if loop.last %}{% set round_name = "Finale" %}{% else %}{% set round_name = "Round " + loop.index | string %}{% endif %}
-                    <button onclick="showRoundView({{ loop.index0 }});" class="question-pack-round-select-button question-pack-round-select-button-{{ loop.index0 }}{% if loop.last %} question-pack-round-select-finale{% if not include_finale %} d-none{% endif %}{% endif %}{% if loop.index == 1 %} question-pack-round-selected{% endif %}"><span>{{ round_name }}</span>{% if not loop.last %} <div onclick="deleteRound(event, {{ loop.index0 }})">&times;</div>{% endif %}</button>
-                    {%- endfor -%}
-                </div>
-
-                <button class="question-pack-add-round-btn" onclick="addRound();">+</button>
+    <div id="question-pack-outer-wrapper">
+        <div id="question-pack-wrapper">
+            <div class="input-field">
+                <label for="pack-name">Pack Name</label>
+                <input id="question-pack-name" name="pack-name" type="text" value="{{ name }}" placeholder="Name of Pack" oninput="syncPackName(); dataChanged();">
             </div>
 
-            <div id="question-pack-data-body">
-                {% for round_data in rounds %}
-                {% set round_num = loop.index0 %}
-                <div class="question-pack-round-wrapper question-pack-round-wrapper-{{ round_num }} d-none">
-                    <input class="question-pack-round-name" value="{{ round_data['name'] }}" onchange="syncRoundData({{ round_num }}); dataChanged();">
+            <div class="input-field">
+                <label for="pack-public" style="display: inline;">Public</label>
+                <input id="question-pack-public" name="pack-public" type="checkbox"{% if public %} checked{% endif %} onchange="syncPackPublic(); dataChanged();">
+            </div>
 
+            <div class="input-field">
+                <label for="pack-public" for="pack-finale" style="display: inline;">Final Jeopardy</label>
+                <input id="question-pack-finale" name="pack-finale" type="checkbox"{% if include_finale %} checked{% endif %} onchange="syncPackFinale(); dataChanged(); toggleFinale();">
+            </div>
+
+            <div id="question-pack-data-wrapper">
+                <div id="question-pack-data-header">
                     <div>
-                        {% for category_data in round_data["categories"] %}
-                        {% set category_num = loop.index0 %}
-                        <div class="question-pack-category-wrapper question-pack-category-wrapper-{{ category_num }}">
-                            <input class="question-pack-category-name" value="{{ category_data['name'] }}" onchange="syncCategoryData({{ round_num }}, {{ category_num }}); dataChanged();">
-        
-                            <div>
-                                {% for question_data in category_data["questions"] %}
-                                <input class="question-pack-question-wrapper question-pack-question-wrapper-{{ loop.index0 }}" onclick="openQuestionModal({{ round_num }}, {{ category_num }}, {{ loop.index0 }})" value="{{ question_data['value'] }}" readonly>
-                                {% endfor %}
-                            </div>
-                            <button class="question-pack-add-question-btn" onclick="openQuestionModal({{ round_num }}, {{ category_num }}, null)">+</button>
-                        </div>
-                        {% endfor -%}
+                        {% for round_data in rounds -%}
+                        {% if loop.last %}{% set round_name = "Finale" %}{% else %}{% set round_name = "Round " + loop.index | string %}{% endif %}
+                        <button onclick="showRoundView({{ loop.index0 }});" class="question-pack-round-select-button question-pack-round-select-button-{{ loop.index0 }}{% if loop.last %} question-pack-round-select-finale{% if not include_finale %} d-none{% endif %}{% endif %}{% if loop.index == 1 %} question-pack-round-selected{% endif %}"><span>{{ round_name }}</span>{% if not loop.last %} <div onclick="deleteRound(event, {{ loop.index0 }})">&times;</div>{% endif %}</button>
+                        {%- endfor -%}
                     </div>
 
-                    <div class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}">Add a category below to get started!</div>
-
-                    <button class="question-pack-add-category-btn" onclick="addCategory({{ round_num }});">+</button>
+                    <button class="question-pack-add-round-btn" onclick="addRound();">+</button>
                 </div>
-                {% endfor %}
+
+                <div id="question-pack-data-body">
+                    {% for round_data in rounds %}
+                    {% set round_num = loop.index0 %}
+                    <div class="question-pack-round-wrapper question-pack-round-wrapper-{{ round_num }} d-none">
+                        <input class="question-pack-round-name" value="{{ round_data['name'] }}" onchange="syncRoundData({{ round_num }}); dataChanged();">
+
+                        <div class="question-pack-round-body">
+                            {% for category_data in round_data["categories"] %}
+                            {% set category_num = loop.index0 %}
+                            <div class="question-pack-category-wrapper question-pack-category-wrapper-{{ category_num }}">
+                                <div class="question-pack-category-header">
+                                    <button class="question-pack-delete-category-btn" onclick="deleteCategory({{ round_num }}, {{ category_num }})">&times;</button>
+                                    <input class="question-pack-category-name" value="{{ category_data['name'] }}" onchange="syncCategoryData({{ round_num }}, {{ category_num }}); dataChanged();">
+                                </div>
+            
+                                <div class="question-pack-category-body">
+                                    {% for question_data in category_data["questions"] %}
+                                    <input class="question-pack-question-wrapper question-pack-question-wrapper-{{ loop.index0 }}" onclick="openQuestionModal({{ round_num }}, {{ category_num }}, {{ loop.index0 }})" value="{{ question_data['value'] }}" readonly>
+                                    {% endfor %}
+                                </div>
+                                <button class="question-pack-add-question-btn" onclick="openQuestionModal({{ round_num }}, {{ category_num }}, null)">+</button>
+                            </div>
+                            {% endfor -%}
+                        </div>
+
+                        <div class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}">Add a category below to get started!</div>
+
+                        <button class="question-pack-add-category-btn" onclick="addCategory({{ round_num }});">+</button>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
+            
+            <button id="question-pack-save-btn" class="default-button" disabled="true" onclick="saveData('{{ id }}');">
+                <div class="save-btn-regular">Save</div>
+                <div class="save-btn-pending d-none">
+                    <div class="loading-icon"></div>
+                </div>
+                <div class="save-btn-success d-none">
+                    <img src="{{ url_for('static', filename='img/success.png') }}">
+                </div>
+                <div class="save-btn-fail d-none">
+                    <img src="{{ url_for('static', filename='img/error.png') }}">
+                </div>
+            </button>
         </div>
         
-        <button id="question-pack-save-btn" class="default-button" disabled="true" onclick="saveData('{{ id }}');">
-            <div class="save-btn-regular">Save</div>
-            <div class="save-btn-pending d-none">
-                <div class="loading-icon"></div>
-            </div>
-            <div class="save-btn-success d-none">
-                <img src="{{ url_for('static', filename='img/success.png') }}">
-            </div>
-            <div class="save-btn-fail d-none">
-                <img src="{{ url_for('static', filename='img/error.png') }}">
-            </div>
-        </button>
-    </div>
-    
-    <!-- Popup -->
-    <div id="question-pack-popup" class="d-none"></div>
+        <!-- Popup -->
+        <div id="question-pack-popup" class="d-none"></div>
 
-    <!-- Question Modal -->
-    <div id="question-pack-modal-wrapper" class="d-none">
-        <div id="question-pack-modal">
-            <div id="question-pack-modal-header">
-                <h2><span id="question-pack-modal-action"></span> <span id="question-pack-modal-category"></span></h2>
-                <button onclick="closeQuestionModal();">&times;</button>
-            </div>
-    
-            <div id="question-pack-modal-body">
-                <div class="input-field">
-                    <label for="modal-question">Question</label>
-                    <input id="question-pack-modal-question" name="modal-question" type="text">
+        <!-- Question Modal -->
+        <div id="question-pack-modal-wrapper" class="d-none">
+            <div id="question-pack-modal">
+                <div id="question-pack-modal-header">
+                    <h2><span id="question-pack-modal-action"></span> <span id="question-pack-modal-category"></span></h2>
+                    <button onclick="closeQuestionModal();">&times;</button>
                 </div>
-    
-                <div class="input-field">
-                    <label for="modal-answer">Answer</label>
-                    <input id="question-pack-modal-answer" name="modal-answer" type="text">
-                </div>
+        
+                <div id="question-pack-modal-body">
+                    <div class="input-field">
+                        <label for="modal-question">Question</label>
+                        <input id="question-pack-modal-question" name="modal-question" type="text">
+                    </div>
+        
+                    <div class="input-field">
+                        <label for="modal-answer">Answer</label>
+                        <input id="question-pack-modal-answer" name="modal-answer" type="text">
+                    </div>
 
-                <div class="input-field">
-                    <label for="modal-value">Value</label>
-                    <input type="number" min="1" max="10000" id="question-pack-modal-value" name="modal-value">
-                </div>
-                
-                <div class="input-field">
-                    <label for="modal-value">Buzz Time (seconds)</label>
-                    <input type="number" min="3" max="60" id="question-pack-modal-buzztime" name="modal-buzztime">
-                </div>
-        
-                <div class="input-field">
-                    <label for="multiple_choice" style="display: inline;">Multiple Choice</label>
-                    <input id="question-pack-modal-multiple_choice" name="modal-multiple_choice" type="checkbox" onchange="modalSetMultipleChoice()">
-                </div>
+                    <div class="input-field">
+                        <label for="modal-value">Value</label>
+                        <input type="number" min="1" max="10000" id="question-pack-modal-value" name="modal-value">
+                    </div>
+                    
+                    <div class="input-field">
+                        <label for="modal-value">Buzz Time (seconds)</label>
+                        <input type="number" min="3" max="60" id="question-pack-modal-buzztime" name="modal-buzztime">
+                    </div>
+            
+                    <div class="input-field">
+                        <label for="multiple_choice" style="display: inline;">Multiple Choice</label>
+                        <input id="question-pack-modal-multiple_choice" name="modal-multiple_choice" type="checkbox" onchange="modalSetMultipleChoice()">
+                    </div>
 
-                <div id="question-pack-modal-choices" class="d-none">
-                    <div></div>
-                    <button onclick="modalAddAnswerChoice()">+</button>
+                    <div id="question-pack-modal-choices" class="d-none">
+                        <div></div>
+                        <button onclick="modalAddAnswerChoice()">+</button>
+                    </div>
+            
+                    <div id="question-pack-modal-image">
+            
+                    </div>
+                    <div id="question-pack-modal-video">
+            
+                    </div>
+                    <div id="question-pack-modal-answer_image">
+            
+                    </div>
                 </div>
         
-                <div id="question-pack-modal-image">
-        
+                <div id="question-pack-modal-footer">
+                    <button id="question-pack-modal-save-btn" class="default-button">OK</button>
+                    <button id="question-pack-modal-delete-btn" class="default-button">Delete</button>
                 </div>
-                <div id="question-pack-modal-video">
-        
-                </div>
-                <div id="question-pack-modal-answer_image">
-        
-                </div>
-            </div>
-    
-            <div id="question-pack-modal-footer">
-                <button id="question-pack-modal-save-btn" class="default-button">OK</button>
-                <button id="question-pack-modal-delete-btn" class="default-button">Delete</button>
             </div>
         </div>
     </div>

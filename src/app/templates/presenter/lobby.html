@@ -1,23 +1,34 @@
 <!DOCTYPE html>
 <html>
-    {% include 'head.html' %}
+    {% include 'presenter/head.html' %}
     
     <body>
         <div id="bg-image"></div>
 
         <div id="menu-wrapper">
-            {% include 'jeopardy/logo.html' %}
+            {% include 'logo.html' %}
             <h2>{{ title }}</h2>
 
-            <div id="menu-lobby-url">Go to <span id="menu-join-url">{{ join_url }}</span>{% if password %} and provide the password{% endif %} to join!</div>
+            {% if lan_mode %}
+            <div id="menu-lobby-url">
+                Skriv <span id="menu-join-command">!jeopardy</span> i <strong>CoreNibbas</strong> for at joine!
+            </div>
+            {% else %}
+            <div id="menu-lobby-url">
+                <div>Go to:</div>
+                <span id="menu-join-url">{{ join_url }}</span>
+                <div>{% if password %} and provide the password{% endif %} to join!</div>
+            </div>
+            {% endif %}
 
             <h3>Contestants</h3>
             <div id="menu-contestants">
                 {% if not game_contestants %}
-                <p id="menu-no-contestants-placeholder">Nobody yet...</p>
+                <p id="menu-no-contestants-placeholder">None yet...</p>
                 {% endif %}
             </div>
 
+            {% if lan_mode %}
             <img id="menu-naafiri" src="{{ url_for('static', _external=True, filename='img/naafiri_dance.gif') }}">
             <img id="menu-alistar" src="{{ url_for('static', _external=True, filename='img/alistar_dance.gif') }}">
             <img id="menu-teemo" src="{{ url_for('static', _external=True, filename='img/teemo_dance.gif') }}">
@@ -26,13 +37,14 @@
             <img id="menu-nidalee" src="{{ url_for('static', _external=True, filename='img/nidalee_dance.gif') }}">
             <img id="menu-quinn" src="{{ url_for('static', _external=True, filename='img/quinn_thonk.gif') }}">
             <img id="menu-vi" src="{{ url_for('static', _external=True, filename='img/vi_point.gif') }}">
+            {% endif %}
         </div>
 
         {% if lobby_music %}
         <audio id="menu-lobby-music" loop>
             <source src="{{ url_for('static', _external=True, filename=lobby_music) }}" type="audio/mpeg">
         </audio>
-        {% if lobby_music %}
+        {% endif %}
     </body>
 
     <script>

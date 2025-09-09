@@ -9,13 +9,13 @@
             <form action="{{ url_for('contestant.join_lobby', _external=True) }}" method="post">
                 <div id="contestant-lobby-avatar-wrapper">
                     {% if is_default_avatar %}
-                    <input type="hidden" name="default_avatar" value="1">
+                    <input id="contestant-lobby-default-avatar" type="hidden" name="default_avatar" value="1">
                     {% endif %}
-                    <input id="contestant-lobby-avatar-input" type="file" name="avatar" value="{{ avatar }}">
+                    <input id="contestant-lobby-avatar-input" type="file" name="avatar" accept=".png, .jpeg, .jpg, .webp" onchange="updateAvatarImg();">
                     <img id="contestant-lobby-avatar-img" src="{{ avatar }}">
                 </div>
     
-                <input id="contestant-lobby-name" name="name" required value="{{ player_name }}" maxlength="10" placeholder="Dit Navn">
+                <input id="contestant-lobby-name" name="name" required value="{{ player_name }}" maxlength="16" placeholder="Dit Navn">
 
                 <input id="contestant-lobby-color" name="color" type="color">
 
@@ -24,22 +24,23 @@
                 <input id="contestant-lobby-password" name="password" type="password">
                 {% endif %}
 
-                {% if error %}
-                <div id="contestant-lobby-error">{{ error }}</div>
+                
+                {% if id %}
+                <input name="user_id" type="hidden" value="{{ id }}">
                 {% endif %}
-
-                {% if user_id %}
-                <input name="user_id" type="hidden" value="{{ user_id }}">
-                {% endif %}
-                <input name="game_id" type="hidden" value="{{ game_id }}">
-    
+                <input name="join_code" type="hidden" value="{{ join_code }}">
+                
                 <input id="contestant-lobby-join" type="submit" value="Join">
             </form>
 
+            {% if error %}
+            <div id="contestant-lobby-error">{{ error }}</div>
+            {% endif %}
         </div>
     </body>
     
     <script>
+        // Set random contestant color
         setRandomColor();
     </script>
 </html>
