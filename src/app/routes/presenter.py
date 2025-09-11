@@ -27,7 +27,6 @@ def _request_decorator(func):
         game_id = kwargs.pop("game_id")
 
         # Setup socket namespace for the given game
-        game_namespace = f"{game_id}/"
         if socket_io.server:
             namespaces = socket_io.server.namespace_handlers
         else:
@@ -35,23 +34,27 @@ def _request_decorator(func):
 
         registered = False
         for namespace in namespaces:
-            if namespace == game_namespace:
+            if namespace == f"/{game_id}":
                 registered = True
                 break
 
         database: Database = flask.current_app.config["DATABASE"]
         with database:
             # Ensure user is logged in or redirect to login
-            if get_user_details() is None:
+            if (user_details := get_user_details()) is None:
                 return redirect_to_login(f"presenter.{func.__name__}", game_id=game_id)
-    
+
             # Retrieve the game data for the given game ID or abort if it is missing
             game_data = database.get_game_from_id(game_id)
             if game_data is None:
                 return flask.abort(404)
 
+            # Verify the user actually created the game
+            if user_details[0] != game_data.created_by:
+                return flask.abort(401)
+
             if not registered:
-                socket_io.on_namespace(GameSocketHandler(game_namespace, game_data))
+                socket_io.on_namespace(GameSocketHandler(game_data.id))
 
             # Inject game data to the route handler
             return func(game_data=game_data, *args, **kwargs)
@@ -67,12 +70,12 @@ def lobby(game_data: Game):
 
     data_path = get_data_path_for_question_pack(game_data.pack_id, False)
     if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "lobby_music.mp3")):
-        lobby_music_path = os.path.join(data_path, "lobby_music.mp3")
+        lobby_music_path = f"{data_path}/lobby_music.mp3"
     else:
         lobby_music_path = None
 
-    game_data.json["game_id"] = game_data.json["id"]
-    del game_data.json["id"]
+    # Get game JSON data with nested contestant data
+    game_json = _dump_game_to_json(game_data)
 
     lan_mode = (
         game_data.pack.name.startswith("LoL Jeopardy")
@@ -85,7 +88,7 @@ def lobby(game_data: Game):
         join_url=join_url,
         lan_mode=lan_mode,
         lobby_music=lobby_music_path,
-        **game_data.json,
+        **game_json,
     )
 
 def _get_question_answer_sounds(game_data: Game):
@@ -116,7 +119,19 @@ def _get_question_answer_sounds(game_data: Game):
 
     return correct_sound, wrong_sounds
 
-@presenter_page.route("<game_id>/question")
+def _dump_game_to_json(game_data: Game):
+    game_json = game_data.dump(id="game_id")
+    game_json["game_contestants"] = []
+
+    # Handle contestants and their power-ups
+    for contestant_data in game_data.game_contestants:
+        contestant_json = contestant_data.dump()
+        del contestant_json["game"]
+        game_json["game_contestants"].append(contestant_json)
+
+    return game_json
+
+@presenter_page.route("/<game_id>/question")
 @_request_decorator
 def question(game_data: Game):
     database: Database = flask.current_app.config["DATABASE"]
@@ -127,12 +142,12 @@ def question(game_data: Game):
         return flask.redirect(flask.url_for(".selection", game_id=game_data.id))
 
     is_daily_double = game_data.use_daily_doubles and game_question.daily_double
-    question_data = game_question.question
-    question_data.json["daily_double"] = game_question.daily_double
+    question_json = game_question.question.dump(id="question_id")
+    question_json["daily_double"] = game_question.daily_double
 
     # If question is multiple-choice, randomize order of choices
-    if "choices" in question_data.extra:
-        random.shuffle(question_data.json["extra"]["choices"])
+    if "choices" in question_json.extra:
+        random.shuffle(question_json["extra"]["choices"])
 
     # Set stage to 'question' or 'finale_question'
     game_data.stage = StageType.FINALE_QUESTION if game_data.stage == StageType.FINALE_WAGER else StageType.QUESTION
@@ -152,14 +167,8 @@ def question(game_data: Game):
     correct_sound, wrong_sounds = _get_question_answer_sounds(game_data)
     power_ups = [power.value for power in PowerUpType]
 
-    # Get videos that play when a power-up is used
-
-    # Make sure no dictionary keys conflict
-    game_data.json["game_id"] = game_data.json["id"]
-    del game_data.json["id"]
-
-    question_data.json["question_id"] = question_data.json["id"]
-    del question_data.json["id"]
+    # Get game JSON data with nested contestant data
+    game_json = _dump_game_to_json(game_data)
 
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
@@ -170,11 +179,11 @@ def question(game_data: Game):
         wrong_sounds=wrong_sounds,
         power_ups=power_ups,
         daily_double=is_daily_double,
-        **game_data.json,
-        **question_data.json,
+        **game_json,
+        **question_json,
     )
 
-@presenter_page.route("<game_id>/selection")
+@presenter_page.route("/<game_id>/selection")
 @_request_decorator
 def selection(game_data: Game):
     database: Database = flask.current_app.config["DATABASE"]
@@ -198,7 +207,7 @@ def selection(game_data: Game):
         # Round done, onwards to the next one!
         game_data.round += 1
 
-        if game_data.round > game_data.regular_rounds + 1:
+        if game_data.round > game_data.regular_rounds:
             if not game_data.pack.include_finale:
                 # No finale, so game is over. Redirect directly to endscreen
                 return flask.redirect(flask.url_for(".endscreen", game_id=game_data.id))
@@ -223,45 +232,50 @@ def selection(game_data: Game):
         # Set the single finale question as the active question
         game_questions[0].active = True
 
-    first_round = False
+    first_round = not previous_question and game_data.round == 1 and game_data.get_contestant_with_turn() is None
     if not previous_question or end_of_round and not is_finale and game_data.use_daily_doubles:
         # If it's the first question of a new round, select random questions to be daily doubles
-        first_round = game_data.get_contestant_with_turn() is None
         questions_copy = list(game_questions)
         random.shuffle(questions_copy)
 
-        for game_question in questions_copy[:game_data.round + 1]:
+        for game_question in questions_copy[:game_data.round]:
             game_question.daily_double = True
 
+        # Reset used power-ups
+        for contestant in game_data.game_contestants:
+            for power_up in contestant.power_ups:
+                power_up.used = False
+
+            database.save_models(*contestant.power_ups)
+
     # TODO: Handle case where there are not enough questions for the given round
-    round_data = game_data.pack.rounds[game_data.round]
+    round_data = game_data.pack.rounds[game_data.round - 1]
+    round_json = round_data.dump(id="round_id")
+    del round_json["pack"]
+    del round_json["round"]
+    round_json["categories"] = []
+
     game_questions = game_data.get_questions_for_round()
-    for category in round_data.json["categories"]:
-        for question in category["questions"]:
+    for category in round_data.categories:
+        category_json = category.dump(id="category_id")
+        category_json["questions"] = []
+
+        for question in category.questions:
+            question_json = question.dump(id="question_id")
+
             for game_question in game_questions:
-                if game_question.question_id == question["id"]:
-                    question["active"] = game_question.active
-                    question["used"] = game_question.used
-                    question["daily_double"] = game_question.daily_double
+                if game_question.question_id == question.id:
+                    question_json["active"] = game_question.active
+                    question_json["used"] = game_question.used
+                    question_json["daily_double"] = game_question.daily_double
 
-    # Reset used power-ups
-    for contestant in game_data.game_contestants:
-        contestant.power_ups = [
-            GamePowerUp(
-                game_id=game_data.id,
-                contestant_id=contestant.id,
-                power_id=power_up.id,
-                type=power_up.type
-            )
-            for power_up in game_data.pack.power_ups
-        ]
+            category_json["questions"].append(question_json)
 
-    # Make sure no dictionary keys conflict
-    game_data.json["game_id"] = game_data.json["id"]
-    del game_data.json["id"]
+        round_json["categories"].append(category_json)
 
-    round_data.json["round_id"] = round_data.json["id"]
-    del round_data.json["id"]
+    # Get game JSON data with nested contestant data
+    game_json = _dump_game_to_json(game_data)
+    print(game_json["game_contestants"][0])
 
     database.save_game(game_data)
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
@@ -269,39 +283,36 @@ def selection(game_data: Game):
     return make_template_context(
         "presenter/selection.html",
         first_round=first_round,
-        **game_data.json,
-        **round_data.json,
+        **game_json,
+        **round_json,
     )
 
-@presenter_page.route("<game_id>/finale")
+@presenter_page.route("/<game_id>/finale")
 @_request_decorator
 def finale(game_data: Game):
     database: Database = flask.current_app.config["DATABASE"]
 
-    game_question = game_data.get_active_question().question
+    question_json = game_data.get_active_question().question.dump(id="question_id")
     game_data.stage = StageType.FINALE_RESULT
 
     database.save_game(game_data)
 
-    for contestant in game_data.game_contestants:
+    # Get game JSON data with nested contestant data
+    game_json = _dump_game_to_json(game_data)
+
+    for contestant in game_json["game_contestants"]:
         wager = contestant.finale_wager
-        contestant.json["wager"] = wager if wager > 0 else "nothing"
+        contestant["wager"] = wager if wager > 0 else "nothing"
         answer = contestant.finale_answer
-        contestant.json["answer"] = "nothing" if answer is None else f"'{answer}'"
-
-    game_data.json["game_id"] = game_data.json["id"]
-    del game_data.json["id"]
-
-    game_question.json["question_id"] = game_question.json["id"]
-    del game_question.json["id"]
+        contestant["answer"] = "nothing" if answer is None else f"'{answer}'"
 
     return make_template_context(
         "jeopardy/presenter_finale.html",
-        **game_data.json,
-        **game_question.json
+        **game_data,
+        **question_json
     )
 
-@presenter_page.route("<game_id>/endscreen")
+@presenter_page.route("/<game_id>/endscreen")
 @_request_decorator
 def endscreen(game_data: Game):
     # Game over! Go to endscreen
@@ -326,19 +337,19 @@ def endscreen(game_data: Game):
             f"{players_tied} all have equal amount of points! They are all winners!!!"
         )
 
-    winners_json = [winner.json for winner in winners]
+    winners_json = [winner.dump() for winner in winners]
     logger.bind(event="jeopardy_player_data", player_data=winners_json).info(f"Jeopardy player data at endscreen: {winners_json}")
 
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
     return make_template_context(
         "jeopardy/presenter_endscreen.html",
-        **game_data.json,
+        **_dump_game_to_json(game_data),
         winners=winners_json,
         winner_desc=winner_desc,
     )
 
-@presenter_page.route("<game_id>/cheatsheet")
+@presenter_page.route("/<game_id>/cheatsheet")
 def cheatsheet():
     if get_user_details() is None:
         return redirect_to_login("presenter.cheatsheet")

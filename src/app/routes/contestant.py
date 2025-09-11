@@ -22,14 +22,14 @@ contestant_page = flask.Blueprint("contestant", __name__, template_folder="templ
 #     return flask.abort(404)
 
 _VALID_AVATAR_FILETYPES = set(["jpg", "jpeg", "png", "webp"])
-_COOKIE_ID = "jeoparty_user_id"
+_COOKIE_ID = "jeoparty_contestant_id"
 
 def _save_user_id_to_cookie(user_id: str):
     max_age = 60 * 60 * 24 * 365 # 1 year
     return _COOKIE_ID, user_id, max_age
 
 def _get_user_id_from_cookie(cookies) -> str:
-    return cookies.get(_COOKIE_ID)
+    return str(cookies.get(_COOKIE_ID))
 
 def _validate_join_params(params: Dict[str, Any]) -> Contestant | str:
     name, error = validate_param(params, "name", str, 2, 16)
@@ -43,19 +43,13 @@ def _validate_join_params(params: Dict[str, Any]) -> Contestant | str:
     if "join_code" not in params:
         return "Failed to join: Lobby ID is missing"
 
-    if not "default_avatar" in flask.request.form and "avatar" in flask.request.files:
+    if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
         file = flask.request.files["avatar"]
-        if not file.filename:
-            return "No avatar file selected"
-
         file_split = file.filename.split(".")
-        if not len(file_split) != 2 or file_split[1] not in _VALID_AVATAR_FILETYPES:
+        if len(file_split) != 2 or file_split[1] not in _VALID_AVATAR_FILETYPES:
             return "Invalid avatar file type, must be .jpg, .png, or .webp"
 
-    return Contestant(
-        name=name,
-        color=color,
-    )
+    return Contestant(name=name, color=color)
 
 def _get_random_bg_image(index):
     return None # TODO: Make this sometime
@@ -103,6 +97,10 @@ def join_lobby():
         user_already_joined = False
         if existing_model is not None:
             contestant_model_or_error.id = existing_model.id
+            contestant_model_or_error.avatar = existing_model.avatar
+            contestant_model_or_error.bg_image = existing_model.bg_image
+            contestant_model_or_error.buzz_sound = existing_model.buzz_sound
+
             for contestant in game_data.game_contestants:
                 if contestant.contestant_id == user_id:
                     user_already_joined = True
@@ -118,23 +116,23 @@ def join_lobby():
         contestant_model_or_error.buzz_sound = flask.request.form.get("buzz_sound")
 
         # Update or save contestant info
-        if not "default_avatar" in flask.request.form and "avatar" in flask.request.files:
+        if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
             contestant_model_or_error.avatar = _save_contestant_avatar(flask.request.files["avatar"], user_id)
 
-        database.save_or_update(contestant_model_or_error, existing_model)
+        model: Contestant = database.save_or_update(contestant_model_or_error, existing_model)
 
         if not user_already_joined:
             # If user isn't already in the game, add them
             game_contestant_model = GameContestant(
                 game_id=game_data.id,
-                contestant_id=contestant_model_or_error.id
+                contestant_id=model.id
             )
             database.add_contestant_to_game(game_contestant_model)
 
-    response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
+        response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
 
     # Save user ID to cookie
-    cookie_id, data, max_age = _save_user_id_to_cookie(contestant_model_or_error.id)
+    cookie_id, data, max_age = _save_user_id_to_cookie(str(model.id))
     response.set_cookie(cookie_id, data, max_age=max_age)
 
     return response
@@ -145,41 +143,42 @@ def game_view(game_id: str):
 
     database: Database = flask.current_app.config["DATABASE"]
 
-    game_data = database.get_game_from_id(game_id)
-    if game_data is None:
-        return make_template_context("contestant/nogame.html")
+    with database:
+        game_data = database.get_game_from_id(game_id)
+        if game_data is None:
+            return make_template_context("contestant/nogame.html")
 
-    # Validate that user_id is saved as a cookie
-    if user_id is None:
-        return flask.redirect(flask.url_for(".lobby", join_code=game_data.join_code, _external=True))
+        # Validate that user_id is saved as a cookie
+        if user_id is None:
+            return flask.redirect(flask.url_for(".lobby", join_code=game_data.join_code, _external=True))
 
-    # Find the game contestant matching the given user_id
-    game_contestant_data = game_data.get_contestant(user_id)
-    if game_contestant_data is not None:
-        contestant_data: Contestant = game_contestant_data.contestant
-    else:
-        contestant_data = None
+        # Find the game contestant matching the given user_id
+        game_contestant_data = game_data.get_contestant(user_id)
+        if game_contestant_data is not None:
+            contestant_data: Contestant = game_contestant_data.contestant
+        else:
+            contestant_data = None
 
-    if contestant_data is None: # User haven't joined the game yet
-        return flask.redirect(flask.url_for(".lobby", _external=True, game_id=game_id))
+        if contestant_data is None: # User haven't joined the game yet
+            return flask.redirect(flask.url_for(".lobby", _external=True, join_code=game_data.join_code))
 
-    # Get question data
-    game_question = game_data.get_active_question()
-    if game_question is not None:
-        question = game_question.question.json
-        question["daily_double"] = game_question.daily_double
-    else:
-        question = None
+        # Get question data
+        game_question = game_data.get_active_question()
+        if game_question is not None:
+            question = game_question.question.dump()
+            question["daily_double"] = game_question.daily_double
+        else:
+            question = None
 
-    del game_data.json["id"]
+        round_name = game_data.pack.rounds[game_data.round - 1].name
+        first_round = not game_data.get_active_question() and game_data.round == 1 and game_data.get_contestant_with_turn() is None
 
-    del game_contestant_data.json["contestant_id"]
+        game_json = game_data.dump(id="game_id")
+        game_contestant_json = game_contestant_data.dump()
+        game_contestant_json["user_id"] = game_contestant_json["contestant"]["id"]
 
-    contestant_data.json["user_id"] = contestant_data.json["id"]
-    del contestant_data.json["id"]
-
-    question_num = sum(1 if gq.used else 0 for gq in game_data.game_questions) + 1
-    total_questions = len(game_data.get_questions_for_round())
+        question_num = sum(1 if gq.used else 0 for gq in game_data.game_questions) + 1
+        total_questions = len(game_data.get_questions_for_round())
 
     return make_template_context(
         "contestant/game.html",
@@ -187,26 +186,29 @@ def game_view(game_id: str):
         question=question,
         question_num=question_num,
         total_questions=total_questions,
-        **game_data.json,
-        **contestant_data.json,
-        **game_contestant_data.json,
+        first_round=first_round,
+        round_name=round_name,
+        **game_json,
+        **game_contestant_json,
     )
 
 @contestant_page.route("/<join_code>")
 def lobby(join_code: str):
     database: Database = flask.current_app.config["DATABASE"]
 
-    game_data = database.get_game_from_code(join_code)
-    if game_data is None:
-        return make_template_context("contestant/nogame.html")
+    with database:
+        game_data = database.get_game_from_code(join_code)
+        if game_data is None:
+            return make_template_context("contestant/nogame.html")
 
-    user_id = _get_user_id_from_cookie(flask.request.cookies)
-    user_data = {}
-    if user_id is not None:
-        user_data = database.get_contestant_from_id(user_id).json
+        user_id = _get_user_id_from_cookie(flask.request.cookies)
+
+        user_data = {}
+        if user_id is not None:
+            user_data = database.get_contestant_from_id(user_id).dump()
 
     if "avatar" not in user_data:
-        user_data["avatar"] = flask.url_for("static", filename="img/questionmark.png")
+        user_data["avatar"] = get_avatar_path("questionmark.png")
         user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
 
     error = flask.request.args.get("error")

@@ -29,24 +29,27 @@ def home():
     database: Database = flask.current_app.config["DATABASE"]
     user_id, user_name = user_details
 
-    question_data = database.get_questions_for_user(user_id)
-    questions_json = []
-    for question_pack in question_data:
-        total_questions = 0
-        for round in question_pack.rounds:
-            for category in round.categories:
-                total_questions += len(category.questions)
+    with database:
+        question_data = database.get_questions_for_user(user_id)
+        questions_json = []
+        for question_pack in question_data:
+            total_questions = 0
+            for round in question_pack.rounds:
+                for category in round.categories:
+                    total_questions += len(category.questions)
 
-        question_pack.json["total_questions"] = total_questions
-        questions_json.append(question_pack.json)
+            json_data = question_pack.dump()
+            json_data["total_questions"] = total_questions
+            questions_json.append(json_data)
 
-    games = database.get_games_for_user(user_id)
+        games = database.get_games_for_user(user_id)
 
-    games_json = []
-    for game in games:
-        if game.stage is not StageType.ENDED:
-            game.json["url"] = flask.url_for(f"presenter.{game.stage.value}", game_id=game.id)
-            games_json.append(game.json)
+        games_json = []
+        for game in games:
+            if game.stage is not StageType.ENDED:
+                json_data = game.dump()
+                json_data["url"] = flask.url_for(f"presenter.{game.stage.value}", game_id=game.id)
+                games_json.append(json_data)
 
     return make_template_context(
         "dashboard/home.html",

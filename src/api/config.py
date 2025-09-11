@@ -9,5 +9,7 @@ class Config:
     REGULAR_ROUNDS = 2
     STATIC_FOLDER = "app/static"
     RESOURCES_FOLDER = "../resources/"
-    
+
+    DEFAULT_AVATAR = "questionmark.png"
+
     ADMIN_ID = "71532753897030078646156925193385"

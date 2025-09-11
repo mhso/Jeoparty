@@ -49,12 +49,14 @@
 
     <script>
         socket.on("connect", function() {
-            socket.emit("presenter_joined");
-            socket.on("player_joined", addPlayerDiv);
+            socket.on("presenter_joined", function() {
+                socket.on("contestant_joined", addContestantDiv);
+            });
+            socket.emit("presenter_join", "{{ created_by }}");
         });
 
         {% for contestant in game_contestants %}
-        addPlayerDiv("{{ contestant['contestant_id'] }}", "{{ contestant['contestant']['name'] }}", "{{ contestant['contestant']['avatar'] }}", "{{ contestant['contestant']['color'] }}");
+        addContestantDiv("{{ contestant['contestant_id'] }}", "{{ contestant['name'] }}", "{{ contestant['avatar'] }}", "{{ contestant['color'] }}");
         {% endfor %}
 
         window.onkeydown = function(e) {

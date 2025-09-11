@@ -57,12 +57,13 @@ class Database(SQLAlchemyDatabase):
             statement = select(Game).options(
                 selectinload(Game.pack).options(
                     selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
-                    selectinload(QuestionPack.buzzer_sounds)
+                    selectinload(QuestionPack.buzzer_sounds),
+                    selectinload(QuestionPack.power_ups),
                 )
             ).options(
                 selectinload(Game.game_questions).selectinload(GameQuestion.question)
             ).options(
-                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
+                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups).selectinload(GamePowerUp.power_up)
             ).filter(Game.id == game_id)
 
             return session.execute(statement).scalar_one()
@@ -177,17 +178,24 @@ class Database(SQLAlchemyDatabase):
 
     def save_or_update(self, model: Base, old_model: Base | None = None, id_key: str = "id"):
         with self as session:
-            update_stmt = None
+            model_to_return = None
             if old_model is not None:
                 update_stmt = self._get_update_statement(old_model, model, id_key)
-
-            if update_stmt is None:
-                session.add(model)
+                if update_stmt is not None:
+                    session.execute(update_stmt)
+                    model_to_return = old_model
             else:
-                session.execute(update_stmt)
+                session.add(model)
+                model_to_return = model
 
-            session.commit()
-            session.refresh(model)
+            if model_to_return is not None:
+                session.commit()
+                if old_model is not None:
+                    session.refresh(model_to_return)
+            else:
+                model_to_return = old_model
+
+            return model_to_return
 
     def save_models(self, *models: Base | List[Base]):
         with self as session:
@@ -225,7 +233,23 @@ class Database(SQLAlchemyDatabase):
         with self as session:
             session.add(game_contestant_model)
 
+            session.flush()
+            session.refresh(game_contestant_model)
+
+            # Add power-ups to contestant
+            power_ups = [
+                GamePowerUp(
+                    game_id=game_contestant_model.game_id,
+                    contestant_id=game_contestant_model.id,
+                    power_id=power_up.id,
+                    type=power_up.type
+                )
+                for power_up in game_contestant_model.game.pack.power_ups
+            ]
+
+            session.add_all(power_ups)
             session.commit()
+
             session.refresh(game_contestant_model)
 
     def get_model_from_id(self, model: type[Base], data: Dict[str, Any], key_name: str = "id"):

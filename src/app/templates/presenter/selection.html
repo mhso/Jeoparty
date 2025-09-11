@@ -9,7 +9,7 @@
             {% include 'logo.html' %}
 
             <!-- Categories -->
-            {% if stage == "selection" %}
+            {% if stage == "SELECTION" %}
 
             <!-- Regular rounds question selection -->
             <div id="selection-categories-wrapper">
@@ -19,7 +19,7 @@
                         <span>{{ category_data["name"] }}</span>
                     </div>
                     {% for question_data in category_data["questions"] %}
-                    <div class="selection-question-box{% if question_data['used'] %} inactive{% endif %}" onclick="goToQuestion(event.target, '{{ question_data['question_id'] }}', {{ question_data['daily_double'] | tojson }})">
+                    <div class="selection-question-box{% if question_data['used'] or first_round %} inactive{% endif %}" onclick="goToQuestion(event.target, '{{ question_data['question_id'] }}', {{ question_data['daily_double'] | tojson }})">
                         <span>{{ question_data["value"] }}</span>
                     </div>
                     {% endfor %}
@@ -50,7 +50,7 @@
             {% endif %}
 
             <!-- Contestants -->
-            {% include 'jeopardy/contestants_footer.html' %}
+            {% include 'presenter/footer.html' %}
         </div>
     </body>
 
@@ -60,14 +60,9 @@
         const arrowKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
 
         socket.on("connect", function() {
-            socket.emit("presenter_joined", (success) => {
-                if (!success) {
-                    console.error("Presenter was not able to join the lobby!");
-                    return;
-                }
-
+            socket.on("presenter_joined", function () {
                 window.onkeydown = function(e) {
-                    {% if jeopardy_round == 1 and player_turn == -1 %}
+                    {% if first_round %}
                     if (e.code == PRESENTER_ACTION_KEY) {
                         let startSound = document.getElementById("selection-start-sound");
                         startSound.volume = 0.3;
@@ -89,13 +84,15 @@
                         goToSelectedCategory();
                     }
                 };
-                {% if jeopardy_round < total_rounds %}
-                setPlayerTurn({{ player_turn }});
-                {% else %}
-                showFinaleCategory({{ total_rounds }}, '{{ categories[0] }}');
+                {% if stage == "SELECTION" and not first_round %}
+                setPlayerTurn("{{ player_with_turn['contestant_id'] }}");
+                {% elif stage == "FINALE_WAGER" %}
+                showFinaleCategory();
                 socket.on("contestant_ready", setPlayerReady);
                 {% endif %}
             });
+
+            socket.emit("presenter_join", "{{ created_by }}");
         });
     </script>
 </html>

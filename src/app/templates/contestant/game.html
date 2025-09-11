@@ -23,11 +23,11 @@
                 </div>
             </div>
     
-            {% if stage == "lobby" %}
+            {% if stage == "LOBBY" %}
 
                 <h2 id="contestant-game-waiting">Waiting for the game to start...</h2>
 
-            {% elif stage == "ended" %}
+            {% elif stage == "ENDED" %}
 
                 <!-- Endscreen -->
                 {% if user_id in winner_ids %}
@@ -38,15 +38,15 @@
 
             {% else %}
                 <h2 class="contestant-round-header">Round {{ round }}/{{ total_rounds }}</h2>
-                {% if stage == "finale" %}
+                {% if stage == "FINALE" %}
                 <h2 class="contestant-round-header">{{ round_name }}</h2>
                 {% else %}
                 <h2 class="contestant-round-header">Question {{ question_num }}/{{ total_questions }}</h2>
                 {% endif %}
 
-                {% if stage == "question" or stage == "finale_result" %}
+                {% if stage == "QUESTION" or stage == "FINALE_RESULT" %}
 
-                    {% if stage == "finale_result" %}
+                    {% if stage == "FINALE_RESULT" %}
     
                     <!-- Final Jeopardy answer -->
                     <h2 id="question-category-name">{{ question["category"]["name"] }}</h2>
@@ -67,7 +67,7 @@
 
                     {% else %}
                     <!-- Question screen -->
-                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "question" %}<br>{% if daily_double %}Daily Double!{% else %}for <span id="question-reward-span">{{ question["value"] }} points</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "QUESTION" %}<br>{% if daily_double %}Daily Double!{% else %}for <span id="question-reward-span">{{ question["value"] }} points</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
 
                     {% if daily_double %}
 
@@ -112,7 +112,7 @@
 
                 {% else %}
     
-                {% if stage == "finale_wager" %}
+                {% if stage == "FINALE_WAGER" %}
                 
                 <!-- Final Jeopardy wager -->
                 <h2 id="finale-category-header">{{ question["category"]["name"] }}</h2>
@@ -145,24 +145,19 @@
 
             {% endif %}
 
-            {% if stage != "ended" %}
+            {% if stage != "ENDED" %}
             <script>
                 socket.on("connect", function() {
-                    socket.emit("join_lobby", "{{ user_id }}", (success) => {
-                        if (!success) {
-                            console.error("Contestant was not able to join the lobby!");
-                            return;
-                        }
-
+                    socket.on("contestant_joined", function() {
                         pingActive = true;
                         sendPingMessage("{{ user_id }}");
                         animateWaitingText();
                         monitorGame("{{ user_id }}");
     
-                        {% if jeopardy_round == 1 and player_turn == -1 %}
+                        {% if first_round %}
                         socket.on("turn_chosen", function(userId) {
                             let elem = document.getElementById("contestant-turn-desc");
-                            if (userId == {{ user_id }}) {
+                            if (userId == "{{ user_id }}") {
                                 elem.textContent = "Your turn to pick a question!";
                                 elem.className = "player-has-turn";
                             }
@@ -170,8 +165,8 @@
                                 elem.textContent = "Waiting for another player to pick a question...";
                             }
                         });
-                        {% elif stage == "finale_wager" or stage == "finale_question" %}
-                            {% if stage == "finale_question" %}
+                        {% elif stage == "FINALE_WAGER" or stage == "FINALE_QUESTION" %}
+                            {% if stage == "FINALE_QUESTION" %}
                             socket.on("finale_category_revealed", function() {
                                 document.getElementById("finale-question-wrapper").classList.remove("d-none");
                             });
@@ -183,6 +178,8 @@
                             {% endif %}
                         {% endif %}
                     });
+
+                    socket.emit("contestant_join", "{{ user_id }}");
                 });
                 socket.on("disconnect", function() {
                     pingActive = false;

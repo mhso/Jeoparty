@@ -31,8 +31,8 @@ class PowerUp(Base):
     @property
     def extra_fields(self):
         return {
-            "icon": f"img/{self.type.value}.png" if not self.icon else f"{get_data_path_for_question_pack(self.pack_id, False)}/{self.icon}",
-            "video": f"img/{self.type.value}.webm" if not self.icon else f"{get_data_path_for_question_pack(self.pack_id, False)}/{self.video}",
+            "icon": f"img/{self.type.value}_power.png" if not self.icon else f"{get_data_path_for_question_pack(self.pack_id, False)}/{self.icon}",
+            "video": f"img/{self.type.value}_power_used.webm" if not self.icon else f"{get_data_path_for_question_pack(self.pack_id, False)}/{self.video}",
         }
 
 class QuestionPack(Base):
@@ -128,8 +128,9 @@ class Contestant(Base):
 
     @property
     def extra_fields(self):
+        avatar = self.avatar if self.avatar else Config.DEFAULT_AVATAR
         return {
-            "avatar": None if not self.avatar else f"{get_avatar_path(False)}/{self.avatar}",
+            "avatar": f"{get_avatar_path(False)}/{avatar}",
             "buzz_sound": None if not self.buzz_sound else f"{get_buzz_sound_path(False)}/{self.buzz_sound}",
             "bg_image": None if not self.bg_image else f"{get_bg_image_path(False)}/{self.bg_image}",
         }
@@ -147,6 +148,10 @@ class GamePowerUp(Base):
 
     power_up = relationship("PowerUp", back_populates="game_power_ups")
     contestant = relationship("GameContestant", back_populates="power_ups")
+
+    @property
+    def extra_fields(self):
+        return self.power_up.extra_fields
 
 class GameContestant(Base):
     __tablename__ = "game_contestants"
@@ -166,6 +171,14 @@ class GameContestant(Base):
     game = relationship("Game", back_populates="game_contestants")
     contestant = relationship("Contestant", back_populates="game_contestants")
     power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by="GamePowerUp.type.asc()")
+
+    @property
+    def extra_fields(self):
+        return {
+            "name": self.contestant.name,
+            "color": self.contestant.color,
+            **self.contestant.extra_fields
+        }
 
     def __init__(self, **kw: Any):
         super().__init__(**kw)
@@ -235,7 +248,7 @@ class Game(Base):
 
         return {
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
-            "player_with_turn": player_with_turn.json if player_with_turn else None,
+            "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
         }
 
@@ -266,7 +279,7 @@ class Game(Base):
     def get_questions_for_round(self) -> List[GameQuestion]:
         return [
             game_question for game_question in self.game_questions
-            if game_question.question.category.round == self.round
+            if game_question.question.category.round.round == self.round
         ]
 
     def get_active_question(self) -> GameQuestion | None:

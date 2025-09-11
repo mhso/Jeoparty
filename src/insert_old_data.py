@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 
 from api.database import Database
+from api.enums import PowerUpType
 from api.orm.models import *
 
 version_choices = list(range(1, 6))
@@ -170,3 +171,16 @@ with database as session:
         )
 
         database.save_models(finale_question)
+
+        # Save power-ups
+        power_ups = [
+            PowerUp(
+                pack_id=pack_model.id,
+                type=power_type,
+                icon=f"{power_type.value}_power.png",
+                video=f"{power_type.value}_power_used.webm",
+            )
+            for power_type in PowerUpType
+        ]
+
+        database.save_models(*power_ups)

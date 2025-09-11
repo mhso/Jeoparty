@@ -10,7 +10,7 @@
             {% include 'logo.html' %}
 
             <!-- Category header -->
-            <h2 id="question-category-header"><span id="question-category-span">{{ category["name"] }}</span>{% if stage == 'question' %}<br>{% if daily_double %}Daily Double!{% else %}for <span id="question-reward-span">{{ value }} points</span>{% endif %}{% if "choices" in extra %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+            <h2 id="question-category-header"><span id="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}for <span id="question-reward-span">{{ value }} points</span>{% endif %}{% if "choices" in extra %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
 
             {% if daily_double %}
             {% set max_wager = [player_with_turn["score"], max_value] | max %}
@@ -125,7 +125,7 @@
     {% endfor %}
 
     <!-- Correct/wrong answers sounds -->
-    {% if stage == "question" %}
+    {% if stage == "QUESTION" %}
     <audio id="question-sound-correct">
         <source src="{{ url_for('static', _external=True, filename=correct_sound) }}" type="audio/mpeg">
     </audio>
@@ -150,12 +150,7 @@
         );
 
         socket.on("connect", function() {
-            socket.emit("presenter_joined", (success) => {
-                if (!success) {
-                    console.error("Presenter was not able to join the lobby!");
-                    return;
-                }
-
+            socket.on("presenter_joined", function () {
                 socket.on("buzz_received", addBuzzToFeed);
                 socket.on("buzz_winner", playerBuzzedFirst);
                 socket.on("power_up_used", powerUpUsed);
@@ -179,7 +174,7 @@
                 }
                 {% endif %}
 
-                {% if not daily_double and stage == "finale_question" %}
+                {% if not daily_double and stage == "FINALE_QUESTION" %}
                 {% for contestant_data in game_contestants %}
                     {% if contestant_data["finale_wager"] == 0 %}
                     setPlayerReady({{ contestant_data["contestant_id"] }});
@@ -188,6 +183,8 @@
                 socket.on("contestant_ready", setPlayerReady);
                 {% endif %}
             });
+
+            socket.emit("presenter_join", "{{ created_by }}");
         });
 
         placeAnswerImageIfPresent();

@@ -42,22 +42,33 @@ def _presenter_event(func):
     def wrapper(*args, **kwargs):
         instance = args[0]
         if not "presenter" in instance.rooms(flask.request.sid):
-            raise RuntimeError(f"User does not have permission to emit event '{func.name}'")
+            raise RuntimeError(f"User does not have permission to emit event '{func.__name__}'")
 
-        return func(*args, **kwargs)
+        # Fetch fresh copy of game data
+        with instance.database:
+           instance.game_data = instance.database.get_game_from_id(instance.game_id)
+           return func(*args, **kwargs)
+    
+    return wrapper
 
 def _contestants_event(func):
     def wrapper(*args, **kwargs):
         instance = args[0]
-        if not "contestant" in instance.rooms(flask.request.sid):
-            raise RuntimeError(f"User does not have permission to emit event '{func.name}'")
+        if not "contestants" in instance.rooms(flask.request.sid):
+            raise RuntimeError(f"User does not have permission to emit event '{func.__name__}'")
 
-        return func(*args, **kwargs)
+        # Fetch fresh copy of game data
+        with instance.database:
+           instance.game_data = instance.database.get_game_from_id(instance.game_id)
+           return func(*args, **kwargs)
+
+    return wrapper
 
 class GameSocketHandler(Namespace):
-    def __init__(self, namespace: str, game_data: Game):
-        super().__init__(namespace)
-        self.game_data = game_data
+    def __init__(self, game_id: str):
+        super().__init__(f"/{game_id}")
+        self.game_id = game_id
+        self.game_data: Game | None = None
         self.database: Database = flask.current_app.config["DATABASE"]
         self.game_metadata = GameMetadata()
         self.contestant_metadata: Dict[str, ContestantMetadata] = {}
@@ -67,7 +78,8 @@ class GameSocketHandler(Namespace):
     def emit(
         self,
         event: str,
-        data=None, room: str | None = None,
+        data=None,
+        to: str | None = None,
         include_self: bool = True,
         namespace: str | None = None,
         skip_sid: str | List[str] | None = None,
@@ -76,44 +88,49 @@ class GameSocketHandler(Namespace):
         return self.socketio.emit(
             event,
             data,
-            room=room,
+            room=to,
             include_self=include_self,
             namespace=namespace or self.namespace,
             skip_sid=skip_sid,
             callback=callback
         )
 
-    def on_presenter_joined(self, user_id: str):
-        if self.game_data.created_by != user_id:
-            logger.warning(
-                f"User '{user_id}' tried to join 'presenter' room, "
-                f"but is not the creator of the game with ID '{self.game_data.id}'."
-            )
-            return
+    def on_presenter_join(self, user_id: str):
+        with self.database:
+            game_data = self.database.get_game_from_id(self.game_id)
 
-        self.enter_room(flask.request.sid, "presenter")
+            if game_data.created_by != user_id:
+                logger.warning(
+                    f"User '{user_id}' tried to join 'presenter' room, "
+                    f"but is not the creator of the game with ID '{self.game_id}'."
+                )
 
-    def on_join_lobby(self, user_id: str):
-        if self.game_data.get_contestant(user_id) is None:
-            logger.warning(
-                f"User '{user_id}' tried to join 'contestant' room, "
-                f"but is not a game contestant for game with ID '{self.game_data.id}'."
-            )
-            return False
+            self.enter_room(flask.request.sid, "presenter")
 
-        sid = flask.request.sid
-        if user_id not in self.contestant_metadata:
-            self.contestant_metadata[user_id] = ContestantMetadata(sid)
+            self.emit("presenter_joined", to=flask.request.sid)
 
-        # Add socket IO session ID to contestant and join 'contestants' room
-        print(f"User with ID '{user_id}' and SID '{sid}' joined the lobby")
-        self.leave_room(sid, "contestants")
-        self.enter_room(sid, "contestants")
+    def on_contestant_join(self, user_id: str):
+        with self.database:
+            game_data = self.database.get_game_from_id(self.game_id)
+    
+            if game_data.get_contestant(user_id) is None:
+                logger.warning(
+                    f"User '{user_id}' tried to join 'contestant' room, "
+                    f"but is not a game contestant for game with ID '{self.game_id}'."
+                )
 
-        contestant_data = self.game_data.get_contestant(user_id).contestant
-        self.emit("player_joined", (user_id, contestant_data.name, contestant_data.json["avatar"], contestant_data.color), room="presenter")
+            sid = flask.request.sid
+            if user_id not in self.contestant_metadata:
+                self.contestant_metadata[user_id] = ContestantMetadata(sid)
 
-        return True
+            # Add socket IO session ID to contestant and join 'contestants' room
+            print(f"User with ID '{user_id}' and SID '{sid}' joined the lobby")
+            self.leave_room(sid, "contestants")
+            self.enter_room(sid, "contestants")
+
+            contestant_data = game_data.get_contestant(user_id).extra_fields
+            self.emit("contestant_joined", (user_id, contestant_data["name"], contestant_data["avatar"], contestant_data["color"]), to="presenter")
+            self.emit("contestant_joined", to=sid)
 
     @_presenter_event
     def on_mark_question_active(self, question_id: str):
@@ -134,7 +151,7 @@ class GameSocketHandler(Namespace):
         self.game_metadata.buzz_winner_decided = False
         self.game_metadata.question_asked_time = time()
 
-        self.emit("buzz_enabled", active_ids, room="contestants")
+        self.emit("buzz_enabled", active_ids, to="contestants")
 
     @_presenter_event
     def on_enable_powerup(self, user_id: str | None, power_id: str):
@@ -161,7 +178,7 @@ class GameSocketHandler(Namespace):
             return
 
         send_to = self.contestant_metadata[user_id].sid if user_id is not None else "contestants"
-        self.emit("power_up_enabled", power_id, room=send_to, skip_sid=skip_contestants)
+        self.emit("power_up_enabled", power_id, to=send_to, skip_sid=skip_contestants)
 
     @_presenter_event
     def on_disable_powerup(self, user_id: str | None, power_id: str | None):
@@ -181,7 +198,7 @@ class GameSocketHandler(Namespace):
         self.game_metadata.power_use_decided = True
 
         send_to = self.contestant_metadata[user_id].sid if user_id is not None else "contestants"
-        self.emit("power_ups_disabled", power_ids, room=send_to)
+        self.emit("power_ups_disabled", power_ids, to=send_to)
 
     @_presenter_event
     def on_correct_answer(self, user_id: str, value: int):
@@ -206,11 +223,11 @@ class GameSocketHandler(Namespace):
     def on_disable_buzz(self):
         self.game_metadata.buzz_winner_decided = True
 
-        self.emit("buzz_disabled", room="contestants")
+        self.emit("buzz_disabled", to="contestants")
 
     @_presenter_event
     def on_first_turn(self, user_id: str):
-        self.emit("turn_chosen", user_id, room="contestants")
+        self.emit("turn_chosen", user_id, to="contestants")
 
     @_presenter_event
     def use_power_up(self, user_id: str, power_id: str, value: int | None = None):
@@ -241,17 +258,17 @@ class GameSocketHandler(Namespace):
             if power_id in (PowerUpType.HIJACK, PowerUpType.REWIND):
                 self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
 
-            self.emit("power_ups_disabled", list(PowerUpType), room="contestants")
-            self.emit("power_up_used", (user_id, power_id), room="presenter")
-            self.emit("power_up_used", power_id, room=contestant_metadata.sid)
+            self.emit("power_ups_disabled", list(PowerUpType), to="contestants")
+            self.emit("power_up_used", (user_id, power_id), to="presenter")
+            self.emit("power_up_used", power_id, to=contestant_metadata.sid)
 
     @_presenter_event
     def enable_finale_wager(self):
-        self.emit("finale_wager_enabled", room="contestants")
+        self.emit("finale_wager_enabled", to="contestants")
 
     @_presenter_event
     def reveal_finale_category(self):
-        self.emit("finale_category_revealed", room="contestants")
+        self.emit("finale_category_revealed", to="contestants")
 
     @_contestants_event
     def on_buzzer_pressed(self, user_id: str):
@@ -266,7 +283,7 @@ class GameSocketHandler(Namespace):
         time_taken = f"{contestant_metadata.latest_buzz - self.game_metadata.question_asked_time:.2f}"
         contestant_data.buzzes += 1
 
-        self.emit("buzz_received", (user_id, time_taken), room="presenter")
+        self.emit("buzz_received", (user_id, time_taken), to="presenter")
         print(
             f"Buzz from {contestant_data.contestant.name} ({contestant_metadata.sid}):",
             f"{contestant_metadata.latest_buzz}, ping: {contestant_metadata.ping}",
@@ -296,13 +313,13 @@ class GameSocketHandler(Namespace):
 
             earliest_buzz_player = self.contestant_metadata[earliest_buzz_id]
 
-            self.emit("buzz_winner", room=earliest_buzz_player.sid)
-            self.emit("buzz_winner", earliest_buzz_id, room="presenter")
-            self.emit("buzz_loser", room="contestants", skip_sid=earliest_buzz_player.sid)
+            self.emit("buzz_winner", to=earliest_buzz_player.sid)
+            self.emit("buzz_winner", earliest_buzz_id, to="presenter")
+            self.emit("buzz_loser", to="contestants", skip_sid=earliest_buzz_player.sid)
 
     @_contestants_event
-    def on_ping_request(self, timestamp: float):
-        self.emit("ping_response", timestamp)
+    def on_ping_request(self, user_id: str, timestamp: float):
+        self.emit("ping_response", (user_id, timestamp))
 
     @_contestants_event
     def on_calculate_ping(self, user_id: str, timestamp_sent: float, timestamp_received: float):
@@ -325,7 +342,7 @@ class GameSocketHandler(Namespace):
 
         if 100 <= amount <= max_wager:
             self.emit("daily_wager_made", amount)
-            self.emit("daily_wager_made", amount, room="presenter")
+            self.emit("daily_wager_made", amount, to="presenter")
         else:
             self.emit("invalid_wager", max_wager)
 
@@ -347,7 +364,7 @@ class GameSocketHandler(Namespace):
             self.database.save_game(self.game_data)
 
             self.emit("finale_wager_made")
-            self.emit("contestant_ready", user_id, room="presenter")
+            self.emit("contestant_ready", user_id, to="presenter")
         else:
             self.emit("invalid_wager", max_wager)
 
@@ -358,4 +375,4 @@ class GameSocketHandler(Namespace):
         self.database.save_game(self.game_data)
 
         self.emit("finale_answer_given")
-        self.emit("contestant_ready", user_id, room="presenter")
+        self.emit("contestant_ready", user_id, to="presenter")
