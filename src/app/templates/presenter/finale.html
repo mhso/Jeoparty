@@ -11,7 +11,7 @@
             <!-- Category and question -->
             <h2 id="finale-category-header">{{ category["name"] }}</h2>
             <h3 id="finale-question-header">{{ question }}</h3>
-            <h4>What everyone wagered:</h4>
+            <h4>{{ _locale["wager_header"] }}</h4>
 
             <div id="finale-wagers-wrapper">
                 {% for contestant in game_contestants %}
@@ -21,24 +21,28 @@
                 {% endfor %}
             </div>
 
-            <h3 id="finale-answer">Svaret er: <span class="question-emph">{{ answer }}</span></h3>
+            <h3 id="finale-answer">{{ _locale["answer_header"] }} <span class="question-emph">{{ answer }}</span></h3>
 
             <div id="finale-results-wrapper">
                 <ul>
                     {% for contestant in game_contestants %}
                     <li class="finale-result-name">
-                        <span>{{ contestant["name"] }}</span> answered <strong>{{ contestant["answer"] }}</strong> <span class="finale-result-desc"></span>
+                        <span>{{ contestant["name"] }}</span> {{ _locale["player_answer"] }} <strong>{{ contestant["answer"] }}</strong> <span class="finale-result-desc"></span>
                     </li>
                     {% endfor %}
                 </ul>
             </div>
 
-            <p id="endscreen-teaser">Which means...</p>
+            <p id="endscreen-teaser">{{ _locale["endscreen_teaser"] }}</p>
         </div>
     </body>
 
     <script>
-        initialize({{ player_data | tojson }});
+        initialize(
+            {{ player_data | tojson }},
+            "{{ stage | safe }}",
+            {{ _locale | tojson }},
+        );
 
         socket.on("connect", function() {
             socket.emit("presenter_join", "{{ created_by }}");

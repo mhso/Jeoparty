@@ -3,24 +3,24 @@
     {% include 'presenter/head.html' %}
     
     <body>
-        <div id="bg-image" style="background-image: url({{ url_for('static', _external=True, filename=bg_image) }});"></div>
+        <div {% if category['bg_image'] %}id="bg-image" style="background-image: url({{ url_for('static', _external=True, filename=category['bg_image']) }});"{% else %}id="bg-image"{% endif %}></div>
 
         <div id="question-wrapper">
             <!-- Logo -->
             {% include 'logo.html' %}
 
             <!-- Category header -->
-            <h2 id="question-category-header"><span id="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}for <span id="question-reward-span">{{ value }} points</span>{% endif %}{% if "choices" in extra %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+            <h2 id="question-category-header"><span id="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in extra %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
 
             {% if daily_double %}
             {% set max_wager = [player_with_turn["score"], max_value] | max %}
             <div id="question-wager-wrapper" class="d-none">
-                <h3>How many points dares <span style="color: #{{ player_with_turn['contestant']['color'] }}; font-weight: 800;">{{ player_with_turn['contestant']["name"] }}</span> wager? (max {{ max_wager }})</h3>
+                <h3>{{ _locale["daily_double_wager_1"] }} <span style="color: #{{ player_with_turn['contestant']['color'] }}; font-weight: 800;">{{ player_with_turn['contestant']["name"] }}</span> {{ _locale["daily_double_wager_2"] }} (max {{ max_wager }})</h3>
             </div>
             {% endif %}
 
             <!-- Question header -->
-            {% question %}
+            {% if question %}
             <h3 id="question-question-header">{{ question }}</h3>
             {% endif %}
 
@@ -65,7 +65,7 @@
             {% if 'tips' in extra %}
                 {% for tip in extra['tips'] %}
                 <div id="question-tip-{{ loop.index1 }}" class="question-tip-wrapper">
-                    <h3 class="question-tip-header">Tip {{ loop.index1 }}</h3>
+                    <h3 class="question-tip-header">Tip #{{ loop.index1 }}</h3>
                     <div class="question-tip-content">{{ tip }}</div>
                 </div>
                 {% endfor %}
@@ -87,13 +87,13 @@
             
             <!-- Correct answer -->
             <div id="question-answer-correct" class="d-none">
-                <div id="question-correct-reason">Correct!{% if "explanation" in extra %} ({{ extra["explanation"] }}){% endif %} <img class="question-result-avatar" src="{{ url_for('static', _external=True, filename='img/happy_nono.png') }}"> <span class="question-answer-value"></span> points</div>
+                <div id="question-correct-reason">{{ _locale["correct_answer"] }}{% if "explanation" in extra %} ({{ extra["explanation"] }}){% endif %} <img class="question-result-avatar" src="{{ url_for('static', _external=True, filename='img/correct_answer.png') }}"> <span class="question-answer-value"></span></div>
             </div>
             
             <!-- Wrong answer -->
             <div id="question-answer-wrong" class="d-none">
-                <div id="question-wrong-reason"><span id="question-wrong-reason-text"></span> <img class="question-result-avatar" src="{{ url_for('static', _external=True, filename='img/nat_fine.png') }}"> <span class="question-answer-value"></span> points</div>
-                <p id="question-actual-answer" class="d-none">Rigtige svar var <span class="question-emph">'{{ answer }}'{% if "explanation" in extra %} ({{ extra["explanation"] }}){% endif %}</span></p>
+                <div id="question-wrong-reason"><span id="question-wrong-reason-text"></span> <img class="question-result-avatar" src="{{ url_for('static', _external=True, filename='img/wrong_answer.png') }}"> <span class="question-answer-value"></span></div>
+                <p id="question-actual-answer" class="d-none">{{ _locale["correct_answer_was"] }} <span class="question-emph">'{{ answer }}'{% if "explanation" in extra %} ({{ extra["explanation"] }}){% endif %}</span></p>
             </div>
         </div>
 
@@ -143,6 +143,8 @@
     <script>
         initialize(
             {{ game_contestants | tojson }},
+            "{{ stage | safe }}",
+            {{ _locale | tojson }},
             "{{ answer | safe }}",
             {{ value }},
             {{ buzz_time }},

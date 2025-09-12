@@ -1,8 +1,8 @@
 <head>
     {% if stage == "SELECTION" or stage == "FINALE_WAGER" %}
-    <title>{{ name }}</title>
+    <title>{{ round_name }}</title>
     {% elif stage == "QUESTION" or stage == "FINALE_QUESTION" %}
-    <title>{{ name }} - {{ category["name"] }}{% if stage == "QUESTION" %} for {{ value }} points{% endif %}</title>
+    <title>{{ round_name }} - {{ category["name"] }}{% if stage == "QUESTION" %} {{ _locale["for"] }} {{ value }} {{ _locale["points"] }}{% endif %}</title>
     {% else %}
     <title>{{ app_name }}!</title>
     {% endif %}

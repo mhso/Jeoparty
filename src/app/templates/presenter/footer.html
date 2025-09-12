@@ -8,7 +8,7 @@
             </div>
             <div class="footer-contestant-header">
                 <div class="footer-contestant-entry-name">{{ contestant["name"] }}</div>
-                <div class="footer-contestant-entry-score">{{ contestant["score"] }} points</div>
+                <div class="footer-contestant-entry-score">{{ contestant["score"] }} {{ _locale["points"] }}</div>
             </div>
             <img class="footer-contestant-entry-avatar" src="{{ url_for('static', _external=True, filename=contestant['avatar']) }}">
             <img class="footer-contestant-entry-ready" src="{{ url_for('static', _external=True, filename='img/check.png') }}">

@@ -11,5 +11,7 @@ class Config:
     RESOURCES_FOLDER = "../resources/"
 
     DEFAULT_AVATAR = "questionmark.png"
+    DEFAULT_CORRECT_IMAGE = "check.png"
+    DEFAULT_WRONG_IMAGE = "check.png"
 
     ADMIN_ID = "71532753897030078646156925193385"

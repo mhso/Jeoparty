@@ -104,6 +104,10 @@ h1 {
     color: rgb(247, 10, 10);
 }
 
+#contestant-lobby-wrapper {
+    color: white;
+}
+
 #contestant-lobby-wrapper h2 {
     margin-top: 10px;
 }
@@ -137,7 +141,14 @@ h1 {
     display: block;
     margin: 0 auto;
     margin-top: 15px;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+#contestant-lobby-color-label {
+    font-size: 22px;
+    margin-right: 10px;
+    top: 5px;
+    position: relative;
 }
 
 #contestant-lobby-color {
@@ -172,11 +183,11 @@ h1 {
 
 #buzzer-wrapper {
     touch-action: manipulation;
+    margin-bottom: 10px;
 }
 
 #buzzer-wrapper > img {
     width: 200px;
-    margin-bottom: 20px;
     touch-action: manipulation;
 }
 
@@ -216,7 +227,6 @@ h1 {
 
 #contestant-power-ups {
     position: absolute;
-    bottom: -75px;
     width: 100%;
     margin-top: 10px;
     margin-bottom: 20px;

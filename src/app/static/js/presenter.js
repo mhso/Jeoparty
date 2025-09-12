@@ -13,6 +13,7 @@ const PRESENTER_ACTION_KEY = "Space"
 
 var countdownInterval = null;
 var countdownPaused = false;
+var localeStrings;
 var activeStage;
 var activeAnswer;
 var activeValue = null;
@@ -33,7 +34,7 @@ let playerColors = {};
 let playersBuzzedIn = [];
 
 function canPlayersBuzzIn() {
-    return activeStage == "question" && !isDailyDouble;
+    return activeStage == "QUESTION" && !isDailyDouble;
 }
 
 function getBaseURL() {
@@ -215,7 +216,7 @@ function correctAnswer() {
 
     activeValue = Math.ceil(activeValue);
 
-    valueElem.textContent = "+" + activeValue;
+    valueElem.textContent = `+${activeValue} ${localeStrings["points"]}`;
 
     revealAnswerImageIfPresent();
 
@@ -252,7 +253,6 @@ function wrongAnswer(reason, questionOver=false) {
 
     let elem = document.getElementById("question-answer-wrong");
     let valueElem = elem.getElementsByClassName("question-answer-value").item(0);
-    let coinElem = elem.getElementsByClassName("question-result-gbp").item(0);
 
     let reasonElem = document.getElementById("question-wrong-reason-text");
     reasonElem.textContent = reason;
@@ -270,12 +270,8 @@ function wrongAnswer(reason, questionOver=false) {
         }
 
         // Deduct points from player if someone buzzed in
-        valueElem.textContent = "-" + activeValue;
+        valueElem.textContent = `-${activeValue} ${localeStrings["points"]}`;
         updatePlayerScore(answeringPlayer, -activeValue);
-
-        if (coinElem.classList.contains("d-none")) {
-            coinElem.classList.remove("d-none");
-        }
 
         // Send update to server
         socket.emit("wrong_answer", answeringPlayer);
@@ -287,9 +283,8 @@ function wrongAnswer(reason, questionOver=false) {
 
     if (Object.values(activePlayers).every(v => !v) || outOfTime) {
         // No players are eligible to answer, go to next question
-        if (outOfTime && !coinElem.classList.contains("d-none")) {
+        if (outOfTime) {
             valueElem.textContent = "";
-            coinElem.classList.add("d-none");
         }
 
         revealAnswerImageIfPresent();
@@ -361,7 +356,7 @@ function answerQuestion(event) {
                 }
                 else {
                     elem.classList.add("question-answered-wrong");
-                    wrongAnswer("Forkert...", false);
+                    wrongAnswer(localeStrings["wrong_answer_given"], false);
                 }
             }, delay);
         }
@@ -370,7 +365,7 @@ function answerQuestion(event) {
                 correctAnswer();
             }
             else {
-                wrongAnswer("Forkert...", false);
+                wrongAnswer(localeStrings["wrong_answer_given"], false);
             }
         }
     }
@@ -436,7 +431,7 @@ function startCountdown(duration, callback=null) {
                 callback();
             }
             else {
-                wrongAnswer("Ikke mere tid", true);
+                wrongAnswer(localeStrings["wrong_answer_time"], true);
             }
         }
     }, delay);
@@ -451,7 +446,7 @@ function pauseVideo() {
 }
 
 function startAnswerCountdown(duration) {
-    startCountdown(duration, () => wrongAnswer("Ikke mere tid", true));
+    startCountdown(duration, () => wrongAnswer(localeStrings["wrong_answer_time"], true));
 
     // Disable 'freeze' power-up one second before time expires
     freezeTimeout = setTimeout(function() {
@@ -712,7 +707,7 @@ function questionAsked(countdownDelay) {
                 // Question has no timer, contestants can take their time
                 window.onkeydown = function(e) {
                     if (e.code == PRESENTER_ACTION_KEY) {
-                        wrongAnswer("Ingen kan/tør svare");
+                        wrongAnswer(localeStrings["wrong_answer_cowards"]);
                     }
                 };
             }
@@ -866,7 +861,7 @@ function scaleAnswerChoices() {
     }
 }
 
-function initialize(playerData, answer=null, value=null, buzzTime=10, dailyDouble=false) {
+function initialize(playerData, stage, localeData, answer=null, value=null, buzzTime=10, dailyDouble=false) {
     playerData.forEach((data) => {
         let playerId = data["id"];
         playerIds.push(playerId);
@@ -879,6 +874,8 @@ function initialize(playerData, answer=null, value=null, buzzTime=10, dailyDoubl
         }
     });
 
+    localeStrings = localeData;
+    activeStage = stage;
     activeAnswer = answer;
     activeValue = value;
     buzzInTime = buzzTime;
@@ -911,9 +908,12 @@ function goToQuestion(div, questionId, isDouble) {
     div.style.transition = "all 2.5s";
     div.style.transform = `translate(${distX}px, ${distY}px) scale(11)`;
 
-    setTimeout(() => {
-        window.location.href = getQuestionURL();
-    }, 2800);
+    socket.emit("mark_question_active", questionId, function() {
+        setTimeout(() => {
+            window.location.href = getQuestionURL();
+        }, 2600);
+    });
+
 }
 
 function goToSelectedCategory() {
@@ -987,7 +987,6 @@ function setContestantTextColors() {
 }
 
 function setPlayerTurn(playerId, save) {
-    console.log(playerId);
     let playerEntries = document.querySelectorAll(".footer-contestant-entry");
     playerEntries.forEach((entry) => {
         if (entry.classList.contains("active-contestant-entry")) {
@@ -1030,11 +1029,6 @@ function chooseStartingPlayer(callback) {
     }
 
     showStartPlayerCandidate(0);
-
-    let questionBoxes = document.getElementsByClassName("selection-question-box");
-    for (let i = 0; i < questionBoxes.length; i++) {
-        questionBoxes.item(i).classList.remove("inactive");
-    }
 }
 
 function beginJeopardy() {
@@ -1168,15 +1162,15 @@ function showFinaleResult() {
 
                     if (amount == 0) { // Current player did not answer
                         className = "wager-answer-skipped";
-                        desc = "and nothing changes"
+                        desc = localeStrings["answer_skipped"];
                     }
                     else if (e.key == 1) { // Current player answered correctly
                         className = "wager-answer-correct";
-                        desc = `and <strong>wins ${amount} points</strong>!`;
+                        desc = `${localeStrings["answer_correct_1"]} <strong>${localeStrings["answer_correct_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
                     }
                     else if (e.key == 2) { // Current player answered incorrectly
                         className = "wager-answer-wrong";
-                        desc = `and <strong>loses ${amount} points</strong>!`;
+                        desc = `${localeStrings["answer_wrong_1"]} <strong>${localeStrings["answer_wrong_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
                     }
 
                     descElem.classList.add(className);

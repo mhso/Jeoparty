@@ -17,11 +17,11 @@
                         <h3>{{ game_data['title'] }}</h3>
                         <div class="dashboard-game-entry-question">Question Pack: {{ game_data['pack']['name'] }}</div>
                         <div class="dashboard-game-entry-rounds">Round {{ game_data['round'] }} / {{ game_data['regular_rounds'] + 1 }}</div>
-                        <div class="dashboard-game-entry-question">Question #{{ game_data['question'] }}</div>
+                        <div class="dashboard-game-entry-question">Question {{ game_data['question_num'] }} / {{ game_data['total_questions'] }}</div>
                         <div class="dashboard-game-entry-powers">Power-Ups: {% if game_data['use_powerups'] %}Yes{% else %}No{% endif %}</div>
                         <div class="dashboard-game-entry-stage">Stage: {{ game_data['stage'] | capitalize }}</div>
-                        <div class="dashboard-game-entry-contestants">Contestants: {{ game_data['num_contestants'] }}</div>
-                        <div class="dashboard-game-entry-created">Started: {{ game_data['created_at'] }}</div>
+                        <div class="dashboard-game-entry-contestants">Contestants: {{ game_data['game_contestants'] | length }} / {{ game_data['max_contestants'] }}</div>
+                        <div class="dashboard-game-entry-created">Started: {{ game_data['started_at'] }}</div>
                         <div class="dashboard-game-entry-ended">{% if game_data['ended_at'] %}Ended: {{ game_data['ended_at'] }}{% else %}Ongoing{% endif %}</div>
                     </div>
                     {% endfor %}

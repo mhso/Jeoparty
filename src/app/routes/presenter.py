@@ -5,14 +5,14 @@ import random
 import flask
 from mhooge_flask.auth import get_user_details
 from mhooge_flask.logging import logger
-from mhooge_flask.routing import socket_io, make_template_context
+from mhooge_flask.routing import socket_io
 
 from api.database import Database
 from api.config import Config
 from api.enums import PowerUpType, StageType
-from api.orm.models import Game, GameQuestion, GamePowerUp
+from api.orm.models import Game, GameQuestion
 from app.routes.socket import GameSocketHandler
-from app.routes.shared import  redirect_to_login, get_data_path_for_question_pack
+from app.routes.shared import  redirect_to_login, get_data_path_for_question_pack, render_locale_template
 
 presenter_page = flask.Blueprint("presenter", __name__, template_folder="templates")
 
@@ -76,6 +76,7 @@ def lobby(game_data: Game):
 
     # Get game JSON data with nested contestant data
     game_json = _dump_game_to_json(game_data)
+    game_json["stage"] = "LOBBY"
 
     lan_mode = (
         game_data.pack.name.startswith("LoL Jeopardy")
@@ -83,8 +84,9 @@ def lobby(game_data: Game):
         and False
     )
 
-    return make_template_context(
+    return render_locale_template(
         "presenter/lobby.html",
+        game_data.pack.language,
         join_url=join_url,
         lan_mode=lan_mode,
         lobby_music=lobby_music_path,
@@ -144,9 +146,10 @@ def question(game_data: Game):
     is_daily_double = game_data.use_daily_doubles and game_question.daily_double
     question_json = game_question.question.dump(id="question_id")
     question_json["daily_double"] = game_question.daily_double
+    del question_json["game_questions"]
 
     # If question is multiple-choice, randomize order of choices
-    if "choices" in question_json.extra:
+    if "choices" in question_json["extra"]:
         random.shuffle(question_json["extra"]["choices"])
 
     # Set stage to 'question' or 'finale_question'
@@ -161,7 +164,23 @@ def question(game_data: Game):
                 and game_data.stage is not StageType.FINALE_QUESTION
             )
 
+        database.save_models(*contestant.power_ups)
+
     database.save_game(game_data)
+
+    round_name = game_data.pack.rounds[game_data.round - 1].name
+
+    # Get images for when questiton is answered correctly or wrong
+    data_path = get_data_path_for_question_pack(game_data.pack_id, False)
+    if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "correct_answer.png")):
+        correct_image = f"{data_path}/correct_answer.png"
+    else:
+        correct_image = "img/check.png"
+
+    if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "wrong_answer.png")):
+        wrong_image = f"{data_path}/wrong_answer.png"
+    else:
+        wrong_image = "img/error.png"
 
     # Get random sounds that plays for correct/wrong answers
     correct_sound, wrong_sounds = _get_question_answer_sounds(game_data)
@@ -172,13 +191,16 @@ def question(game_data: Game):
 
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
-    return make_template_context(
+    return render_locale_template(
         "presenter/question.html",
-        base_folder=get_data_path_for_question_pack(game_data.pack_id, False),
+        game_data.pack.language,
+        base_folder=f"{get_data_path_for_question_pack(game_data.pack_id, False)}/",
+        correct_image=correct_image,
+        wrong_image=wrong_image,
         correct_sound=correct_sound,
         wrong_sounds=wrong_sounds,
         power_ups=power_ups,
-        daily_double=is_daily_double,
+        round_name=round_name,
         **game_json,
         **question_json,
     )
@@ -238,8 +260,10 @@ def selection(game_data: Game):
         questions_copy = list(game_questions)
         random.shuffle(questions_copy)
 
-        for game_question in questions_copy[:game_data.round]:
-            game_question.daily_double = True
+        for index, game_question in enumerate(questions_copy):
+            game_question.daily_double = index < game_data.round
+
+        database.save_models(*questions_copy)
 
         # Reset used power-ups
         for contestant in game_data.game_contestants:
@@ -275,14 +299,15 @@ def selection(game_data: Game):
 
     # Get game JSON data with nested contestant data
     game_json = _dump_game_to_json(game_data)
-    print(game_json["game_contestants"][0])
 
     database.save_game(game_data)
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
-    return make_template_context(
+    return render_locale_template(
         "presenter/selection.html",
+        game_data.pack.language,
         first_round=first_round,
+        round_name=round_data.name,
         **game_json,
         **round_json,
     )
@@ -306,8 +331,9 @@ def finale(game_data: Game):
         answer = contestant.finale_answer
         contestant["answer"] = "nothing" if answer is None else f"'{answer}'"
 
-    return make_template_context(
+    return render_locale_template(
         "jeopardy/presenter_finale.html",
+        game_data.pack.language,
         **game_data,
         **question_json
     )
@@ -342,8 +368,9 @@ def endscreen(game_data: Game):
 
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
-    return make_template_context(
+    return render_locale_template(
         "jeopardy/presenter_endscreen.html",
+        game_data.pack.language,
         **_dump_game_to_json(game_data),
         winners=winners_json,
         winner_desc=winner_desc,
@@ -357,4 +384,4 @@ def cheatsheet():
     with open(QUESTIONS_FILE, encoding="utf-8") as fp:
         questions = json.load(fp)
 
-    return make_template_context("presenter/cheat_sheet.html", questions=questions)
+    return render_locale_template("presenter/cheat_sheet.html", questions=questions)

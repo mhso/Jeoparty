@@ -162,7 +162,7 @@
     filter: brightness(0.8);
 }
 
-.dashboard-questions-entry-wrapper > h3 {
+.dashboard-questions-entry-wrapper > h3, .dashboard-game-entry-wrapper > h3 {
     text-align: center;
     margin-top: 0;
     font-weight: bold;

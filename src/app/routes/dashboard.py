@@ -45,11 +45,13 @@ def home():
         games = database.get_games_for_user(user_id)
 
         games_json = []
-        for game in games:
-            if game.stage is not StageType.ENDED:
-                json_data = game.dump()
-                json_data["url"] = flask.url_for(f"presenter.{game.stage.value}", game_id=game.id)
-                games_json.append(json_data)
+        for game_data in games:
+            json_data = game_data.dump()
+            json_data["total_questions"] = len(game_data.get_questions_for_round())
+            if game_data.stage is not StageType.ENDED:
+                json_data["url"] = flask.url_for(f"presenter.{game_data.stage.value}", game_id=game_data.id)
+
+            games_json.append(json_data)
 
     return make_template_context(
         "dashboard/home.html",

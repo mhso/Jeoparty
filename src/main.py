@@ -1,8 +1,13 @@
+import json
+from os.path import basename
+from glob import glob
+
 from mhooge_flask.logging import logger
 from mhooge_flask import init
 from mhooge_flask.init import Route, SocketIOServerWrapper
 from mhooge_flask.restartable import restartable
 
+from api.config import Config
 from api.database import Database
 
 @restartable
@@ -17,6 +22,12 @@ def main():
     database = Database()
     app_name = "jeoparty"
 
+    locale_data = {}
+    for filename in glob(f"{Config.RESOURCES_FOLDER}/locales/*.json"):
+        lang = basename(filename).split(".")[0]
+        with open(filename, "r", encoding="utf-8") as fp:
+           locale_data[lang] = json.load(fp)
+
     # Create Flask app.
     web_app = init.create_app(
         app_name,
@@ -26,6 +37,7 @@ def main():
         server_cls=SocketIOServerWrapper,
         persistent_variables={"app_name": app_name.capitalize()},
         exit_code=0,
+        locales=locale_data,
     )
 
     ports_file = "../../flask_ports.json"

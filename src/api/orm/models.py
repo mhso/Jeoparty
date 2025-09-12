@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Enum, JSON, ForeignKey
+from sqlalchemy import String, Integer, Boolean, DateTime, Enum, JSON, ForeignKey, case
 from sqlalchemy.orm import mapped_column, Mapped, relationship, reconstructor
 
 from mhooge_flask.database import Base
@@ -15,6 +15,8 @@ from app.routes.shared import (
     get_buzz_sound_path,
     get_data_path_for_question_pack
 )
+
+power_up_order_case = {power_up.name: index for index, power_up in enumerate(PowerUpType)}
 
 class PowerUp(Base):
     __tablename__ = "power_ups"
@@ -170,7 +172,7 @@ class GameContestant(Base):
 
     game = relationship("Game", back_populates="game_contestants")
     contestant = relationship("Contestant", back_populates="game_contestants")
-    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by="GamePowerUp.type.asc()")
+    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by=case(power_up_order_case, value=GamePowerUp.type))
 
     @property
     def extra_fields(self):
@@ -202,7 +204,7 @@ class GameContestant(Base):
 
     def get_power(self, power: PowerUpType) -> GamePowerUp | None:
         for power_up in self.power_ups:
-            if power_up.power.type is power:
+            if power_up.type is power:
                 return power_up
 
         return None
@@ -235,7 +237,7 @@ class Game(Base):
     password: Mapped[Optional[str]] = mapped_column(String(128))
     created_by: Mapped[str] = mapped_column(String(64))
     started_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
-    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=lambda: datetime.now())
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     pack = relationship("QuestionPack", back_populates="games")
     game_questions = relationship("GameQuestion", back_populates="game", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
@@ -250,6 +252,7 @@ class Game(Base):
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
             "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
+            "question_num": sum(1 if gq.used else 0 for gq in self.game_questions) + 1,
         }
 
     def get_contestant(self, contestant_id: str | None) -> GameContestant | None:

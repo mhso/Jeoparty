@@ -3,7 +3,7 @@
     {% include 'presenter/head.html' %}
     
     <body>
-        <div id="bg-image"></div>
+        <div id="bg-fill"></div>
 
         <div id="menu-wrapper">
             {% include 'logo.html' %}
@@ -15,16 +15,16 @@
             </div>
             {% else %}
             <div id="menu-lobby-url">
-                <div>Go to:</div>
+                <div>{{ _locale["lobby_url_1"] }}</div>
                 <span id="menu-join-url">{{ join_url }}</span>
-                <div>{% if password %} and provide the password{% endif %} to join!</div>
+                <div>{% if password %} {{ _locale["lobby_url_2"] }}{% endif %} {{ _locale["lobby_url_3"] }}</div>
             </div>
             {% endif %}
 
-            <h3>Contestants</h3>
+            <h3>{{ _locale["contestants"] | capitalize }}</h3>
             <div id="menu-contestants">
                 {% if not game_contestants %}
-                <p id="menu-no-contestants-placeholder">None yet...</p>
+                <p id="menu-no-contestants-placeholder">{{ _locale["none_joined"] }}</p>
                 {% endif %}
             </div>
 

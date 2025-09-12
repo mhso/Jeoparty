@@ -3,23 +3,15 @@ from typing import Any, Dict
 
 import flask
 
-from mhooge_flask.routing import make_template_context
-
 from api.database import Database
 from api.orm.models import Contestant, GameContestant
 from app.routes.shared import (
     validate_param,
     get_avatar_path,
+    render_locale_template,
 )
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
-
-# @contestant_page.route("/")
-# def home():
-#     if "jeopardy_user_id" in flask.request.cookies:
-#         return flask.redirect(flask.url_for(".game_view", _external=True))
-
-#     return flask.abort(404)
 
 _VALID_AVATAR_FILETYPES = set(["jpg", "jpeg", "png", "webp"])
 _COOKIE_ID = "jeoparty_contestant_id"
@@ -146,7 +138,7 @@ def game_view(game_id: str):
     with database:
         game_data = database.get_game_from_id(game_id)
         if game_data is None:
-            return make_template_context("contestant/nogame.html")
+            return render_locale_template("contestant/nogame.html", game_data.pack.language)
 
         # Validate that user_id is saved as a cookie
         if user_id is None:
@@ -177,14 +169,13 @@ def game_view(game_id: str):
         game_contestant_json = game_contestant_data.dump()
         game_contestant_json["user_id"] = game_contestant_json["contestant"]["id"]
 
-        question_num = sum(1 if gq.used else 0 for gq in game_data.game_questions) + 1
         total_questions = len(game_data.get_questions_for_round())
 
-    return make_template_context(
+    return render_locale_template(
         "contestant/game.html",
+        game_data.pack.language,
         ping=30,
         question=question,
-        question_num=question_num,
         total_questions=total_questions,
         first_round=first_round,
         round_name=round_name,
@@ -199,7 +190,7 @@ def lobby(join_code: str):
     with database:
         game_data = database.get_game_from_code(join_code)
         if game_data is None:
-            return make_template_context("contestant/nogame.html")
+            return render_locale_template("contestant/nogame.html", game_data.pack.language)
 
         user_id = _get_user_id_from_cookie(flask.request.cookies)
 
@@ -213,8 +204,9 @@ def lobby(join_code: str):
 
     error = flask.request.args.get("error")
 
-    return make_template_context(
+    return render_locale_template(
         "contestant/lobby.html",
+        game_data.pack.language,
         **user_data,
         join_code=join_code,
         has_password=game_data.password is not None,

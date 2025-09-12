@@ -2,7 +2,7 @@
 <html>
     {% include 'presenter/head.html' %}
     <body>
-        <div id="bg-image"></div>
+        <div id="bg-fill"></div>
 
         <div id="selection-wrapper">
             <!-- Logo -->
@@ -38,9 +38,9 @@
             <!-- Finale category reveal -->
             <div id="selection-finale-wrapper">
                 <h1>{{ name }}</h1>
-                <h2 id="selection-finale-header1">The category is...</h2>
+                <h2 id="selection-finale-header1">{{ _locale["finale_reveal_1"] }}</h2>
                 <h2 id="selection-finale-header2">{{ categories[0]["name"] }}</h2>
-                <h3 id="selection-finale-header3">Time to go all in!</h3>
+                <h3 id="selection-finale-header3">{{ _locale["finale_reveal_2"] }}</h3>
             </div>
 
             <!-- Jeopardy theme music -->
@@ -55,7 +55,11 @@
     </body>
 
     <script>
-        initialize({{ game_contestants | tojson }});
+        initialize(
+            {{ game_contestants | tojson }},
+            "{{ stage | safe }}",
+            {{ _locale | tojson }},
+        );
 
         const arrowKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
 
@@ -65,8 +69,11 @@
                     {% if first_round %}
                     if (e.code == PRESENTER_ACTION_KEY) {
                         let startSound = document.getElementById("selection-start-sound");
-                        startSound.volume = 0.3;
-                        startSound.play();
+                        if (startSound != null) {
+                            startSound.volume = 0.3;
+                            startSound.play();
+                        }
+
                         chooseStartingPlayer(function(turn) {
                             setPlayerTurn(turn, true);
                             document.querySelectorAll(".selection-question-box").forEach((elem) => {

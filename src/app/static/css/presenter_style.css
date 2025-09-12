@@ -8,10 +8,10 @@
 }
 
 body {
-    overflow-y: hidden;
+    overflow: hidden;
 }
 
-#bg-image {
+#bg-fill {
     position: absolute;
     z-index: -1;
     background: linear-gradient(to bottom, #2525c6, #1d1939);
@@ -20,6 +20,19 @@ body {
     overflow: hidden;
     top: 0;
     left: 0;
+}
+
+#bg-image {
+    position: absolute;
+    z-index: -1;
+    background-size: cover;
+    backdrop-filter: blur(5px);
+    background-blend-mode: luminosity;
+    filter: blur(5px) brightness(0.55);
+    height: 101%;
+    width: 101%;
+    top: -0.5%;
+    left: -0.5%;
 }
 
 p {
@@ -508,7 +521,6 @@ h3 {
     border: 2px solid black;
     border-bottom: none;
     margin: 0 20px;
-    padding: 0 8px;
 }
 
 .footer-contestant-entry.active-contestant-entry {
@@ -519,17 +531,28 @@ h3 {
 .footer-contestant-buzzes {
     display: flex;
     justify-content: space-between;
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     font-weight: 800;
+}
+
+.footer-contestant-buzzes > div {
+    position: relative;
+    background-color: #0000009e;
+    padding: 0 10px;
+    padding-bottom: 2px;
+    border-radius: 5px;
+    top: -1px;
 }
 
 .footer-contestant-entry-hits {
     color: rgb(0, 173, 0);
+    left: -2px;
 }
 
 .footer-contestant-entry-misses {
     color: red;
     text-align: right;
+    right: -2px;
 }
 
 .footer-contestant-header {
@@ -544,8 +567,9 @@ h3 {
     line-height: 1;
     font-weight: 1000;
     margin-right: 15px;
-    margin-top: 8px;
+    margin-top: 10px;
     max-width: 45%;
+    max-height: 22px;
     overflow: hidden;
 }
 
@@ -565,7 +589,7 @@ h3 {
 .footer-contestant-entry-powers {
     display: flex;
     justify-content: center;
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .footer-contestant-entry-powers > div {
@@ -574,7 +598,7 @@ h3 {
 
 .footer-contestant-entry-powers > div > img {
     width: 32px;
-    border-radius: 16px;
+    border-radius: 18px;
     border: 2px solid white;
     margin: 0 2px;
 }
@@ -607,6 +631,7 @@ h3 {
 \****************##############****************/
 
 #question-wrapper {
+    color: #dedede;
     margin-top: 10px;
     text-align: center;
     width: 100vw;
@@ -620,8 +645,6 @@ h3 {
 
 #question-wrapper > #logo-wrapper {
     width: 100%;
-    top: 0;
-    position: absolute;
 }
 
 #question-wrapper > #logo-wrapper > #lol-logo {
@@ -718,7 +741,7 @@ h3 {
     color: white;
     font-family: league;
     font-size: 4rem;
-    margin-top: 50px;
+    margin-top: 40px;
     width: 900px;
 }
 

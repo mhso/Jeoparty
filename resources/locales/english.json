@@ -1,7 +1,62 @@
 {
     "pages": {
-        "presenter.lobby": {
-            "header": "Welcome to the Jeoparty!"
+        "presenter/lobby": {
+            "lobby_url_1": "Go to:",
+            "lobby_url_2": "and provide the password",
+            "lobby_url_3": "to join!",
+            "none_joined": "None yet..."
+        },
+        "presenter/selection": {
+            "finale_reveal_1": "The category is...",
+            "finale_reveal_2": "Time to go all in!"
+        },
+        "presenter/question": {
+            "daily_double_wager_1": "How many points dares",
+            "daily_double_wager_2": "wager?",
+            "correct_answer": "Correct!",
+            "correct_answer_was": "Correct answer was",
+            "wrong_answer_time": "Time ran out",
+            "wrong_answer_given": "Wrong...",
+            "wrong_answer_cowards": "No one can/dares answer"
+        },
+        "presenter/finale": {
+            "wager_header": "What everyone wagered:",
+            "answer_header": "The answer is:",
+            "player_answer": "answered",
+            "endscreen_teaser": "Which means...",
+            "answer_skipped": "and nothing changes",
+            "answer_correct_1": "and",
+            "answer_correct_2": "wins",
+            "answer_wrong_1": "and",
+            "answer_wrong_2": "loses"
+        },
+        "contestant/lobby": {
+            "welcome_header": "Welcome to the Jeoparty!",
+            "placeholder_name": "Your Name",
+            "color_label": "Choose a color:",
+            "join": "Join"
+        },
+        "contestant/game": {
+            "waiting_for_start": "Waiting for the game to start...",
+            "game_over_winner": "You won! CONGRATULATIONS!!! 🥳🎉🎈🤩🤩🤩",
+            "game_over_loser": "Game over! You did not win, but you did your best and that's what matters!",
+            "round_header": "Round",
+            "question_header": "Question",
+            "finale_wager_amount": "You wagered",
+            "finale_answer": "Write the answer below",
+            "finale_no_wager": "You cannot answer since you wagered no points.",
+            "daily_double_wager": "Your move! How many points dare you wager?",
+            "finale_wager": "How many points dare you wager?!",
+            "your_turn": "Your turn to pick a question!",
+            "waiting_turn_1": "Venter på at",
+            "waiting_turn_2": "vælger et spørgsmål...",
+            "waiting_turn_3": "Waiting for another player to pick a question...",
+            "invalid_wager": "Ugyldig mængde point, skal være mellem 100 og"
+        },
+        "global": {
+            "points": "points",
+            "contestants": "contestants",
+            "for": "for"
         }
     }
 }

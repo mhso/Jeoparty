@@ -1,4 +1,5 @@
 from collections.abc import Callable
+import json
 from multiprocessing import Lock
 from time import sleep, time
 from typing import Dict, List
@@ -137,10 +138,12 @@ class GameSocketHandler(Namespace):
         question = self.game_data.get_question(question_id)
         question.active = True
 
-        self.database.save_game(self.game_data)
+        self.database.save_models(question)
 
     @_presenter_event
-    def on_enable_buzz(self, active_player_ids: Dict[str, bool]):
+    def on_enable_buzz(self, active_players_string: str):
+        active_player_ids = json.loads(active_players_string)
+
         active_ids = []
         for contestant_id in self.contestant_metadata:
             contestant_metadata = self.contestant_metadata[contestant_id]

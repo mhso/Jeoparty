@@ -1,10 +1,23 @@
 from typing import Any, Dict, Tuple
 import flask
 
+from mhooge_flask.routing import make_template_context
+
 from api.config import Config
 
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
+
+def render_locale_template(template: str, language: str | None = None, status=200, **variables):
+    if language is not None:
+        locale_data = flask.current_app.config["LOCALES"].get(language.value)
+        page_key = template.split(".")[0]
+        if locale_data:
+            page_data = locale_data["pages"].get(page_key, {})
+            page_data.update(locale_data["pages"].get("global", {}))
+            variables["_locale"] = page_data
+
+    return make_template_context(template, status, **variables)
 
 def validate_param(
     params: Dict[str, Any],

@@ -8,7 +8,7 @@
         {% endif %}
 
         <div id="contestant-game-wrapper">
-            <h1{% if stage == "question" %} class="d-none"{% endif %}>{{ app_name }}!</h1>
+            <h1{% if stage == "QUESTION" %} class="d-none"{% endif %}>{{ app_name }}!</h1>
 
             <div id="contestant-game-header" style="border: 2px solid {{ color }};">
                 <div>
@@ -16,7 +16,7 @@
                     <div id="contestant-game-name">{{ name }}</div>
                 </div>
                 <div id="contestant-game-info">
-                    <div id="contestant-game-score" style="font-weight: 800;">{{ score }} points</div>
+                    <div id="contestant-game-score" style="font-weight: 800;">{{ score }} {{ _locale["points"] }}</div>
                     <div id="contestant-game-buzzes">{{ buzzes }} buzzes</div>
                     <div id="contestant-game-stats"><span id="contestant-game-hits">{{ hits }}</span> | <span id="contestant-game-misses">{{ misses }}</span></div>
                     <div id="contestant-game-ping" class="contestant-low-ping">{{ ping }} ms</div>
@@ -25,23 +25,23 @@
     
             {% if stage == "LOBBY" %}
 
-                <h2 id="contestant-game-waiting">Waiting for the game to start...</h2>
+                <h2 id="contestant-game-waiting">{{ _locale["waiting_for_start"] }}</h2>
 
             {% elif stage == "ENDED" %}
 
                 <!-- Endscreen -->
                 {% if user_id in winner_ids %}
-                    <h2 class="player-has-turn">You won! CONGRATULATIONS!!! 🥳🎉🎈🤩🤩🤩</h2>
+                    <h2 class="player-has-turn">{{ _locale["game_over_winner"] }}</h2>
                 {% else %}
-                    <h2>Game over! You did your best and that's what matters!</h2>
+                    <h2>{{ _locale["game_over_loser"] }}</h2>
                 {% endif %}
 
             {% else %}
-                <h2 class="contestant-round-header">Round {{ round }}/{{ total_rounds }}</h2>
+                <h2 class="contestant-round-header">{{ _locale["round_header"] }} {{ round }}/{{ total_rounds }}</h2>
                 {% if stage == "FINALE" %}
                 <h2 class="contestant-round-header">{{ round_name }}</h2>
                 {% else %}
-                <h2 class="contestant-round-header">Question {{ question_num }}/{{ total_questions }}</h2>
+                <h2 class="contestant-round-header">{{ _locale["question_header"] }} {{ question_num }}/{{ total_questions }}</h2>
                 {% endif %}
 
                 {% if stage == "QUESTION" or stage == "FINALE_RESULT" %}
@@ -50,31 +50,31 @@
     
                     <!-- Final Jeopardy answer -->
                     <h2 id="question-category-name">{{ question["category"]["name"] }}</h2>
-                    <h3 id="finale-wager-header">You wagered <strong>{{ finale_wager }}</strong> points</h3>
+                    <h3 id="finale-wager-header">{{ _locale["finale_wager_amount"] }} <strong>{{ finale_wager }}</strong> {{ _locale["points"] }}</h3>
 
                     {% if finale_wager > 0 %}
                     <div id="finale-question-wrapper" class="d-none">
                         <h3 id="finale-question-header">{{ question["question"] }}</h3>
-                        <h4>Write the answer below</h4>
+                        <h4>{{ _locale["finale_answer"] }}</h4>
     
                         <input id="finale-answer">
                         <button id="contestant-wager-btn" onclick="giveFinalJeopardyAnswer('{{ user_id }}');">OK</button>
                     </div>
                     {% else %}
-                    <h4>You cannot answer since you wagered no points.</h4>
+                    <h4>{{ _locale["finale_no_wager"] }}</h4>
 
                     {% endif %}
 
                     {% else %}
                     <!-- Question screen -->
-                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "QUESTION" %}<br>{% if daily_double %}Daily Double!{% else %}for <span id="question-reward-span">{{ question["value"] }} points</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "QUESTION" %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ question["value"] }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
 
                     {% if daily_double %}
 
                         {% if has_turn %}
                             {% set max_wager = [score, max_value] | max %}
 
-                            <h3 class="player-has-turn">Your move! How many points dare you wager?<br>(Min. 100, max. {{ max_wager }})</h3>
+                            <h3 class="player-has-turn">{{ _locale["daily_double_wager"] }}<br>(Min. 100, max. {{ max_wager }})</h3>
                             <input id="question-wager-input" type="number" min="100" max="{{ max_wager }}">
                             <button id="contestant-wager-btn" onclick="makeDailyDoubleWager('{{ user_id }}');">OK</button>
 
@@ -87,9 +87,9 @@
 
                     <!-- Buzzer -->
                     <div id="buzzer-wrapper" onclick="pressBuzzer('{{ user_id }}');">
-                        <img id="buzzer-active" src="{{ url_for('static', _external=True, filename='img/jeopardy/buzzer_active.png') }}" class="d-none">
-                        <img id="buzzer-inactive" src="{{ url_for('static', _external=True, filename='img/jeopardy/buzzer_inactive.png') }}">
-                        <img id="buzzer-pressed" src="{{ url_for('static', _external=True, filename='img/jeopardy/buzzer_pressed.png') }}" class="d-none">
+                        <img id="buzzer-active" src="{{ url_for('static', _external=True, filename='img/buzzer_active.png') }}" class="d-none">
+                        <img id="buzzer-inactive" src="{{ url_for('static', _external=True, filename='img/buzzer_inactive.png') }}">
+                        <img id="buzzer-pressed" src="{{ url_for('static', _external=True, filename='img/buzzer_pressed.png') }}" class="d-none">
                     </div>
 
                     <div id="contestant-buzzer-status" class="d-none">
@@ -102,7 +102,7 @@
                         {% for power_up in power_ups %}
                         <button id="contestant-power-btn-{{ power_up['type'] }}" {% if not power_up['used'] and power_up['enabled'] %}onclick="usePowerUp('{{ user_id }}', '{{ power_up['type'] }}')"{% else %}disabled{% endif %}>
                             <img src="{{ url_for('static', _external=True, filename='img/forbidden.png') }}" class="contestant-power-used {% if not power_up['used'] %}d-none{% endif %}">
-                            <img src="{{ url_for('static', _external=True, filename=power_up['power_up']['icon']) }}" class="contestant-power-icon {% if not power_up['enabled'] or power_up['used'] %}power-disabled{% endif %}">
+                            <img src="{{ url_for('static', _external=True, filename=power_up['icon']) }}" class="contestant-power-icon {% if not power_up['enabled'] or power_up['used'] %}power-disabled{% endif %}">
                         </button>
                         {% endfor %}
                     </div>
@@ -118,7 +118,7 @@
                 <h2 id="finale-category-header">{{ question["category"]["name"] }}</h2>
 
                 {% set max_wager = [score, max_value] | max %}
-                <h3>How many points dare you wager?!<br>(Min. 0, max. {{ max_wager }})</h3>
+                <h3>{{ _locale["finale_wager"] }}<br>(Min. 0, max. {{ max_wager }})</h3>
 
                 <input id="finale-wager-amount" type="number" min="0" max="{{ max_wager }}" disabled>
                 <button id="contestant-wager-btn" onclick="makeFinalJeopardyWager('{{ user_id }}');" disabled>OK</button>
@@ -131,10 +131,10 @@
                     {% else %}
 
                         {% if has_turn %}
-                        <h3 id="contestant-turn-desc" class="player-has-turn">Your turn to pick a question!</h3>
+                        <h3 id="contestant-turn-desc" class="player-has-turn">{{ _locale["your_turn"] }}</h3>
                         
                         {% else %}
-                        <h3 id="contestant-turn-desc">Waiting for <strong>{{ player_with_turn["name"] }}</strong> to pick a question...</h3>
+                        <h3 id="contestant-turn-desc">{{ _locale["waiting_turn_1"] }} <strong>{{ player_with_turn["name"] }}</strong> {{ _locale["waiting_turn_2"] }}</h3>
                         {% endif %}
 
                     {% endif %}
@@ -152,17 +152,17 @@
                         pingActive = true;
                         sendPingMessage("{{ user_id }}");
                         animateWaitingText();
-                        monitorGame("{{ user_id }}");
+                        monitorGame("{{ user_id }}", {{ _locale | tojson }});
     
                         {% if first_round %}
                         socket.on("turn_chosen", function(userId) {
                             let elem = document.getElementById("contestant-turn-desc");
                             if (userId == "{{ user_id }}") {
-                                elem.textContent = "Your turn to pick a question!";
+                                elem.textContent = "{{ _locale['your_turn'] }}";
                                 elem.className = "player-has-turn";
                             }
                             else {
-                                elem.textContent = "Waiting for another player to pick a question...";
+                                elem.textContent = "{{ _locale['waiting_turn_1'] }}";
                             }
                         });
                         {% elif stage == "FINALE_WAGER" or stage == "FINALE_QUESTION" %}

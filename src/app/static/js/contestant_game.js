@@ -113,7 +113,7 @@ function togglePowerUpsEnabled(playerId, powerIds, enabled) {
     });
 }
 
-function monitorGame(userId) {
+function monitorGame(userId, localeData) {
     let buzzerActive = document.getElementById("buzzer-active");
     let buzzerInactive = document.getElementById("buzzer-inactive");
     let buzzerPressed = document.getElementById("buzzer-pressed");
@@ -213,7 +213,7 @@ function monitorGame(userId) {
     socket.on("invalid_wager", function(maxWager) {
         let btn = document.getElementById("contestant-wager-btn");
         btn.disabled = false;
-        alert("Invalid amount of points, should be between 100 and " + maxWager);
+        alert(`${localeData["invalid_wager"]} ${maxWager}`);
     });
 }
 
