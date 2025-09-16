@@ -358,6 +358,10 @@
     text-align: center;
 }
 
+#question-pack-language {
+    font-size: 18px;
+}
+
 .question-pack-round-select-finale {
     border-left: 3px solid black;
 }
@@ -367,6 +371,7 @@
 }
 
 .question-pack-round-name {
+    text-align: center;
     display: block;
     font-size: 18px;
     margin: 0 auto;
@@ -531,7 +536,7 @@
     width: 30vw;
     min-width: 350px;
     margin: 0 auto;
-    top: 15vh;
+    top: 5vh;
     padding: 10px;
     border-radius: 10px;
     color: white;
@@ -566,6 +571,38 @@
 #question-pack-modal-body > .input-field > input[type="text"] {
     padding: 8px;
     font-size: 16px;
+}
+
+#question-pack-modal-question-media-wrapper {
+    text-align: left;
+    font-size: 20px;
+}
+
+.media-drag-target {
+    border: 2px dashed white;
+    cursor: pointer;
+    margin-top: 10px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.media-drag-target:hover {
+    background-color: #4962ed;
+    border: 2px solid white;
+}
+
+.modal-drag-target-preview-wrapper {
+    height: 300px;
+    width: 100%;
+    text-align: center;
+}
+
+.modal-drag-target-preview {
+    max-width: 100%;
+    max-height: 100%;
 }
 
 #question-pack-modal-footer > button {

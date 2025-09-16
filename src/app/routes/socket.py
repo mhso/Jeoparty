@@ -108,13 +108,16 @@ class GameSocketHandler(Namespace):
 
             self.enter_room(flask.request.sid, "presenter")
 
+            print("Presenter joined")
+
             self.emit("presenter_joined", to=flask.request.sid)
 
     def on_contestant_join(self, user_id: str):
         with self.database:
             game_data = self.database.get_game_from_id(self.game_id)
     
-            if game_data.get_contestant(user_id) is None:
+            game_contestant = game_data.get_game_contestant(user_id)
+            if game_contestant is None:
                 logger.warning(
                     f"User '{user_id}' tried to join 'contestant' room, "
                     f"but is not a game contestant for game with ID '{self.game_id}'."
@@ -129,7 +132,7 @@ class GameSocketHandler(Namespace):
             self.leave_room(sid, "contestants")
             self.enter_room(sid, "contestants")
 
-            contestant_data = game_data.get_contestant(user_id).extra_fields
+            contestant_data = game_contestant.extra_fields
             self.emit("contestant_joined", (user_id, contestant_data["name"], contestant_data["avatar"], contestant_data["color"]), to="presenter")
             self.emit("contestant_joined", to=sid)
 
@@ -166,7 +169,7 @@ class GameSocketHandler(Namespace):
 
         skip_contestants = []
         for contestant_id in player_ids:
-            contestant = self.game_data.get_contestant(contestant_id)
+            contestant = self.game_data.get_game_contestant(contestant_id)
             metadata = self.contestant_metadata[contestant_id]
             power_up = contestant.get_power(PowerUpType(power_id))
             if power_up.used:
@@ -193,7 +196,7 @@ class GameSocketHandler(Namespace):
 
         power_ids = [PowerUpType(power_id)] if power_id is not None else list(PowerUpType)
         for contestant_id in player_ids:
-            contestant = self.game_data.get_contestant(contestant_id)
+            contestant = self.game_data.get_game_contestant(contestant_id)
             for power_up in power_ids:
                 power = contestant.get_power(power_up)
                 power.enabled = False
@@ -205,7 +208,7 @@ class GameSocketHandler(Namespace):
 
     @_presenter_event
     def on_correct_answer(self, user_id: str, value: int):
-        contestant_data = self.game_data.get_contestant(user_id)
+        contestant_data = self.game_data.get_game_contestant(user_id)
 
         contestant_data.hits += 1
         contestant_data.score += value
@@ -215,7 +218,7 @@ class GameSocketHandler(Namespace):
 
     @_presenter_event
     def on_wrong_answer(self, user_id: int, value: int):
-        contestant_data = self.game_data.get_contestant(user_id)
+        contestant_data = self.game_data.get_game_contestant(user_id)
 
         contestant_data.misses += 1
         contestant_data.score -= value
@@ -234,7 +237,7 @@ class GameSocketHandler(Namespace):
 
     @_presenter_event
     def use_power_up(self, user_id: str, power_id: str, value: int | None = None):
-        contestant_data = self.game_data.get_contestant(user_id)
+        contestant_data = self.game_data.get_game_contestant(user_id)
         contestant_metadata = self.contestant_metadata[user_id]
         power = PowerUpType(power_id)
 
@@ -276,7 +279,7 @@ class GameSocketHandler(Namespace):
     @_contestants_event
     def on_buzzer_pressed(self, user_id: str):
         contestant_metadata = self.contestant_metadata[user_id]
-        contestant_data = self.game_data.get_contestant(user_id)
+        contestant_data = self.game_data.get_game_contestant(user_id)
 
         if contestant_metadata.latest_buzz is not None:
             # Player already buzzed in this round, simply return
@@ -333,7 +336,7 @@ class GameSocketHandler(Namespace):
 
     @_contestants_event
     def on_make_daily_wager(self, user_id: str, amount: str):
-        contestant_data = self.game_data.get_contestant(user_id)
+        contestant_data = self.game_data.get_game_contestant(user_id)
 
         max_wager = max(contestant_data.score, 500 * self.game_data.round)
 
@@ -350,7 +353,7 @@ class GameSocketHandler(Namespace):
             self.emit("invalid_wager", max_wager)
 
     def make_finale_wager(self, user_id: str, amount: str):
-        contestant_data = self.game_data.get_contestant(user_id)
+        contestant_data = self.game_data.get_game_contestant(user_id)
 
         max_wager = max(contestant_data.score, 1000)
 
@@ -372,7 +375,7 @@ class GameSocketHandler(Namespace):
             self.emit("invalid_wager", max_wager)
 
     def give_finale_answer(self, user_id: str, answer: str):
-        contestant = self.game_data.get_contestant(user_id)
+        contestant = self.game_data.get_game_contestant(user_id)
         contestant.finale_answer = answer
 
         self.database.save_game(self.game_data)

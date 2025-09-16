@@ -145,11 +145,7 @@ def game_view(game_id: str):
             return flask.redirect(flask.url_for(".lobby", join_code=game_data.join_code, _external=True))
 
         # Find the game contestant matching the given user_id
-        game_contestant_data = game_data.get_contestant(user_id)
-        if game_contestant_data is not None:
-            contestant_data: Contestant = game_contestant_data.contestant
-        else:
-            contestant_data = None
+        contestant_data = game_data.get_contestant(user_id)
 
         if contestant_data is None: # User haven't joined the game yet
             return flask.redirect(flask.url_for(".lobby", _external=True, join_code=game_data.join_code))
@@ -166,8 +162,10 @@ def game_view(game_id: str):
         first_round = not game_data.get_active_question() and game_data.round == 1 and game_data.get_contestant_with_turn() is None
 
         game_json = game_data.dump(id="game_id")
-        game_contestant_json = game_contestant_data.dump()
-        game_contestant_json["user_id"] = game_contestant_json["contestant"]["id"]
+        game_contestant_json = {}
+        for game_contestant in game_data.game_contestants:
+            if game_contestant.contestant_id == user_id:
+                game_contestant_json = game_contestant.dump(id="user_id")
 
         total_questions = len(game_data.get_questions_for_round())
 

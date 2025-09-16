@@ -74,12 +74,11 @@
                             startSound.play();
                         }
 
-                        chooseStartingPlayer(function(turn) {
-                            setPlayerTurn(turn, true);
+                        chooseStartingPlayer(function(playerId) {
+                            setPlayerTurn(playerId, true);
                             document.querySelectorAll(".selection-question-box").forEach((elem) => {
                                 elem.classList.remove("inactive");
                             });
-                            let playerId = playerIds[turn];
                             socket.emit("first_turn", playerId);
                         });
                     }

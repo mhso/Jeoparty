@@ -1,5 +1,32 @@
 var questionData = {};
+var questionMedia = {};
 var lastSaveState = null;
+
+const imageFileTypes = [
+    "image/apng",
+    "image/gif",
+    "image/jpeg",
+    "image/jpg",
+    "image/pjpeg",
+    "image/png",
+    "image/webp",
+];
+
+const videoFileTypes = [
+    "video/webm",
+    "video/mp4",
+];
+
+function isMediaValidType(file) {
+    if (imageFileTypes.includes(file.type)) {
+        return true;
+    }
+    else if (videoFileTypes.includes(file.type)) {
+        return true;
+    }
+
+    return null;
+}
 
 function showRoundView(round) {
     let selectButtons = document.querySelectorAll(".question-pack-round-select-button");
@@ -65,18 +92,55 @@ function syncQuestionData(round, category, question) {
     let questionText = document.getElementById("question-pack-modal-question").value;
     let answerText = document.getElementById("question-pack-modal-answer").value;
     let value = document.getElementById("question-pack-modal-value").value;
+    let doBuzzTimer = document.getElementById("question-pack-modal-do-buzz-timer").checked;
     let buzzTime = document.getElementById("question-pack-modal-buzztime").value;
     let isMultipleChoice = document.getElementById("question-pack-modal-multiple_choice").checked;
     let choices = document.querySelectorAll(".question-pack-modal-choice");
+    let questionMediaInput = document.getElementById("question-pack-modal-question-media-input");
+    let answerMediaInput = document.getElementById("question-pack-modal-answer-media-input");
 
+    
+    // Set buzz time on category
+    questionData["rounds"][round]["categories"][category]["buzz_time"] = doBuzzTimer ? buzzTime : 0;
+    
     let data = {
         "question": questionText,
         "answer": answerText,
         "value": value,
-        "buzz_time": buzzTime,
     }
+
+    // Add multiple choice entries
     if (isMultipleChoice) {
         data["choices"] = choices.map((choice) => choice.textContent);
+    }
+
+    // Save question image or video
+    if (questionMediaInput.files.length == 1) {
+        let questionMediaFile = questionMediaInput.files[0];
+        let key = null;
+        if (!isMediaValidType(questionMediaFile)) {
+            return;
+        }
+        if (imageFileTypes.includes(questionMediaFile.type)) {
+            key = "question_image";
+        }
+        else if (videoFileTypes.includes(questionMediaFile.type)) {
+            key = "video";
+        }
+    
+        if (key != null) {
+            data[key] = questionMediaFile.name.split(".")[0];
+            questionMedia[data[key]] = questionMediaFile;
+        }
+    }
+
+    // Save answer image
+    if (answerMediaInput.files.length == 1) {
+        let answerMediaFile = answerMediaInput.files[0];
+        if (imageFileTypes.includes(questionMediaFile.type)) {
+            data["answer_image"] = answerMediaFile.name.split(".")[0];
+            questionMedia[data["answer_image"]] = answerMediaFile;
+        }
     }
 
     let questionDataQuestions = questionData["rounds"][round]["categories"][category]["questions"];
@@ -110,13 +174,29 @@ function addQuestion(value, round, category) {
 }
 
 function deleteQuestion(round, category, question) {
+    if (!confirm("Are you sure you want to delete this question?")) {
+        return;
+    }
+
     let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
     let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
     let questionElem = categoryWrapper.querySelector(`.question-pack-question-wrapper-${question}`);
 
     if (questionElem != null) {
         categoryWrapper.removeChild(questionElem);
-        questionData["rounds"][round]["categories"][category]["questions"][question]["deleted"] = true;
+        let dataForQuestion = questionData["rounds"][round]["categories"][category]["questions"][question];
+        if (Object.hasOwn(dataForQuestion, "question_image") && Object.hasOwn(questionMedia, dataForQuestion["question_image"])) {
+            questionMedia[dataForQuestion["question_image"]] = null;
+        }
+        else if (Object.hasOwn(dataForQuestion, "video") && Object.hasOwn(questionMedia, dataForQuestion["video"])) {
+            questionMedia[dataForQuestion["video"]] = null;
+        }
+
+        if (Object.hasOwn(dataForQuestion, "answer_image") && Object.hasOwn(questionMedia, dataForQuestion["answer_image"])) {
+            questionMedia[dataForQuestion["answer_image"]] = null;
+        }
+
+        dataForQuestion["deleted"] = true;
     }
 
     dataChanged();
@@ -193,6 +273,10 @@ function addCategory(round) {
 }
 
 function deleteCategory(round, category) {
+    if (!confirm("Are you sure you want to delete this category and all its data?")) {
+        return;
+    }
+
     let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > div`);
     let categoryElem = roundElem.querySelector(`.question-pack-category-wrapper-${category}`);
 
@@ -295,6 +379,10 @@ function addRound() {
 function deleteRound(event, round) {
     event.stopPropagation();
 
+    if (!confirm("Are you sure you want to delete this round and all its data?")) {
+        return;
+    }
+
     if (questionData["rounds"].length == 1) {
         return;
     }
@@ -368,7 +456,7 @@ function syncPackFinale() {
 }
 
 function getBaseURL() {
-    return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port + "/jeoparty";
+    return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port;
 }
 
 function fade(elem, out, duration) {
@@ -431,12 +519,21 @@ function saveData(packId) {
     let baseURL = getBaseURL();
     let jsonData = JSON.stringify(questionData);
 
-    $.ajax(`${baseURL}/pack/${packId}/save`, 
+    let formData = new FormData();
+    Object.entries(questionMedia).forEach(([k, v]) => {
+        if (v != null) {
+            formData.append(k, v);
+        }
+    });
+
+    formData.append("data", jsonData);
+
+    $.ajax(`${baseURL}/jeoparty/pack/${packId}/save`, 
         {
-            data: jsonData,
+            data: formData,
             method: "POST",
-            contentType: "application/json",
-            content: "application/json"
+            contentType: false,
+            processData: false,
         }
     ).always(function(a, b, c) {
         let response;
@@ -482,8 +579,15 @@ function saveData(packId) {
     });
 }
 
+function modalSetDoBuzzTime() {
+    let checked = document.getElementById("question-pack-modal-do-buzz-timer").checked;
+    let buzzTimeInput = document.getElementById("question-pack-modal-buzztime");
+
+    buzzTimeInput.disabled = !checked;
+}
+
 function modalAddAnswerChoice() {
-    let choicesInnerWrapper = document.querySelector("#question-pack-modal-choices > div");
+    let choicesInnerWrapper = document.querySelector("#question-pack-modal-choices-data");
 
     let choices = document.querySelectorAll(".question-pack-modal-choice").length;
 
@@ -510,38 +614,132 @@ function modalSetMultipleChoice() {
     }
 }
 
-function openQuestionModal(round, category, question) {
+function modalShowMediaPreview(wrapper, fileSrc=null, fileType=null, mediaElem=null) {
+    let previewWrapper = wrapper.querySelector(".modal-drag-target-preview-wrapper");
+    let header = wrapper.querySelector(".modal-drag-target-header");
+
+    previewWrapper.innerHTML = "";
+
+    if (mediaElem == null) {    
+        if (imageFileTypes.includes(fileType)) {
+            mediaElem = document.createElement("img");
+            mediaElem.className = ".modal-drag-target-image";
+        }
+        else {
+            let video = document.createElement("video");
+            mediaElem = document.createElement("source");
+
+            video.className = ".modal-drag-target-video";
+            mediaElem.type = fileType;
+        }
+    
+        mediaElem.src = fileSrc;
+    }
+    else {
+        mediaElem.classList.remove("d-none");
+    }
+
+    mediaElem.classList.add("modal-drag-target-preview");
+
+    previewWrapper.appendChild(mediaElem);
+
+    previewWrapper.classList.remove("d-none");
+    header.classList.add("d-none");
+}
+
+function openMediaInput(event) {
+    let target = event.target;
+    while (!target.classList.contains("media-drag-target")) {
+        target = target.parentElement;
+    }
+
+    let input = target.querySelector(".modal-drag-input");
+    input.click();
+}
+
+function validateAndGetFile(files, wrapper) {
+    if (files.length != 1) {
+        return null;
+    }
+
+    let file = files[0];
+    if (!isMediaValidType(file)) {
+        alert("Invalid file type.");
+        return null;
+    }
+
+    modalShowMediaPreview(wrapper, URL.createObjectURL(file), file.type);
+
+    return file;
+}
+
+function modalMediaFileSelected(event, mediaKey) {
+    let input = event.target.querySelector(".modal-drag-input");
+    let file = validateAndGetFile(input.files, event.target.parentElement, mediaKey);
+
+    if (file == null) {
+        input.files = [];
+    }
+}
+
+function modalMediaDragDropped(event, mediaKey) {
+    let input = event.target.querySelector(".modal-drag-input");
+    let file = validateAndGetFile(event.dataTransfer.files, event.target.parentElement, mediaKey);
+    if (file == null) {
+        return;
+    }
+
+    input.files = [file];
+}
+
+function modalMediaDragEnter(event) {
+    let header = event.target.querySelector(".modal-drag-target-header");
+    header.classList.add("d-none");
+}
+
+function modalMediaDragLeave(event) {
+    let header = event.target.querySelector(".modal-drag-target-header");
+    let preview = event.target.querySelector(".modal-drag-target-preview-wrapper");
+    if (preview.classList.contains("d-none")) {
+        header.classList.remove("d-none");
+    }
+}
+
+function openQuestionModal(roundId, categoryId, questionId) {
     let modal = document.getElementById("question-pack-modal-wrapper");
     let saveBtn = document.getElementById("question-pack-modal-save-btn");
     let deleteBtn = document.getElementById("question-pack-modal-delete-btn");
 
-    let newQuestion = question == null;
+    let newQuestion = questionId == null;
 
     let actionHeader = document.getElementById("question-pack-modal-action");
     let categoryHeader = document.getElementById("question-pack-modal-category");
     let questionInput = document.getElementById("question-pack-modal-question");
     let answerInput = document.getElementById("question-pack-modal-answer");
     let valueInput = document.getElementById("question-pack-modal-value");
+    let buzzTimerCheck = document.getElementById("question-pack-modal-do-buzz-timer");
     let buzzInput = document.getElementById("question-pack-modal-buzztime");
     let multipleChoiceCheck = document.getElementById("question-pack-modal-multiple_choice");
     let choicesWrapper = document.getElementById("question-pack-modal-choices");
-    let choicesInnerWrapper = document.querySelector("#question-pack-modal-choices > div");
+    let choicesInnerWrapper = document.querySelector("#question-pack-modal-choices-data");
+    let questionMediaWrapper = document.querySelector("#question-pack-modal-question-media-wrapper");
 
-    categoryHeader.textContent = questionData["rounds"][round]["categories"][category]["name"];
+    categoryHeader.textContent = questionData["rounds"][roundId]["categories"][categoryId]["name"];
 
     if (newQuestion) {
-        question = questionData["rounds"][round]["categories"][category]["questions"].length;
+        questionId = questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
 
         actionHeader.textContent = "Add question to"
         questionInput.value = "";
         answerInput.value = "";
 
-        let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
-        let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${category}`);
+        let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
+        let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId}`);
         let questionIndex = categoryWrapper.querySelectorAll(".question-pack-question-wrapper").length;
-        let roundIndex = getElementIndex("question-pack-round-wrapper", round);
+        let roundIndex = getElementIndex("question-pack-round-wrapper", roundId);
         valueInput.value = 100 * (questionIndex + 1) * (roundIndex + 1);
         buzzInput.value = 10;
+        buzzTimerCheck.checked = true;
         multipleChoiceCheck.checked = false;
         choicesWrapper.classList.add("d-none");
         choicesInnerWrapper.innerHTML = "";
@@ -549,14 +747,24 @@ function openQuestionModal(round, category, question) {
         deleteBtn.classList.add("d-none");
     }
     else {
-        let data = questionData["rounds"][round]["categories"][category]["questions"][question];
-    
+        let dataForCategory = questionData["rounds"][roundId]["categories"][categoryId];
+        let dataForQuestion = dataForCategory["questions"][questionId];
+        
         actionHeader.textContent = "Edit question for"
-        questionInput.value = data["question"];
-        answerInput.value = data["answer"];
-        valueInput.value = data["value"];
-        buzzInput.value = data["buzz_time"]
-        multipleChoiceCheck.checked = Object.hasOwn("choices");
+        questionInput.value = dataForQuestion["question"];
+        answerInput.value = dataForQuestion["answer"];
+        valueInput.value = dataForQuestion["value"];
+        if (dataForCategory["buzz_time"] > 0) {
+            buzzInput.value = dataForCategory["buzz_time"];
+            buzzTimerCheck.checked = true;
+        }
+        else {
+            buzzInput.value = "";
+            buzzInput.disabled = true;
+            buzzTimerCheck.checked = false;
+        }
+
+        multipleChoiceCheck.checked = Object.hasOwn(dataForQuestion.extra, "choices");
         if (multipleChoiceCheck.checked) {
             choicesWrapper.classList.remove("d-none");
         }
@@ -564,22 +772,34 @@ function openQuestionModal(round, category, question) {
             choicesWrapper.classList.add("d-none");
         }
 
+        if (Object.hasOwn(dataForQuestion.extra, "question_image") || Object.hasOwn(dataForQuestion.extra, "video")) {
+            let mediaElem = null;
+            if (Object.hasOwn(dataForQuestion.extra, "question_image")) {
+                mediaElem = document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-image-${questionId}`);
+            }
+            else {
+                mediaElem = document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-video-${questionId}`);
+            }
+
+            modalShowMediaPreview(questionMediaWrapper, null, null, mediaElem.cloneNode(true));
+        }
+
         deleteBtn.classList.remove("d-none");
     }
 
     saveBtn.onclick = function() {
         if (newQuestion) {
-            addQuestion(valueInput.value, round, category);
+            addQuestion(valueInput.value, roundId, categoryId);
         }
 
-        syncQuestionData(round, category, question);
+        syncQuestionData(roundId, categoryId, questionId);
         dataChanged();
         closeQuestionModal();
     };
     
     if (!newQuestion) {
         deleteBtn.onclick = function() {
-            deleteQuestion(round, category, question);
+            deleteQuestion(roundId, categoryId, questionId);
             closeQuestionModal();
         }
     }

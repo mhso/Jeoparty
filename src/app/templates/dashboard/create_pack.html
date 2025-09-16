@@ -23,6 +23,15 @@
                 <input type="checkbox" name="finale" checked>
             </div>
 
+            <div class="input-field">
+                <label for="language">Language</label>
+                <select name="language">
+                    {% for language_id, language_name in languages %}
+                    <option value="{{ language_id }}" {% if language_id == 'ENGLISH' %}selected{% endif %}>{{ language_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
              <div class="input-field">
                 <label for="music">Lobby Music</label>
                 <input  id="create-game-music" type="file" name="music" accept=".mp3">

@@ -44,7 +44,7 @@ class QuestionPack(Base):
     name: Mapped[str] = mapped_column(String(64))
     public: Mapped[bool] = mapped_column(Boolean, default=False)
     include_finale: Mapped[bool] = mapped_column(Boolean, default=True)
-    language: Mapped[Optional[Language]] = mapped_column(Enum(Language))
+    language: Mapped[Optional[Language]] = mapped_column(Enum(Language), default=Language.ENGLISH)
     created_by: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
@@ -74,6 +74,23 @@ class QuestionRound(Base):
     pack = relationship("QuestionPack", back_populates="rounds")
     categories = relationship("QuestionCategory", back_populates="round", cascade="all, delete-orphan", order_by="QuestionCategory.order.asc()")
 
+    def dump_questions_nested(self):
+        round_json = self.dump(id="round_id")
+        round_json["categories"] = []
+
+        for category in self.categories:
+            category_json = category.dump(id="category_id")
+            category_json["questions"] = []
+
+            for question in category.questions:
+                question_json = question.dump(id="question_id")
+
+                category_json["questions"].append(question_json)
+
+            round_json["categories"].append(category_json)
+
+        return round_json
+
 class QuestionCategory(Base):
     __tablename__ = "question_categories"
 
@@ -81,6 +98,7 @@ class QuestionCategory(Base):
     round_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_rounds.id"))
     name: Mapped[str] = mapped_column(String(64))
     order: Mapped[int] = mapped_column(Integer)
+    buzz_time: Mapped[int] = mapped_column(Integer)
     bg_image: Mapped[Optional[str]] = mapped_column(String(128))
 
     round = relationship("QuestionRound", back_populates="categories")
@@ -100,18 +118,30 @@ class Question(Base):
     question: Mapped[str] = mapped_column(String(128))
     answer: Mapped[str] = mapped_column(String(128))
     value: Mapped[int] = mapped_column(Integer)
-    buzz_time: Mapped[int] = mapped_column(Integer)
     extra: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
 
     category = relationship("QuestionCategory", back_populates="questions")
     game_questions = relationship("GameQuestion", back_populates="question", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
+
+    @property
+    def extra_fields(self):
+        if self.extra is None:
+            return {}
+        
+        fields = dict(self.extra)
+
+        for key in ("question_image", "video", "answer_image"):
+            if key in self.extra:
+                fields[key] = f"{get_data_path_for_question_pack(self.category.round.pack_id, False)}/{self.extra[key]}"
+
+        return {"extra": fields}
 
 class BuzzerSound(Base):
     __tablename__ = "buzzer_sounds"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
     pack_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_packs.id"), primary_key=True)
-    path: Mapped[str] = mapped_column(String(128))
+    filename: Mapped[str] = mapped_column(String(128))
     correct: Mapped[bool] = mapped_column(Boolean)
 
     pack = relationship("QuestionPack", back_populates="buzzer_sounds")
@@ -255,12 +285,22 @@ class Game(Base):
             "question_num": sum(1 if gq.used else 0 for gq in self.game_questions) + 1,
         }
 
-    def get_contestant(self, contestant_id: str | None) -> GameContestant | None:
+    def get_contestant(self, contestant_id: str | None) -> Contestant | None:
         if contestant_id is None:
             return None
 
         for contestant in self.game_contestants:
             if contestant.contestant_id == contestant_id:
+                return contestant.contestant
+
+        return None
+    
+    def get_game_contestant(self, contestant_id: str | None) -> GameContestant | None:
+        if contestant_id is None:
+            return None
+
+        for contestant in self.game_contestants:
+            if contestant.id == contestant_id:
                 return contestant
 
         return None

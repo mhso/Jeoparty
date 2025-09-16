@@ -2,6 +2,8 @@ from argparse import ArgumentParser
 from datetime import datetime
 import json
 
+from sqlalchemy import text
+
 from api.database import Database
 from api.enums import PowerUpType
 from api.orm.models import *
@@ -11,6 +13,65 @@ version_choices = list(range(1, 6))
 parser = ArgumentParser()
 parser.add_argument("-i", "--iteration", type=int, choices=version_choices)
 args = parser.parse_args()
+
+ANSWER_SOUNDS = [
+    [
+        "easy_money",
+        "how_lovely",
+        "outta_my_face",
+        "yeah",
+        "heyheyhey",
+        "peanut",
+        "never_surrender",
+        "exactly",
+        "hell_yeah",
+        "ult",
+        "wheeze",
+        "demon",
+        "myoo",
+        "rimelig_stor",
+        "worst_laugh",
+        "nyong",
+        "climax",
+        "cackle",
+        "kabim",
+        "kvinder",
+        "uhu",
+        "porn",
+        "package_boy",
+        "skorpion",
+        "goblin",
+        "ngh",
+    ],
+    [
+        "mmnonono",
+        "what",
+        "whatemagonodo",
+        "yoda",
+        "daisy",
+        "bass",
+        "despair",
+        "ahhh",
+        "spil",
+        "fedtmand",
+        "no_way",
+        "hehehe",
+        "braindead",
+        "big_nej",
+        "junge",
+        "sad_animal",
+        "hold_da_op",
+        "daser",
+        "oh_no",
+        "i_dont_know_dude",
+        "disappoint",
+        "nej",
+        "wilhelm",
+        "migjuana",
+        "ah_nej",
+        "dave_angy",
+    ]
+]
 
 extra_keys = [
     "image", "answer_image", "video", "height", "border", "explanation", "tips", "volume"
@@ -28,14 +89,22 @@ def get_question_extras(question: Dict[str, Any]):
     return extra or None
 
 database = Database()
+database.create_database()
 with database as session:
     versions = version_choices
     if args.iteration:
         versions = [args.iteration]
 
+    # Find old data and keep the same ID
+    old_data = session.execute(text("SELECT id FROM question_packs WHERE name LIKE 'LoL Jeopardy v%' ORDER BY name")).scalars().all()
+    old_ids = {}
+    for index, old_id in enumerate(old_data):
+        old_ids[index + 1] = old_id
+
     for version in versions:
         questions_file = f"D:/mhooge/intfar/src/app/static/data/jeopardy_questions_{version}.json"
 
+        pack_id = old_ids.get(version)
         user_id = "71532753897030078646156925193385"
         pack_dates = [
             (datetime(2023, 12, 8, 13, 0, 0), datetime(2023, 12, 29, 23, 0, 0)),
@@ -53,6 +122,7 @@ with database as session:
         created_date, changed_date = pack_dates[version - 1]
 
         pack_model = QuestionPack(
+            pack_id=pack_id,
             name=f"LoL Jeopardy v{version}",
             created_by=user_id,
             created_at=created_date,
@@ -98,6 +168,7 @@ with database as session:
             name = category_data["name"]
             order = category_data["order"]
             bg_image = category_data["background"]
+            buzz_time = category_data.get("buzz_time", 10)
 
             category_models.extend(
                 [
@@ -105,6 +176,7 @@ with database as session:
                         round_id=round_models[round_index].id,
                         name=name,
                         order=order,
+                        buzz_time=buzz_time,
                         bg_image=bg_image
                     )
                     for round_index in range(rounds[version - 1])
@@ -119,7 +191,6 @@ with database as session:
                 break
 
             category_data = questions_data[category]
-            buzz_time = category_data.get("buzz_time", 10)
 
             for tier_data in category_data["tiers"]:
                 value = tier_data["value"]
@@ -135,7 +206,6 @@ with database as session:
                         question=question["question"],
                         answer=question["answer"],
                         value=value,
-                        buzz_time=buzz_time,
                         extra=extra,
                     )
 
@@ -154,6 +224,7 @@ with database as session:
             round_id=round_models[-1].id,
             name=name,
             order=order,
+            buzz_time=buzz_time,
             bg_image=bg_image
         )
 
@@ -166,7 +237,6 @@ with database as session:
             question=question["question"],
             answer=question["answer"],
             value=500,
-            buzz_time=buzz_time,
             extra=extra,
         )
 
@@ -184,3 +254,16 @@ with database as session:
         ]
 
         database.save_models(*power_ups)
+
+        # Save buzzer sounds
+        buzz_sound_models = []
+        for index, sound_list in enumerate(ANSWER_SOUNDS):
+            for sound in sound_list:
+                model = BuzzerSound(
+                    pack_id=pack_model.id,
+                    filename=f"{sound}.mp3",
+                    correct=index == 0,
+                )
+                buzz_sound_models.append(model)
+
+        database.save_models(*buzz_sound_models)

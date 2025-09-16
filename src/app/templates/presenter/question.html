@@ -35,15 +35,15 @@
             {% endif %}
 
             <!-- Question video -->
-            {% if "question_video" in extra %}
-            {% if ".mp4" in extra["question_video"] %}
+            {% if "video" in extra %}
+            {% if ".mp4" in extra["video"] %}
             {% set video_type = "mp4" %}
             {% else %}
             {% set video_type = "webm" %}
             {% endif %}
             <div id="question-question-image-wrapper">
                 <video id="question-question-video" style="height: {{ question['height'] }}px;"{% if 'volume' in extra %} class="volume-{{ extra['volume'] }}"{% endif %}>
-                    <source src="{{ url_for('static', _external=True, filename=base_folder + extra['question_video']) }}" type="video/{{ video_type }}">
+                    <source src="{{ url_for('static', _external=True, filename=base_folder + extra['video']) }}" type="video/{{ video_type }}">
                 </video>
             </div>
             {% endif %}

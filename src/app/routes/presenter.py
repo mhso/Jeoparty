@@ -12,7 +12,11 @@ from api.config import Config
 from api.enums import PowerUpType, StageType
 from api.orm.models import Game, GameQuestion
 from app.routes.socket import GameSocketHandler
-from app.routes.shared import  redirect_to_login, get_data_path_for_question_pack, render_locale_template
+from app.routes.shared import (
+    redirect_to_login,
+    get_data_path_for_question_pack,
+    render_locale_template,
+)
 
 presenter_page = flask.Blueprint("presenter", __name__, template_folder="templates")
 
@@ -95,7 +99,7 @@ def lobby(game_data: Game):
 
 def _get_question_answer_sounds(game_data: Game):
     correct_sounds = [
-        os.path.join(get_data_path_for_question_pack(game_data.pack_id, sound))
+        f"data/sounds/{sound.filename}"
         for sound in game_data.pack.buzzer_sounds if sound.correct
     ]
 
@@ -106,7 +110,7 @@ def _get_question_answer_sounds(game_data: Game):
         correct_sound = random.choice(correct_sounds)
 
     wrong_sounds = [
-        os.path.join(get_data_path_for_question_pack(game_data.pack_id, sound))
+        f"data/sounds/{sound.filename}"
         for sound in game_data.pack.buzzer_sounds if not sound.correct
     ]
 
@@ -274,28 +278,20 @@ def selection(game_data: Game):
 
     # TODO: Handle case where there are not enough questions for the given round
     round_data = game_data.pack.rounds[game_data.round - 1]
-    round_json = round_data.dump(id="round_id")
+    round_json = round_data.dump_questions_nested()
     del round_json["pack"]
     del round_json["round"]
-    round_json["categories"] = []
 
-    game_questions = game_data.get_questions_for_round()
-    for category in round_data.categories:
-        category_json = category.dump(id="category_id")
-        category_json["questions"] = []
-
-        for question in category.questions:
-            question_json = question.dump(id="question_id")
-
+    for category_json in round_json["categories"]:
+        del category_json["round"]
+        for question_json in category_json["questions"]:
+            del question_json["game_questions"]
+            del question_json["category"]
             for game_question in game_questions:
-                if game_question.question_id == question.id:
+                if game_question.question_id == question_json["question_id"]:
                     question_json["active"] = game_question.active
                     question_json["used"] = game_question.used
                     question_json["daily_double"] = game_question.daily_double
-
-            category_json["questions"].append(question_json)
-
-        round_json["categories"].append(category_json)
 
     # Get game JSON data with nested contestant data
     game_json = _dump_game_to_json(game_data)

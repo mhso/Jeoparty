@@ -48,10 +48,10 @@
             "daily_double_wager": "Your move! How many points dare you wager?",
             "finale_wager": "How many points dare you wager?!",
             "your_turn": "Your turn to pick a question!",
-            "waiting_turn_1": "Venter på at",
-            "waiting_turn_2": "vælger et spørgsmål...",
+            "waiting_turn_1": "Waiting for",
+            "waiting_turn_2": "to pick a question...",
             "waiting_turn_3": "Waiting for another player to pick a question...",
-            "invalid_wager": "Ugyldig mængde point, skal være mellem 100 og"
+            "invalid_wager": "Invalid amount of points, should be between 100 and"
         },
         "global": {
             "points": "points",

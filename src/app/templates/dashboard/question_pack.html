@@ -19,8 +19,23 @@
             </div>
 
             <div class="input-field">
-                <label for="pack-public" for="pack-finale" style="display: inline;">Final Jeopardy</label>
+                <label for="pack-finale" style="display: inline;">Final Jeopardy</label>
                 <input id="question-pack-finale" name="pack-finale" type="checkbox"{% if include_finale %} checked{% endif %} onchange="syncPackFinale(); dataChanged(); toggleFinale();">
+            </div>
+
+            <div class="input-field">
+                <label for="language">Language</label>
+                <select id="question-pack-language" name="language">
+                    {% if not language %}
+                    {% set active_language = 'ENGLISH' %}
+                    {% else %}
+                    {% set active_language = language %}
+                    {% endif %}
+
+                    {% for language_id, language_name in languages %}
+                    <option value="{{ language_id }}" {% if language_id == active_language %}selected{% endif %}>{{ language_name }}</option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div id="question-pack-data-wrapper">
@@ -53,6 +68,23 @@
                                 <div class="question-pack-category-body">
                                     {% for question_data in category_data["questions"] %}
                                     <input class="question-pack-question-wrapper question-pack-question-wrapper-{{ loop.index0 }}" onclick="openQuestionModal({{ round_num }}, {{ category_num }}, {{ loop.index0 }})" value="{{ question_data['value'] }}" readonly>
+                                    
+                                    {% if "video" in question_data["extra"] %}
+                                        {% if ".mp4" in question_data["extra"]["video"] %}
+                                        {% set video_type = "mp4" %}
+                                        {% else %}
+                                        {% set video_type = "webm" %}
+                                        {% endif %}
+                                    <video class="modal-drag-target-video question-pack-question-video-{{ loop.index0 }} d-none" controls>
+                                        <source src="{{ url_for('static', filename=question_data['extra']['video']) }}" type="video/{{ video_type }}">
+                                    </video>
+                                    {% elif "question_image" in question_data["extra"] %}
+                                    <img class="question-pack-question-image-{{ loop.index0 }} d-none" src="{{ url_for('static', filename=question_data['extra']['question_image']) }}">
+                                    {% endif %}
+
+                                    {% if "answer_image" in question_data["extra"] %}
+                                    <img class="question-pack-answer-image-{{ loop.index0 }} d-none" src="{{ url_for('static', filename=question_data['extra']['answer_image']) }}">
+                                    {% endif %}
                                     {% endfor %}
                                 </div>
                                 <button class="question-pack-add-question-btn" onclick="openQuestionModal({{ round_num }}, {{ category_num }}, null)">+</button>
@@ -106,12 +138,22 @@
 
                     <div class="input-field">
                         <label for="modal-value">Value</label>
-                        <input type="number" min="1" max="10000" id="question-pack-modal-value" name="modal-value">
+                        <input id="question-pack-modal-value" name="modal-value" type="number" min="1" max="10000">
+                    </div>
+
+                    <div class="input-field">
+                        <label for="modal-explanation">Explanation</label>
+                        <input id="question-pack-modal-explanation" name="modal-explanation" type="text">
                     </div>
                     
                     <div class="input-field">
+                        <label for="do-buzz-timer" style="display: inline;">Buzz Timer</label>
+                        <input id="question-pack-modal-do-buzz-timer" name="modal-do-buzz-timer" type="checkbox" onchange="modalSetDoBuzzTime()">
+                    </div>
+
+                    <div class="input-field">
                         <label for="modal-value">Buzz Time (seconds)</label>
-                        <input type="number" min="3" max="60" id="question-pack-modal-buzztime" name="modal-buzztime">
+                        <input id="question-pack-modal-buzztime" name="modal-buzztime" type="number" min="3" max="60">
                     </div>
             
                     <div class="input-field">
@@ -120,18 +162,27 @@
                     </div>
 
                     <div id="question-pack-modal-choices" class="d-none">
-                        <div></div>
+                        <div id="question-pack-modal-choices-data">
+
+                        </div>
                         <button onclick="modalAddAnswerChoice()">+</button>
                     </div>
             
-                    <div id="question-pack-modal-image">
-            
+                    <!-- Question image/video -->
+                    <div id="question-pack-modal-question-media-wrapper">
+                        <label for="modal-question-media">Image/Video</label>
+                        <div class="media-drag-target" onclick="openMediaInput(event);" ondragenter="modalMediaDragEnter(event);" ondragleave="modalMediaDragLeave(event);" ondragend="modalMediaDragLeave(event);" ondrop="modalMediaDragDropped(event, 'question');">
+                            <div class="modal-drag-target-preview-wrapper d-none"></div>
+                            <div class="modal-drag-target-header">Drop file or click here to upload</div>
+                            <input id="question-pack-modal-question-media-input" class="modal-drag-input" name="modal-question-media" type="file" accept=".png, .jpeg, .jpg, .webp, .webm, .mp4" hidden onchange="modalMediaFileSelected(event, 'question')">
+                        </div>
                     </div>
-                    <div id="question-pack-modal-video">
-            
-                    </div>
-                    <div id="question-pack-modal-answer_image">
-            
+        
+                    <!-- Answer image -->
+                    <div id="question-pack-modal-answer-media-wrapper">
+                        <div class="media-drag-target">
+                            <input id="question-pack-modal-answer-media-input" name="modal-answer-media" type="file">
+                        </div>
                     </div>
                 </div>
         

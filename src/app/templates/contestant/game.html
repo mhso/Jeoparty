@@ -80,7 +80,6 @@
 
                         {% else %}
                             <h3>Waiting for <strong>{{ player_with_turn["name"] }}</strong> to answer the Daily Double...</h3>
-
                         {% endif %}
                     
                     {% else %}
@@ -162,7 +161,7 @@
                                 elem.className = "player-has-turn";
                             }
                             else {
-                                elem.textContent = "{{ _locale['waiting_turn_1'] }}";
+                                elem.textContent = "{{ _locale['waiting_turn_3'] }}";
                             }
                         });
                         {% elif stage == "FINALE_WAGER" or stage == "FINALE_QUESTION" %}
