@@ -15,3 +15,20 @@ class Config:
     DEFAULT_WRONG_IMAGE = "check.png"
 
     ADMIN_ID = "71532753897030078646156925193385"
+
+def get_data_path_for_question_pack(pack_id: str, full: bool = True):
+    prefix = f"{Config.STATIC_FOLDER}/" if full else ""
+    return f"{prefix}data/{pack_id}"
+
+def get_avatar_path(full: bool = True):
+    prefix = f"{Config.STATIC_FOLDER}/" if full else ""
+    return f"{prefix}img/avatars"
+
+def get_buzz_sound_path(full: bool = True):
+    prefix = f"{Config.STATIC_FOLDER}/" if full else ""
+    return f"{prefix}data/sounds"
+
+def get_bg_image_path(full: bool = True):
+    prefix = f"{Config.STATIC_FOLDER}/" if full else ""
+    return f"{prefix}img/backgrounds"
+

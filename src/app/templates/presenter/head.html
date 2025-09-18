@@ -21,5 +21,12 @@
         document.addEventListener("DOMContentLoaded", function() {
             setVolume();
         });
+
+        // Add listener for closing socket
+        window.addEventListener("beforeunload", function(){
+            if (socket) {
+                socket.close();
+            }
+        });
     </script>
 </head>

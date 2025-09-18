@@ -1,0 +1,77 @@
+<div {% if category['bg_image'] %}id="bg-image" style="background-image: url({{ url_for('static', _external=True, filename=category['bg_image']) }});"{% else %}id="bg-image"{% endif %}></div>
+
+<div id="question-wrapper">
+    <!-- Logo -->
+    {% include 'logo.html' %}
+
+    <!-- Category header -->
+    <h2 id="question-category-header"><span id="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in extra %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+
+    {% if daily_double %}
+    {% set max_wager = [player_with_turn["score"], max_value] | max %}
+    <div id="question-wager-wrapper" class="d-none">
+        <h3>{{ _locale["daily_double_wager_1"] }} <span style="color: #{{ player_with_turn['contestant']['color'] }}; font-weight: 800;">{{ player_with_turn['contestant']["name"] }}</span> {{ _locale["daily_double_wager_2"] }} (max {{ max_wager }})</h3>
+    </div>
+    {% endif %}
+
+    <!-- Question header -->
+    {% if question %}
+    <h3 id="question-question-header">{{ question }}</h3>
+    {% endif %}
+
+    <!-- Question images -->
+    {% if "question_image" in extra %}
+    <div id="question-question-image-wrapper">
+        <img id="question-question-image"{% if "border" in extra %} class="image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        {% if "answer_image" in extra %}
+        <img id="question-answer-image"{% if "border" in extra %} class="image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Question video -->
+    {% if "video" in extra %}
+    {% if ".mp4" in extra["video"] %}
+    {% set video_type = "mp4" %}
+    {% else %}
+    {% set video_type = "webm" %}
+    {% endif %}
+    <div id="question-question-image-wrapper">
+        <video id="question-question-video" style="height: {{ question['height'] }}px;"{% if 'volume' in extra %} class="volume-{{ extra['volume'] }}"{% endif %}>
+            <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
+        </video>
+    </div>
+    {% endif %}
+
+    <div id="question-choices-wrapper">
+        <!-- Answer choices -->
+        {% if "choices" in extra %}
+        {% for option in extra["choices"] %}
+        <div id="question-answer-{{ loop.index }}" class="question-answer-entry">
+            <p>
+                <span class="question-answer-number">{{ loop.index}}:</span> <span class="question-answer-text">{{ option }}</span>
+            </p>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Question tips -->
+    {% if 'tips' in extra %}
+        {% for tip in extra['tips'] %}
+        <div id="question-tip-{{ loop.index1 }}" class="question-tip-wrapper">
+            <h3 class="question-tip-header">Tip #{{ loop.index1 }}</h3>
+            <div class="question-tip-content">{{ tip }}</div>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Countdown wrapper -->
+    <div id="question-countdown-wrapper">
+        <div id="question-countdown-frozen" class="d-none">
+            <img src="{{ url_for('static', filename='img/frozen.png') }}">
+        </div>
+        <div id="question-countdown-filled"></div>
+        <div id="question-countdown-text">30</div>
+    </div>
+</div>

@@ -171,7 +171,7 @@ class GameSocketHandler(Namespace):
         for contestant_id in player_ids:
             contestant = self.game_data.get_game_contestant(contestant_id)
             metadata = self.contestant_metadata[contestant_id]
-            power_up = contestant.get_power(PowerUpType(power_id))
+            power_up = contestant.get_power(getattr(PowerUpType, power_id))
             if power_up.used:
                 skip_contestants.append(metadata.sid)
                 continue
@@ -194,17 +194,17 @@ class GameSocketHandler(Namespace):
         else:
             player_ids = [contestant_id for contestant_id in self.contestant_metadata]
 
-        power_ids = [PowerUpType(power_id)] if power_id is not None else list(PowerUpType)
+        power_ups = [getattr(PowerUpType, power_id)] if power_id is not None else list(PowerUpType)
         for contestant_id in player_ids:
             contestant = self.game_data.get_game_contestant(contestant_id)
-            for power_up in power_ids:
+            for power_up in power_ups:
                 power = contestant.get_power(power_up)
                 power.enabled = False
 
         self.game_metadata.power_use_decided = True
 
         send_to = self.contestant_metadata[user_id].sid if user_id is not None else "contestants"
-        self.emit("power_ups_disabled", power_ids, to=send_to)
+        self.emit("power_ups_disabled", [power_up.name for power_up in power_ups], to=send_to)
 
     @_presenter_event
     def on_correct_answer(self, user_id: str, value: int):
@@ -239,7 +239,7 @@ class GameSocketHandler(Namespace):
     def use_power_up(self, user_id: str, power_id: str, value: int | None = None):
         contestant_data = self.game_data.get_game_contestant(user_id)
         contestant_metadata = self.contestant_metadata[user_id]
-        power = PowerUpType(power_id)
+        power = getattr(PowerUpType, power_id)
 
         print(f"Power up '{power}' used by {contestant_data.contestant.name}", flush=True)
 

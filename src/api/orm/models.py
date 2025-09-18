@@ -8,8 +8,8 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship, reconstructor
 from mhooge_flask.database import Base
 
 from api.enums import StageType, PowerUpType, Language
-from api.config import Config
-from app.routes.shared import (
+from api.config import (
+    Config, 
     get_avatar_path,
     get_bg_image_path,
     get_buzz_sound_path,

@@ -22,7 +22,7 @@
                         <div class="dashboard-game-entry-stage">Stage: {{ game_data['stage'] | capitalize }}</div>
                         <div class="dashboard-game-entry-contestants">Contestants: {{ game_data['game_contestants'] | length }} / {{ game_data['max_contestants'] }}</div>
                         <div class="dashboard-game-entry-created">Started: {{ game_data['started_at'] }}</div>
-                        <div class="dashboard-game-entry-ended">{% if game_data['ended_at'] %}Ended: {{ game_data['ended_at'] }}{% else %}Ongoing{% endif %}</div>
+                        <div class="dashboard-game-entry-ended{% if not game_data['ended_at'] %} game-active{% endif %}">{% if game_data['ended_at'] %}Ended: {{ game_data['ended_at'] }}{% else %}Ongoing{% endif %}</div>
                     </div>
                     {% endfor %}
                 </div>
@@ -43,7 +43,7 @@
 
                 <div id="dashboard-questions-data">
                     {% for question_data in questions %}
-                    <div class="dashboard-questions-entry-wrapper" onclick="window.location.href = '{{ url_for('dashboard.questions_view', pack_id=question_data['id'] ) }}'">
+                    <div class="dashboard-questions-entry-wrapper" onclick="window.location.href = '{{ url_for('dashboard.question_pack', pack_id=question_data['id'] ) }}'">
                         <h3>{{ question_data['name'] }}</h3>
                         <div class="dashboard-question-entry-questions">Questions: {{ question_data['total_questions'] }}</div>
                         <div class="dashboard-question-entry-created">Created: {{ question_data['created_at'] }}</div>

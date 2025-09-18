@@ -27,9 +27,9 @@
             <!-- Question images -->
             {% if "question_image" in extra %}
             <div id="question-question-image-wrapper">
-                <img id="question-question-image"{% if "border" in extra %} class="image-border"{% endif %} src="{{ url_for('static', _external=True, filename=base_folder + extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                <img id="question-question-image"{% if "border" in extra %} class="image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                 {% if "answer_image" in extra %}
-                <img id="question-answer-image"{% if "border" in extra %} class="image-border"{% endif %} src="{{ url_for('static', _external=True, filename=base_folder + extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                <img id="question-answer-image"{% if "border" in extra %} class="image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                 {% endif %}
             </div>
             {% endif %}
@@ -43,7 +43,7 @@
             {% endif %}
             <div id="question-question-image-wrapper">
                 <video id="question-question-video" style="height: {{ question['height'] }}px;"{% if 'volume' in extra %} class="volume-{{ extra['volume'] }}"{% endif %}>
-                    <source src="{{ url_for('static', _external=True, filename=base_folder + extra['video']) }}" type="video/{{ video_type }}">
+                    <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
                 </video>
             </div>
             {% endif %}
@@ -147,7 +147,7 @@
             {{ _locale | tojson }},
             "{{ answer | safe }}",
             {{ value }},
-            {{ buzz_time }},
+            {{ category["buzz_time"] }},
             {{ daily_double | tojson }}
         );
 

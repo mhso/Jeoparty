@@ -83,6 +83,11 @@ class Database(SQLAlchemyDatabase):
 
             return session.execute(statement).scalar_one()
 
+    def get_question_from_id(self, question_id: str):
+        with self as session:
+            stmt = select(Question).options(selectinload(Question.category)).filter(Question.id == question_id)
+            return session.execute(stmt).scalar_one()
+
     def get_unique_join_code(self, join_code: str):
         with self as session:
             statement = select(func.count).select_from(Game).where(Game.join_code == join_code)

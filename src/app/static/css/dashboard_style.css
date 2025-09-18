@@ -156,6 +156,11 @@
     margin-top: 15px;
     margin-bottom: 15px;
     border-radius: 5px;
+    line-height: 1.2;
+}
+
+.dashboard-game-entry-ended.game-active {
+    color: #11f511;
 }
 
 .dashboard-questions-entry-wrapper:hover, .dashboard-game-entry-wrapper:hover {

@@ -16,6 +16,14 @@
     {% if game_id %}
     <script>const GAME_ID = "{{ game_id }}";</script>
     <script src="{{ url_for('static', _external=True, filename='js/contestant_game.js') }}"></script>
+    <script>
+        // Add listener for closing socket
+        window.addEventListener("beforeunload", function(){
+            if (socket) {
+                socket.close();
+            }
+        });
+    </script>
     {% else %}
     <script src="{{ url_for('static', _external=True, filename='js/contestant_lobby.js') }}"></script>
     {% endif %}

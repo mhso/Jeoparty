@@ -5,11 +5,8 @@ import flask
 
 from api.database import Database
 from api.orm.models import Contestant, GameContestant
-from app.routes.shared import (
-    validate_param,
-    get_avatar_path,
-    render_locale_template,
-)
+from app.routes.shared import validate_param, render_locale_template
+from api.config import get_avatar_path
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
 

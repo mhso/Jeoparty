@@ -9,13 +9,15 @@ from mhooge_flask.routing import make_template_context, make_text_response
 from mhooge_flask.logging import logger
 
 from api.database import Database
+from api.config import get_data_path_for_question_pack
 from api.orm.models import *
 from api.enums import StageType
 from app.routes.shared import (
     redirect_to_login,
     validate_param,
     validate_file,
-    get_data_path_for_question_pack,
+    render_question_template,
+    render_locale_template,
     VALID_NAME_CHARACTERS
 )
 
@@ -125,7 +127,7 @@ def create_pack():
             path = os.path.join(data_path, "lobby_music.mp3")
             file.save(path)
 
-        return flask.redirect(flask.url_for(".questions_view", pack_id=pack_model_or_error.id, _external=True))
+        return flask.redirect(flask.url_for(".question_pack", pack_id=pack_model_or_error.id, _external=True))
 
     return make_template_context(
         "dashboard/create_pack.html",
@@ -139,7 +141,7 @@ def _validate_create_game_params(params: Dict[str, Any], user_id: str) -> Game |
         return error
 
     for c in title:
-        if c.strip() not in VALID_CHARS:
+        if c.strip() not in VALID_NAME_CHARACTERS:
             return f"Invalid character in game title: {c}"
 
     if "password" in params and params["password"] != "":
@@ -275,10 +277,10 @@ def save_pack(pack_id: str):
     return make_text_response("Question pack saved succesfully.", 200)
 
 @dashboard_page.route("/pack/<pack_id>")
-def questions_view(pack_id: str):
+def question_pack(pack_id: str):
     user_details = get_user_details()
     if user_details is None:
-        return redirect_to_login("dashboard.questions_view", pack_id=pack_id)
+        return redirect_to_login("dashboard.question_pack", pack_id=pack_id)
 
     database: Database = flask.current_app.config["DATABASE"]
     with database:
@@ -296,4 +298,33 @@ def questions_view(pack_id: str):
         user_name=user_name,
         languages=[(lang.name, lang.value.capitalize()) for lang in Language],
         **questions_json,
+    )
+
+@dashboard_page.route("/pack/<pack_id>/question/<question_id>")
+def question_view(pack_id: str, question_id: str):
+    user_details = get_user_details()
+    if user_details is None:
+        return redirect_to_login("dashboard.question_view", pack_id=pack_id, question_id=question_id)
+
+    database: Database = flask.current_app.config["DATABASE"]
+    pack = database.get_questions_for_user(user_details[0], pack_id)
+
+    if pack is None:
+        return flask.abort(404)
+
+    question = None
+    for pack_question in pack.get_all_questions():
+        if pack_question.id == question_id:
+            question = pack_question
+            break
+
+    if question is None:
+        return flask.abort(404)
+
+    question_json = question.dump(id="question_id")
+
+    return render_locale_template(
+        "question_view.html",
+        pack.language,
+        **question_json,
     )
