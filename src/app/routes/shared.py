@@ -21,9 +21,9 @@ VALID_NAME_CHARACTERS = set(_UPPERCASE + _LOWERCASE + _NUMBERS + _EXTRA)
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
 
-def render_locale_template(template: str, language: str | None = None, status=200, **variables):
-    if language is not None:
-        locale_data = flask.current_app.config["LOCALES"].get(language.value)
+def render_locale_template(template: str, lang_code: str | None = None, status=200, **variables):
+    if lang_code is not None:
+        locale_data = flask.current_app.config["LOCALES"].get(lang_code.value)
         page_key = template.split(".")[0]
         if locale_data:
             page_data = locale_data["pages"].get(page_key, {})
@@ -153,16 +153,18 @@ def validate_file(file: FileStorage, valid_types: List[str], validate_name: bool
     if not file.filename:
         return False, "File name is empty"
 
-    file_type = file.filename.split(".")[-1]
+    file_type_split = file.filename.split(".")
+    file_type = file_type_split[-1].lower()
     if file_type not in valid_types:
         return False, f"File is not a valid type (must be one of: {valid_types})"
 
     if validate_name:
-        secure_name = secure_filename(file.filename)
+        filename = f"{file_type_split[0]}.{file_type_split[-1].lower()}"
+        secure_name = secure_filename(filename)
         if secure_name == "":
             return False, "Filename contains invalid characters"
 
-        for c in basename(secure_name):
+        for c in basename(secure_name.split(".")[0]):
             if c.strip() not in VALID_NAME_CHARACTERS:
                 return False, f"Filename contains an invalid character: {c}"
     else:

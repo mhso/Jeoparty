@@ -90,7 +90,7 @@ class Database(SQLAlchemyDatabase):
 
     def get_unique_join_code(self, join_code: str):
         with self as session:
-            statement = select(func.count).select_from(Game).where(Game.join_code == join_code)
+            statement = select(func.count()).select_from(Game).where(Game.join_code == join_code)
             count = session.execute(statement).scalar()
             if not count:
                 return join_code
@@ -291,11 +291,22 @@ class Database(SQLAlchemyDatabase):
         with self as session:
             pack_model = session.execute(select(QuestionPack).where(QuestionPack.id == data["id"])).scalar_one()
 
+            update_stmt = update(QuestionPack).where(QuestionPack.id == pack_model.id).values(
+                public=data["public"],
+                include_finale=data["include_finale"],
+                language=data.get("language"),
+                created_by=data["created_by"],
+                created_at=pack_model.created_at,
+                changed_at=data["changed_at"],
+            )
+
+            session.execute(update_stmt)
+
             # Unpack rounds, categories, and questions into separate models
             round_index = 1
             for round_data in data["rounds"]:
                 round_data["pack_id"] = pack_model.id
-    
+
                 if round_data.get("deleted", False):
                     data_to_delete.append((QuestionRound, round_data["id"]))
                     continue
@@ -350,6 +361,8 @@ class Database(SQLAlchemyDatabase):
 
                     for question_data in question_models:
                         question_data["category_id"] = category_model.id
+                        if question_data["extra"] == {}:
+                            question_data["extra"] = None
 
                         new_question_model = Question(**question_data)
 

@@ -56,7 +56,7 @@
         });
 
         {% for contestant in game_contestants %}
-        addContestantDiv("{{ contestant['contestant_id'] }}", "{{ contestant['name'] }}", "{{ contestant['avatar'] }}", "{{ contestant['color'] }}");
+        addContestantDiv("{{ contestant['id'] }}", "{{ contestant['name'] }}", "{{ contestant['avatar'] }}", "{{ contestant['color'] }}");
         {% endfor %}
 
         window.onkeydown = function(e) {

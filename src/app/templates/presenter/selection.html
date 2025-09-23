@@ -91,7 +91,7 @@
                     }
                 };
                 {% if stage == "SELECTION" and not first_round %}
-                setPlayerTurn("{{ player_with_turn['contestant_id'] }}");
+                setPlayerTurn("{{ player_with_turn['id'] }}");
                 {% elif stage == "FINALE_WAGER" %}
                 showFinaleCategory();
                 socket.on("contestant_ready", setPlayerReady);

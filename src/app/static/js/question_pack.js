@@ -88,30 +88,56 @@ function getElementIndex(prefix, id) {
     return null;
 }
 
-function syncQuestionData(round, category, question) {
-    let questionText = document.getElementById("question-pack-modal-question").value;
-    let answerText = document.getElementById("question-pack-modal-answer").value;
-    let value = document.getElementById("question-pack-modal-value").value;
-    let doBuzzTimer = document.getElementById("question-pack-modal-do-buzz-timer").checked;
-    let buzzTime = document.getElementById("question-pack-modal-buzztime").value;
-    let isMultipleChoice = document.getElementById("question-pack-modal-multiple_choice").checked;
-    let choices = document.querySelectorAll(".question-pack-modal-choice");
-    let questionMediaInput = document.getElementById("question-pack-modal-question-media-input");
-    let answerMediaInput = document.getElementById("question-pack-modal-answer-media-input");
+function getQuestionViewWrapper(roundId, categoryId, questionId) {
+    return document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-view-${questionId}`);
+}
 
-    
+function syncQuestionData(round, category, question) {
+    let wrapper = getQuestionViewWrapper(round, category, question);
+
+    let questionText = wrapper.querySelector(".question-question-header").value;
+    let answerText = wrapper.querySelector(".question-answer-input").value;
+    let value = wrapper.querySelector(".question-reward-span").value;
+    let explanationText = wrapper.querySelector(".question-explanation-input").value;
+    let doBuzzTimer = wrapper.querySelector(".question-do-buzz-countdown").checked;
+    let buzzTime = wrapper.querySelector(".question-countdown-text").value;
+    let isMultipleChoice = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
+    let choices = wrapper.querySelectorAll(".question-choice-text");
+    let questionMediaInput = wrapper.querySelector(".question-question-media-input");
+    let answerMediaInput = wrapper.querySelector(".question-answer-media-input");
+    let tips = wrapper.querySelectorAll(".question-tip-content");
+
     // Set buzz time on category
     questionData["rounds"][round]["categories"][category]["buzz_time"] = doBuzzTimer ? buzzTime : 0;
-    
-    let data = {
-        "question": questionText,
-        "answer": answerText,
-        "value": value,
+    let questionDataQuestions = questionData["rounds"][round]["categories"][category]["questions"];
+
+    let data;
+    if (question < questionDataQuestions.length) {
+        data = questionDataQuestions[question];
+    }
+    else {
+        data = {
+            "question": questionText,
+            "answer": answerText,
+            "value": value,
+            "extra": {},
+        }
     }
 
     // Add multiple choice entries
     if (isMultipleChoice) {
-        data["choices"] = choices.map((choice) => choice.textContent);
+        data["extra"]["choices"] = Array.from(choices).map((choice) => choice.value);
+    }
+
+    // Save explanation
+    if (explanationText) {
+        data["extra"]["explanation"] = explanationText;
+    }
+
+    // Save tips
+    let tipData = Array.from(tips).map((tip) => tip.value).filter((tip) => tip != "");
+    if (tipData.length > 0) {
+        data["extra"]["tips"] = tipData;
     }
 
     // Save question image or video
@@ -129,21 +155,25 @@ function syncQuestionData(round, category, question) {
         }
     
         if (key != null) {
-            data[key] = questionMediaFile.name.split(".")[0];
-            questionMedia[data[key]] = questionMediaFile;
+            data["extra"][key] = questionMediaFile.name.split(".")[0];
+            questionMedia[data["extra"][key]] = questionMediaFile;
+
+            // Save height of image/video
+            let name = key == "question_image" ? ".question-question-image" : ".question-question-video";
+            let questionMediaPreview = wrapper.querySelector(name);
+            data["extra"]["height"] = questionMediaPreview.height;
         }
     }
 
     // Save answer image
     if (answerMediaInput.files.length == 1) {
         let answerMediaFile = answerMediaInput.files[0];
-        if (imageFileTypes.includes(questionMediaFile.type)) {
-            data["answer_image"] = answerMediaFile.name.split(".")[0];
-            questionMedia[data["answer_image"]] = answerMediaFile;
+        if (imageFileTypes.includes(answerMediaFile.type)) {
+            data["extra"]["answer_image"] = answerMediaFile.name.split(".")[0];
+            questionMedia[data["extra"]["answer_image"]] = answerMediaFile;
         }
     }
 
-    let questionDataQuestions = questionData["rounds"][round]["categories"][category]["questions"];
     if (questionDataQuestions.length == question) {
         questionDataQuestions.push(data);
     }
@@ -161,19 +191,34 @@ function addQuestion(value, round, category) {
         questionData["rounds"][round]["categories"][category]["questions"] = [];
     }
 
-    let questionElem = document.createElement("input");
-    questionElem.value = value;
-    questionElem.classList.add("question-pack-question-wrapper");
-    questionElem.classList.add(`question-pack-question-wrapper-${question}`);
-    questionElem.readonly = true;
-    questionElem.onclick = function() {
-        openQuestionModal(round, category, question);
+    let questionWrapper = document.createElement("div");
+    questionWrapper.classList.add("question-pack-question-wrapper");
+    questionWrapper.classList.add(`question-pack-question-wrapper-${question}`);
+    questionWrapper.onclick = function() {
+        showQuestionView(round, category, question);
     }
 
-    categoryWrapper.appendChild(questionElem);
+    let deleteBtn = document.createElement("button");
+    deleteBtn.className = "question-pack-delete-question-btn delete-button";
+    deleteBtn.innerHTML = "&times;";
+    deleteBtn.onclick = function(event) {
+        deleteQuestion(event, round, category, question);
+    };
+
+    let questionElem = document.createElement("input");
+    questionElem.value = value;
+    questionElem.classList.add("question-pack-question-name");
+    questionElem.readonly = true;
+
+    questionWrapper.appendChild(deleteBtn);
+    questionWrapper.appendChild(questionElem);
+
+    categoryWrapper.appendChild(questionWrapper);
 }
 
-function deleteQuestion(round, category, question) {
+function deleteQuestion(event, round, category, question) {
+    event.stopPropagation();
+
     if (!confirm("Are you sure you want to delete this question?")) {
         return;
     }
@@ -208,7 +253,7 @@ function syncCategoryData(round, category) {
 
     let questionDataCategories = questionData["rounds"][round]["categories"];
     if (questionDataCategories.length == category) {
-        questionDataCategories.push({"name": name, "order": category, "questions": []});
+        questionDataCategories.push({"name": name, "order": category, "buzz_time": 10, "questions": []});
     }
     else {
         questionDataCategories[category]["name"] = name;
@@ -219,6 +264,7 @@ function syncCategoryData(round, category) {
 function addCategory(round) {
     // Add new category for given round
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
+    let roundBody = roundWrapper.querySelector(".question-pack-round-body");
 
     let category = getNextId(round);
     let categoryNum = roundWrapper.querySelectorAll(".question-pack-category-wrapper").length;
@@ -226,6 +272,9 @@ function addCategory(round) {
         questionData["rounds"][round]["categories"] = [];
         let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
         placeholder.classList.add("d-none");
+
+        let addCategoryBtn = roundWrapper.querySelector(".question-pack-add-category-btn");
+        addCategoryBtn.classList.remove("d-none");
     }
 
     let categoryElem = document.createElement("div");
@@ -236,10 +285,10 @@ function addCategory(round) {
     header.className = "question-pack-category-header";
 
     let deleteBtn = document.createElement("button");
-    deleteBtn.className = "question-pack-delete-category-btn";
+    deleteBtn.className = "question-pack-delete-category-btn delete-button";
     deleteBtn.innerHTML = "&times;";
-    deleteBtn.onclick = function() {
-        deleteCategory(round, category);
+    deleteBtn.onclick = function(event) {
+        deleteCategory(event, round, category);
     }
 
     let input = document.createElement("input");
@@ -254,25 +303,28 @@ function addCategory(round) {
     header.appendChild(input);
 
     let dataDiv = document.createElement("div");
+    dataDiv.className = "question-pack-category-body";
 
     let addQuestionBtn = document.createElement("button");
     addQuestionBtn.textContent = "+";
     addQuestionBtn.classList.add("question-pack-add-question-btn");
     addQuestionBtn.onclick = function() {
-        openQuestionModal(round, category, null);
+        createQuestionView(round, category);
     };
 
     categoryElem.appendChild(header);
     categoryElem.appendChild(dataDiv);
     categoryElem.appendChild(addQuestionBtn);
 
-    roundWrapper.querySelector("div").appendChild(categoryElem);
+    roundBody.appendChild(categoryElem);
 
     syncCategoryData(round, category)
     dataChanged();
 }
 
-function deleteCategory(round, category) {
+function deleteCategory(event, round, category) {
+    event.stopPropagation();
+
     if (!confirm("Are you sure you want to delete this category and all its data?")) {
         return;
     }
@@ -286,6 +338,9 @@ function deleteCategory(round, category) {
         if (questionData["rounds"][round]["categories"].length == 0) {
             let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
             placeholder.classList.remove("d-none");
+
+            let addCategoryBtn = roundWrapper.querySelector(".question-pack-add-category-btn");
+            addCategoryBtn.classList.add("d-none");
         }
     }
 
@@ -455,6 +510,11 @@ function syncPackFinale() {
     questionData["include_finale"] = finale;
 }
 
+function syncPackLanguage() {
+    let language = document.getElementById("question-pack-language").value;
+    questionData["language"] = language;
+}
+
 function getBaseURL() {
     return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port;
 }
@@ -537,7 +597,7 @@ function saveData(packId) {
         }
     ).always(function(a, b, c) {
         let response;
-        if (typeof(a) == "object" && Object.hasOwn("status")) {
+        if (typeof(a) == "object" && Object.hasOwn(a, "status")) {
             response = a;
         }
         else {
@@ -579,67 +639,154 @@ function saveData(packId) {
     });
 }
 
-function modalSetDoBuzzTime() {
-    let checked = document.getElementById("question-pack-modal-do-buzz-timer").checked;
-    let buzzTimeInput = document.getElementById("question-pack-modal-buzztime");
+function getSpecificParent(element, parentClass) {
+    while (element != null && !element.classList.contains(parentClass)) {
+        element = element.parentElement;
+    }
 
-    buzzTimeInput.disabled = !checked;
+    return element;
 }
 
-function modalAddAnswerChoice() {
-    let choicesInnerWrapper = document.querySelector("#question-pack-modal-choices-data");
+function setDoBuzzTime(event) {
+    let wrapper = getSpecificParent(event.target, "question-view-wrapper");
 
-    let choices = document.querySelectorAll(".question-pack-modal-choice").length;
+    let checked = wrapper.querySelector(".question-do-buzz-countdown").checked;
+    let countdownWrapper = wrapper.querySelector(".question-countdown-wrapper");
 
-    let choiceElem = document.createElement("input");
-    choiceElem.classList.add("question-pack-modal-choice");
-    choiceElem.value = `Choice ${choices + 1}`;
-
-    choicesInnerWrapper.appendChild(choiceElem);
+    if (checked) {
+        countdownWrapper.classList.remove("d-none");
+    }
+    else {
+        countdownWrapper.classList.add("d-none");
+    }
 }
 
-function modalSetMultipleChoice() {
-    let checked = document.getElementById("question-pack-modal-multiple_choice").checked;
-    let choicesWrapper = document.getElementById("question-pack-modal-choices");
-    let choices = document.querySelectorAll(".question-pack-modal-choice").length;
+function addAnswerChoice(event) {
+    let wrapper = getSpecificParent(event.target, "question-view-wrapper");
+    let choicesWrapper = wrapper.querySelector(".question-choices-wrapper");
+
+    let choices = wrapper.querySelectorAll(".question-choice-entry").length;
+
+    let choiceEntry = document.createElement("div");
+    choiceEntry.className = `question-choice-${choices + 1} question-choice-entry question-editable`;
+
+    let deleteBtn = document.createElement("button");
+    deleteBtn.innerHTML = "&times";
+    deleteBtn.onclick = deleteAnswerChoice
+
+    let paragraph = document.createElement("p");
+
+    let choiceNum = document.createElement("span");
+    choiceNum.className = "question-choice-number";
+    choiceNum.textContent = `${choices + 1}:`;
+
+    let choiceText = document.createElement("input");
+    choiceText.className = "question-choice-text question-editable";
+    choiceText.value = "Choice Text Here";
+
+    paragraph.appendChild(choiceNum);
+    paragraph.appendChild(choiceText);
+
+    choiceEntry.appendChild(deleteBtn);
+    choiceEntry.appendChild(paragraph);
+
+    choicesWrapper.insertBefore(choiceEntry, choicesWrapper.lastElementChild);
+}
+
+function deleteAnswerChoice(event) {
+    let wrapper = getSpecificParent(event.target, "question-view-wrapper");
+    let choiceEntry = event.target.parentElement;
+    let choicesWrapper = choiceEntry.parentElement;
+
+    choicesWrapper.removeChild(choiceEntry);
+
+    let choices = choicesWrapper.querySelectorAll(".question-choice-entry");
+    if (choices.length == 0) {
+        choicesWrapper.querySelector(".question-multiple-choice-checkbox").checked = false;
+        wrapper.querySelector(".question-choices-indicator").classList.add("d-none");
+    }
+    else {
+        choices.forEach((elem, index) => {
+            let choiceNum = elem.querySelector(".question-choice-number");
+            choiceNum.textContent = `${index + 1}:`
+        });
+    }
+}
+
+function getDefaultMediaHeight(wrapper) {
+    let isMultipleChoice = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
+    if (isMultipleChoice) {
+        return 256;
+    }
+
+    return 420;
+}
+
+function resizeMedia(wrapper) {
+    let newHeight = getDefaultMediaHeight(wrapper);
+
+    let questionImage = wrapper.querySelector(".question-question-image");
+    if (questionImage != null) {
+        questionImage.style.height = newHeight + "px";
+    }
+
+    let video = wrapper.querySelector(".question-question-video");
+    if (video != null) {
+        video.style.height = newHeight + "px";
+    }
+
+    let answerImage = wrapper.querySelector(".question-answer-image");
+    if (answerImage != null) {
+        answerImage.style.height = newHeight + "px";
+    }
+}
+
+function setMultipleChoice(event) {
+    let wrapper = getSpecificParent(event.target, "question-view-wrapper");
+
+    let checked = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
+    let choicesWrapper = wrapper.querySelector(".question-choices-wrapper");
+    let choicesIndicator = wrapper.querySelector(".question-choices-indicator");
+    let choices = wrapper.querySelectorAll(".question-choice-entry").length;
 
     if (checked) {
         if (choices == 0) {
-            modalAddAnswerChoice();
+            addAnswerChoice(event);
         }
+        choicesIndicator.classList.remove("d-none");
         choicesWrapper.classList.remove("d-none");
     }
     else {
         choicesWrapper.classList.add("d-none");
+        choicesIndicator.classList.add("d-none");
     }
+
+    resizeMedia(wrapper);
 }
 
-function modalShowMediaPreview(wrapper, fileSrc=null, fileType=null, mediaElem=null) {
-    let previewWrapper = wrapper.querySelector(".modal-drag-target-preview-wrapper");
-    let header = wrapper.querySelector(".modal-drag-target-header");
+function showMediaPreview(wrapper, fileSrc, fileType, mediaKey) {
+    let previewWrapper = wrapper.querySelector(".drag-target-preview-wrapper");
+    let header = wrapper.querySelector(".drag-target-tooltip");
 
     previewWrapper.innerHTML = "";
-
-    if (mediaElem == null) {    
-        if (imageFileTypes.includes(fileType)) {
-            mediaElem = document.createElement("img");
-            mediaElem.className = ".modal-drag-target-image";
-        }
-        else {
-            let video = document.createElement("video");
-            mediaElem = document.createElement("source");
-
-            video.className = ".modal-drag-target-video";
-            mediaElem.type = fileType;
-        }
-    
-        mediaElem.src = fileSrc;
+ 
+    let mediaElem;
+    if (imageFileTypes.includes(fileType)) {
+        mediaElem = document.createElement("img");
+        mediaElem.className = `.question-${mediaKey}-image question-editable`;
     }
     else {
-        mediaElem.classList.remove("d-none");
+        let video = document.createElement("video");
+        mediaElem = document.createElement("source");
+
+        video.className = ".question-question-video question-editable";
+        mediaElem.type = fileType;
     }
 
-    mediaElem.classList.add("modal-drag-target-preview");
+    mediaElem.src = fileSrc;
+    mediaElem.style.height = getDefaultMediaHeight(wrapper) + "px";
+
+    wrapper.classList.remove("target-empty");
 
     previewWrapper.appendChild(mediaElem);
 
@@ -648,42 +795,37 @@ function modalShowMediaPreview(wrapper, fileSrc=null, fileType=null, mediaElem=n
 }
 
 function openMediaInput(event) {
-    let target = event.target;
-    while (!target.classList.contains("media-drag-target")) {
-        target = target.parentElement;
-    }
-
-    let input = target.querySelector(".modal-drag-input");
+    let target = getSpecificParent(event.target, "media-drag-target");
+    let input = target.querySelector(".drag-input");
     input.click();
 }
 
-function validateAndGetFile(files, wrapper) {
+function validateAndGetFile(files, wrapper, mediaKey) {
     if (files.length != 1) {
         return null;
     }
 
     let file = files[0];
-    if (!isMediaValidType(file)) {
+    if (mediaKey == "image" && !imageFileTypes.includes(file.type) || mediaKey == "video" && !videoFileTypes.includes(file.type)) {
         alert("Invalid file type.");
         return null;
     }
 
-    modalShowMediaPreview(wrapper, URL.createObjectURL(file), file.type);
+    showMediaPreview(wrapper, URL.createObjectURL(file), file.type, mediaKey);
 
     return file;
 }
 
-function modalMediaFileSelected(event, mediaKey) {
-    let input = event.target.querySelector(".modal-drag-input");
-    let file = validateAndGetFile(input.files, event.target.parentElement, mediaKey);
+function mediaFileSelected(event, mediaKey) {
+    let file = validateAndGetFile(event.target.files, event.target.parentElement, mediaKey);
 
     if (file == null) {
-        input.files = [];
+        event.target.files = [];
     }
 }
 
-function modalMediaDragDropped(event, mediaKey) {
-    let input = event.target.querySelector(".modal-drag-input");
+function mediaDragDropped(event, mediaKey) {
+    let input = event.target.querySelector(".drag-input");
     let file = validateAndGetFile(event.dataTransfer.files, event.target.parentElement, mediaKey);
     if (file == null) {
         return;
@@ -692,125 +834,141 @@ function modalMediaDragDropped(event, mediaKey) {
     input.files = [file];
 }
 
-function modalMediaDragEnter(event) {
-    let header = event.target.querySelector(".modal-drag-target-header");
+function mediaDragEnter(event) {
+    let header = event.target.querySelector(".drag-target-tooltip");
     header.classList.add("d-none");
 }
 
-function modalMediaDragLeave(event) {
-    let header = event.target.querySelector(".modal-drag-target-header");
-    let preview = event.target.querySelector(".modal-drag-target-preview-wrapper");
+function mediaDragLeave(event) {
+    let header = event.target.querySelector(".drag-target-tooltip");
+    let preview = event.target.querySelector(".drag-target-preview-wrapper");
     if (preview.classList.contains("d-none")) {
         header.classList.remove("d-none");
     }
 }
 
-function openQuestionModal(roundId, categoryId, questionId) {
-    let modal = document.getElementById("question-pack-modal-wrapper");
-    let saveBtn = document.getElementById("question-pack-modal-save-btn");
-    let deleteBtn = document.getElementById("question-pack-modal-delete-btn");
+function deleteMedia(event) {
+    event.stopPropagation();
 
-    let newQuestion = questionId == null;
+    let wrapper = getSpecificParent(event.target, "media-drag-target");
+    wrapper.classList.add("target-empty");
 
-    let actionHeader = document.getElementById("question-pack-modal-action");
-    let categoryHeader = document.getElementById("question-pack-modal-category");
-    let questionInput = document.getElementById("question-pack-modal-question");
-    let answerInput = document.getElementById("question-pack-modal-answer");
-    let valueInput = document.getElementById("question-pack-modal-value");
-    let buzzTimerCheck = document.getElementById("question-pack-modal-do-buzz-timer");
-    let buzzInput = document.getElementById("question-pack-modal-buzztime");
-    let multipleChoiceCheck = document.getElementById("question-pack-modal-multiple_choice");
-    let choicesWrapper = document.getElementById("question-pack-modal-choices");
-    let choicesInnerWrapper = document.querySelector("#question-pack-modal-choices-data");
-    let questionMediaWrapper = document.querySelector("#question-pack-modal-question-media-wrapper");
+    let previewWrapper = wrapper.querySelector(".drag-target-preview-wrapper");
+    previewWrapper.innerHTML = "";
+    previewWrapper.classList.add("d-none");
 
-    categoryHeader.textContent = questionData["rounds"][roundId]["categories"][categoryId]["name"];
+    let toolTip = wrapper.querySelector(".drag-target-tooltip");
+    toolTip.classList.remove("d-none");
 
-    if (newQuestion) {
-        questionId = questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
+    let mediaInput = wrapper.querySelector(".question-question-media-input drag-input");
+    mediaInput.files = [];
+}
 
-        actionHeader.textContent = "Add question to"
-        questionInput.value = "";
-        answerInput.value = "";
+function showQuestionView(roundId, categoryId, questionId, show=true) {
+    let frame = questionId == null ? null : getQuestionViewWrapper(roundId, categoryId, questionId);
 
-        let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
-        let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId}`);
-        let questionIndex = categoryWrapper.querySelectorAll(".question-pack-question-wrapper").length;
-        let roundIndex = getElementIndex("question-pack-round-wrapper", roundId);
-        valueInput.value = 100 * (questionIndex + 1) * (roundIndex + 1);
-        buzzInput.value = 10;
-        buzzTimerCheck.checked = true;
-        multipleChoiceCheck.checked = false;
-        choicesWrapper.classList.add("d-none");
-        choicesInnerWrapper.innerHTML = "";
+    if (show) {
+        frame.classList.remove("d-none");
 
-        deleteBtn.classList.add("d-none");
+        window.location.hash = `#question_${roundId}-${categoryId}-${questionId}`;
+
+        frame.querySelectorAll(".input-resizer").forEach((e) => {
+            let jqElem = $(e);
+            let jqParent = $(e.parentElement);
+
+            let val = jqParent.find('.resize-target').val();
+            if (!val) {
+                val = jqParent.find('.resize-target').attr("placeholder");
+            }
+            jqElem.text(val);
+            jqParent.find('.resize-target').width(jqElem.width() * 1.25 + 10);
+        });
     }
     else {
-        let dataForCategory = questionData["rounds"][roundId]["categories"][categoryId];
-        let dataForQuestion = dataForCategory["questions"][questionId];
-        
-        actionHeader.textContent = "Edit question for"
-        questionInput.value = dataForQuestion["question"];
-        answerInput.value = dataForQuestion["answer"];
-        valueInput.value = dataForQuestion["value"];
-        if (dataForCategory["buzz_time"] > 0) {
-            buzzInput.value = dataForCategory["buzz_time"];
-            buzzTimerCheck.checked = true;
-        }
-        else {
-            buzzInput.value = "";
-            buzzInput.disabled = true;
-            buzzTimerCheck.checked = false;
-        }
-
-        multipleChoiceCheck.checked = Object.hasOwn(dataForQuestion.extra, "choices");
-        if (multipleChoiceCheck.checked) {
-            choicesWrapper.classList.remove("d-none");
-        }
-        else {
-            choicesWrapper.classList.add("d-none");
-        }
-
-        if (Object.hasOwn(dataForQuestion.extra, "question_image") || Object.hasOwn(dataForQuestion.extra, "video")) {
-            let mediaElem = null;
-            if (Object.hasOwn(dataForQuestion.extra, "question_image")) {
-                mediaElem = document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-image-${questionId}`);
-            }
-            else {
-                mediaElem = document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-video-${questionId}`);
-            }
-
-            modalShowMediaPreview(questionMediaWrapper, null, null, mediaElem.cloneNode(true));
-        }
-
-        deleteBtn.classList.remove("d-none");
+        frame.classList.add("d-none");
+        window.location.hash = "";
     }
-
-    saveBtn.onclick = function() {
-        if (newQuestion) {
-            addQuestion(valueInput.value, roundId, categoryId);
-        }
-
-        syncQuestionData(roundId, categoryId, questionId);
-        dataChanged();
-        closeQuestionModal();
-    };
-    
-    if (!newQuestion) {
-        deleteBtn.onclick = function() {
-            deleteQuestion(roundId, categoryId, questionId);
-            closeQuestionModal();
-        }
-    }
-
-    modal.classList.remove("d-none");
 }
 
-function closeQuestionModal() {
-    document.getElementById("question-pack-modal-wrapper").classList.add("d-none");
+function saveQuestion(roundId, categoryId, questionId) {
+    const newQuestion = questionId == questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
+    let wrapper = getQuestionViewWrapper(roundId, categoryId, questionId);
+    let valueInput = wrapper.querySelector(".question-reward-span");
+
+    if (newQuestion) {
+        addQuestion(valueInput.value, roundId, categoryId);
+    }
+
+    // Sync data and close view
+    syncQuestionData(roundId, categoryId, questionId);
+    dataChanged();
+    showQuestionView(roundId, categoryId, questionId, false);
 }
+
+function createQuestionView(roundId, categoryId) {
+    let questionId = questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
+
+    let placeholder = document.querySelector(".question-pack-question-view-placeholder");
+    let wrapper = placeholder.cloneNode(true);
+
+    // Set question ID on the outer wrapper
+    wrapper.classList.remove("question-pack-question-view-placeholder");
+    wrapper.classList.add(`question-pack-question-view-${questionId}`);
+
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId}`);
+    let questionIndex = categoryWrapper.querySelectorAll(".question-pack-question-wrapper").length;
+    let roundIndex = getElementIndex("question-pack-round-wrapper", roundId);
+
+    // Set category name
+    let categoryHeader = wrapper.querySelector(".question-category-span");
+    categoryHeader.textContent = questionData["rounds"][roundId]["categories"][categoryId]["name"];
+
+    // Set value of question
+    let valueInput = wrapper.querySelector(".question-reward-span");
+    valueInput.value = 100 * (questionIndex + 1) * (roundIndex + 1);
+
+    // Set buzz time
+    let countdownText = wrapper.querySelector(".question-countdown-text");
+    countdownText.value = questionData["rounds"][roundId]["categories"][categoryId]["buzz_time"];
+
+    // Add onclick event to exit button
+    let exitBtn = wrapper.querySelector(".question-pack-question-view-exit");
+    exitBtn.onclick = function() {
+        saveQuestion(roundId, categoryId, questionId);
+    }
+
+    categoryWrapper.appendChild(wrapper);
+
+    showQuestionView(roundId, categoryId, questionId);
+}
+
+$(function() {
+    let resizers = $(".input-resizer");
+
+    resizers.each((e) => $(e).text($(e.parentElement).find('.resize-target').val()));
+    resizers.each((e) => $(e.parentElement).find('.resize-target').width($(e).width() * 1.25 + 10));
+}).on("input", function(event) {
+    if (!event.target.classList.contains("input-resizer")) {
+        return;
+    }
+
+    let e = $(event.target);
+    let resizeTarget = $(event.target.nextElementSibling);
+    e.text(resizeTarget.val());
+    resizeTarget.width(e.width() * 1.25 + 10);
+});
 
 document.addEventListener("DOMContentLoaded", function() {
     showRoundView(0);
+    if (window.location.hash) {
+        if (!window.location.hash.startsWith("#question_")) {
+            return;
+        }
+
+        let split = window.location.hash.replace("#question_", "").split("-");
+        if (split.length == 3) {
+            showQuestionView(split[0], split[1], split[2], true);
+        }
+    }
 });

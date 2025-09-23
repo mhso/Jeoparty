@@ -1,77 +1,165 @@
+{% macro element(className, content, regular_type='span', editable_type='input') -%}
+{% if editable %}
+<{{ editable_type | safe }} class="{{ className }} question-editable" {% for attr, val in kwargs | items %}{{ attr }} = {{ val }}{% endfor %}{% if editable_type == 'input' %} value="{{ content }}"{% endif %}>{% if editable_type != 'input' %}{{ content }}</{{ editable_type | safe }}>{% endif %} 
+{% else %}
+<{{ regular_type | safe }} class="{{ className }}">{{ content }}</{{ regular_type | safe }}>
+{% endif %}
+{%- endmacro %}
+
 <div {% if category['bg_image'] %}id="bg-image" style="background-image: url({{ url_for('static', _external=True, filename=category['bg_image']) }});"{% else %}id="bg-image"{% endif %}></div>
 
-<div id="question-wrapper">
-    <!-- Logo -->
-    {% include 'logo.html' %}
-
+<div class="question-view-wrapper">
     <!-- Category header -->
-    <h2 id="question-category-header"><span id="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in extra %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+    {% if editable %}
+    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}"> <span class="question-reward-span">{{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
+    {% else %}
+    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
+    {% endif %}
 
     {% if daily_double %}
     {% set max_wager = [player_with_turn["score"], max_value] | max %}
     <div id="question-wager-wrapper" class="d-none">
-        <h3>{{ _locale["daily_double_wager_1"] }} <span style="color: #{{ player_with_turn['contestant']['color'] }}; font-weight: 800;">{{ player_with_turn['contestant']["name"] }}</span> {{ _locale["daily_double_wager_2"] }} (max {{ max_wager }})</h3>
+        <h3>{{ _locale["daily_double_wager_1"] }} <span style="color: #{{ player_with_turn['color'] }}; font-weight: 800;">{{ player_with_turn["name"] }}</span> {{ _locale["daily_double_wager_2"] }} (max {{ max_wager }})</h3>
     </div>
     {% endif %}
 
     <!-- Question header -->
     {% if question %}
-    <h3 id="question-question-header">{{ question }}</h3>
+    {{ element("question-question-header", question, 'h3', 'textarea', rows="3") }}
     {% endif %}
 
-    <!-- Question images -->
-    {% if "question_image" in extra %}
-    <div id="question-question-image-wrapper">
-        <img id="question-question-image"{% if "border" in extra %} class="image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+    {% if editable %}
+    <!-- Question answer and explanation -->
+    <div class="question-answer-explanation-wrapper">
+        <label for="question-editable-answer">Answer</label>
+        <div><span class="input-resizer"></span><input class="question-answer-input resize-target" value="{{ answer }}" name="question-editable-answer"></div> (<div><span class="input-resizer"></span><input class="question-explanation-input resize-target" {% if "explanation" in extra %}value="{{ extra['explanation'] }}"{% else %}placeholder="Optional Explanation"{% endif %}></div>)
+    </div>
+    {% endif %}
+
+    {% if "video" in extra %}
+        {% if ".mp4" in extra["video"] %}
+        {% set video_type = "mp4" %}
+        {% else %}
+        {% set video_type = "webm" %}
+        {% endif %}
+    {% endif %}
+
+    <!-- Question images or video -->
+    {% set has_media = "question_image" in extra or "video" in extra %}
+    {% if has_media or editable %}
+    <div class="question-question-image-wrapper">
+        {% if editable %}
+        <div class="media-drag-target{% if not has_media %} target-empty{% endif %}" onclick="openMediaInput(event);" ondragenter="mediaDragEnter(event);" ondragleave="mediaDragLeave(event);" ondragend="mediaDragLeave(event);" ondrop="mediaDragDropped(event, 'question');">
+            <button class="media-delete-btn delete-button{% if not has_media %} d-none{% endif %}" onclick="deleteMedia(event)">&times;</button>
+            <div class="drag-target-preview-wrapper{% if not has_media%} d-none{% endif %}">
+                {% if has_media %}
+                    {% if "question_image" in extra %}
+                    <img class="question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                    {% else %}
+                    <video class="question-question-video question-editable{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" controls style="height: {{ extra['height'] }}px;">
+                        <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
+                    </video>
+                    {% endif %}
+                {% endif %}
+            </div>
+            <div class="drag-target-tooltip{% if has_media%} d-none{% endif %}">
+                <h3>Question Image/Video</h3>
+                Drop file or click here to upload
+            </div>
+            <input class="question-question-media-input drag-input" name="question-media" type="file" accept=".png, .jpeg, .jpg, .webp, .webm, .mp4" hidden onchange="mediaFileSelected(event, 'question')">
+        </div>
+
+        <div class="media-drag-target{% if 'answer_image' not in extra %} target-empty{% endif %}" onclick="openMediaInput(event);" ondragenter="mediaDragEnter(event);" ondragleave="mediaDragLeave(event);" ondragend="mediaDragLeave(event);" ondrop="mediaDragDropped(event, 'answer');">
+            <button class="media-delete-btn delete-button{% if 'answer_image' not in extra %} d-none{% endif %}" onclick="deleteMedia(event)">&times;</button>
+            <div class="drag-target-preview-wrapper{% if 'answer_image' not in extra %} d-none{% endif %}">
+                {% if "answer_image" in extra %}
+                <img class="question-answer-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                {% endif %}
+            </div>
+            <div class="drag-target-tooltip{% if 'answer_image' in extra %} d-none{% endif %}">
+                <h3>Answer Image</h3>
+                Drop file or click here to upload
+            </div>
+            <input class="question-answer-media-input drag-input" name="answer-media" type="file" accept=".png, .jpeg, .jpg, .webp" hidden onchange="mediaFileSelected(event, 'answer')">
+        </div>
+
+        {% else %}
+        {% if "question_image" in extra %}
+        <img class="question-question-image{% if 'border' in extra %} image-border"{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% if "answer_image" in extra %}
-        <img id="question-answer-image"{% if "border" in extra %} class="image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-answer-image{% if 'border' in extra %} image-border"{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        {% endif %}
+        {% else %}
+        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" style="height: {{ extra['height'] }}px;">
+            <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
+        </video>
+        {% endif %}
         {% endif %}
     </div>
     {% endif %}
 
-    <!-- Question video -->
-    {% if "video" in extra %}
-    {% if ".mp4" in extra["video"] %}
-    {% set video_type = "mp4" %}
-    {% else %}
-    {% set video_type = "webm" %}
-    {% endif %}
-    <div id="question-question-image-wrapper">
-        <video id="question-question-video" style="height: {{ question['height'] }}px;"{% if 'volume' in extra %} class="volume-{{ extra['volume'] }}"{% endif %}>
-            <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
-        </video>
+    {% if editable %}
+    <div class="input-field">
+        <label for="multiple-choice" style="display: inline;">Multiple Choice</label>
+        <input class="question-multiple-choice-checkbox" name="multiple-choice" type="checkbox" onclick="setMultipleChoice(event)"{% if 'choices' in extra %} checked{% endif %}>
     </div>
     {% endif %}
 
-    <div id="question-choices-wrapper">
+    <div class="question-choices-wrapper{% if editable and 'choices' not in extra %} d-none{% endif %}">
         <!-- Answer choices -->
         {% if "choices" in extra %}
         {% for option in extra["choices"] %}
-        <div id="question-answer-{{ loop.index }}" class="question-answer-entry">
+        <div class="question-choice-{{ loop.index }} question-choice-entry{% if editable %} question-editable{% endif %}">
+            {% if editable %}
+            <button onclick="deleteAnswerChoice(event);">&times;</button>
+            {% endif %}
             <p>
-                <span class="question-answer-number">{{ loop.index}}:</span> <span class="question-answer-text">{{ option }}</span>
+                <span class="question-choice-number">{{ loop.index}}:</span> {{ element("question-choice-text", option) }}
             </p>
         </div>
         {% endfor %}
         {% endif %}
+
+        {% if editable %}
+        <button class="question-add-choice" onclick="addAnswerChoice(event)">+</button>
+        {% endif %}
     </div>
 
-    <!-- Question tips -->
-    {% if 'tips' in extra %}
-        {% for tip in extra['tips'] %}
-        <div id="question-tip-{{ loop.index1 }}" class="question-tip-wrapper">
-            <h3 class="question-tip-header">Tip #{{ loop.index1 }}</h3>
-            <div class="question-tip-content">{{ tip }}</div>
-        </div>
-        {% endfor %}
+    <!-- Countdown buzz-in timer checkbox -->
+    {% if editable %}
+    <div class="input-field">
+        <label for="do-countdown" style="display: inline;">Include Buzz-In Timer</label>
+        <input class="question-do-buzz-countdown" name="do-countdown" type="checkbox" onclick="setDoBuzzTime(event)"{% if category['buzz_time'] > 0 %} checked{% endif %}>
+    </div>
     {% endif %}
 
     <!-- Countdown wrapper -->
-    <div id="question-countdown-wrapper">
-        <div id="question-countdown-frozen" class="d-none">
+    <div class="question-countdown-wrapper{% if editable %} question-editable{% endif %}">
+        <div class="question-countdown-frozen d-none">
             <img src="{{ url_for('static', filename='img/frozen.png') }}">
         </div>
-        <div id="question-countdown-filled"></div>
-        <div id="question-countdown-text">30</div>
+        <div class="question-countdown-filled{% if editable %} question-editable{% endif %}"></div>
+        {% if category['buzz_time'] > 0 %}{% set extra_args = {} %}{% else %}{% set extra_args = {'disabled': true} %}{% endif %}
+        {{ element("question-countdown-text", category['buzz_time'], 'div', **extra_args) }}
     </div>
+    
+    <!-- Question tips -->
+    {% if 'tips' in extra or editable %}
+    {% for tip in extra['tips'] %}
+    <div class="question-tip-{{ loop.index }} question-tip-wrapper{% if editable %} question-editable{% endif %}">
+        <h3 class="question-tip-header">Tip #{{ loop.index }}</h3>
+        {{ element("question-tip-content", tip, 'div') }}
+    </div>
+    {% endfor %}
+
+    {% if editable %}
+    {% for num in range(2 - extra['tips'] | length) %}
+    <div class="question-tip-{{ extra['tips'] | length + loop.index }} question-tip-wrapper{% if editable %} question-editable{% endif %}">
+        <h3 class="question-tip-header">Tip #{{ extra['tips'] | length + loop.index }}</h3>
+        <input class="question-tip-content question-editable" placeholder="Tip Text">
+    </div>
+    {% endfor %}
+    {% endif %}
+    
+    {% endif %}
 </div>

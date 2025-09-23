@@ -16,7 +16,6 @@ from app.routes.shared import (
     redirect_to_login,
     validate_param,
     validate_file,
-    render_question_template,
     render_locale_template,
     VALID_NAME_CHARACTERS
 )
@@ -84,15 +83,6 @@ def _validate_create_pack_params(params: Dict[str, Any], user_id: str):
         except AttributeError:
             return f"Unsupported language: '{params['language']}'"
 
-    if "music" in flask.request.files:
-        file = flask.request.files["music"]
-        if not file.filename:
-            return "No lobby music selected"
-
-        file_split = file.filename.split(".")
-        if len(file_split) != 2 or file_split[1] != "mp3":
-            return "Invalid lobby music file type, must be .mp3"
-
     return QuestionPack(
         name=name,
         public=public,
@@ -114,14 +104,14 @@ def create_pack():
         pack_model_or_error = _validate_create_pack_params(flask.request.form, user_id)
 
         if not isinstance(pack_model_or_error, QuestionPack) and pack_model_or_error is not None:
-            return flask.redirect(flask.url_for(".create_game", error=pack_model_or_error, _external=True))
+            return flask.redirect(flask.url_for(".question_pack", error=pack_model_or_error, _external=True))
 
         database.create_question_pack(pack_model_or_error)
 
         data_path = get_data_path_for_question_pack(pack_model_or_error.id)
         os.mkdir(data_path)
 
-        if "music" in flask.request.form:
+        if "music" in flask.request.files:
             file = flask.request.files["music"]
 
             path = os.path.join(data_path, "lobby_music.mp3")
@@ -224,12 +214,12 @@ def create_game():
 def _save_pack_file(pack_id, file, allowed_types):
     success, error_or_name = validate_file(file, allowed_types)
     if not success:
-        return f"Could not save question image '{file.filename}': {error_or_name}"
+        return False, f"Could not save question image '{file.filename}': {error_or_name}"
 
     path = os.path.join(get_data_path_for_question_pack(pack_id), error_or_name)
     file.save(path)
 
-    return None
+    return True, error_or_name
 
 def _save_pack_files(pack_data, files):
     file_keys = ["question_image", "video", "answer_image"]
@@ -238,11 +228,14 @@ def _save_pack_files(pack_data, files):
         for category_data in round_data["categories"]:
             for question_data in category_data["questions"]:
                 for file_key in file_keys:
-                    if question_data[file_keys] in files:
+                    file_name = question_data["extra"].get(file_key)
+                    if file_name is not None and file_name in files:
                         allowed_types = ["webm", "mp4"] if file_key == "video" else ["png", "jpg", "jpeg", "webp"]
-                        error = _save_pack_file(pack_data["id"], files[question_data[file_key]], allowed_types)
-                        if error:
-                            return f"Could not save question image '{question_data["question_image"]}': {error}"
+                        success, error_or_name = _save_pack_file(pack_data["id"], files[file_name], allowed_types)
+                        if not success:
+                            return f"Could not save question image '{file_name}': {error_or_name}"
+
+                        question_data["extra"][file_key] = error_or_name
 
     return None
 
@@ -258,21 +251,30 @@ def save_pack(pack_id: str):
     if database.get_questions_for_user(user_id, pack_id) is None:
         return make_text_response("You are not authorized to edit this question package", 401)
 
-    data: Dict[str, Any] = json.loads(flask.request.form["data"])
+    try:
+        data: Dict[str, Any] = json.loads(flask.request.form["data"])
 
-    error = _save_pack_files(data, flask.request.files)
-    if error:
-        return make_text_response(error, 400)
+        print("Data:", data)
+        print("Files:", list(flask.request.files.keys()))
 
-    if not data["include_finale"]:
-        data["rounds"][-1] = None
+        error = _save_pack_files(data, flask.request.files)
+        if error:
+            logger.error(f"Error when saving question media: {error}")
+            return make_text_response(error, 400)
 
-    # Add missing entries
-    data["created_by"] = user_id
-    data["changed_at"] = datetime.now()
-    data["language"] = getattr(Language, data["language"])
+        if not data["include_finale"]:
+            data["rounds"][-1] = None
 
-    database.update_question_pack(data)
+        # Add missing entries
+        data["created_by"] = user_id
+        data["changed_at"] = datetime.now()
+        if "language" in data:
+            data["language"] = getattr(Language, data["language"])
+
+        database.update_question_pack(data)
+    except Exception:
+        logger.exception("Error when saving question pack")
+        return make_text_response("Unknown error when saving question pack", 500)
 
     return make_text_response("Question pack saved succesfully.", 200)
 
@@ -286,18 +288,29 @@ def question_pack(pack_id: str):
     with database:
         user_id, user_name = user_details
 
-        question_data: QuestionPack | None = database.get_questions_for_user(user_id, pack_id)
-        if question_data is None:
+        pack_data: QuestionPack | None = database.get_questions_for_user(user_id, pack_id)
+        if pack_data is None:
             return flask.abort(404)
 
-        questions_json = question_data.dump()
-        questions_json["rounds"] = [round_data.dump_questions_nested() for round_data in question_data.rounds]
+        pack_json = pack_data.dump(include_relations=False)
+        base_entries = dict(pack_json.items())
+        pack_json["rounds"] = [
+            round_data.dump_questions_nested(
+                remap_keys=False,
+                round=["pack"],
+                category=["round"],
+                question=["category", "game_questions"],
+            )
+            for round_data in pack_data.rounds
+        ]
 
-    return make_template_context(
+    return render_locale_template(
         "dashboard/question_pack.html",
+        pack_data.language,
         user_name=user_name,
         languages=[(lang.name, lang.value.capitalize()) for lang in Language],
-        **questions_json,
+        base_entries=base_entries,
+        **pack_json,
     )
 
 @dashboard_page.route("/pack/<pack_id>/question/<question_id>")
@@ -307,24 +320,27 @@ def question_view(pack_id: str, question_id: str):
         return redirect_to_login("dashboard.question_view", pack_id=pack_id, question_id=question_id)
 
     database: Database = flask.current_app.config["DATABASE"]
-    pack = database.get_questions_for_user(user_details[0], pack_id)
+    with database:
+        pack = database.get_questions_for_user(user_details[0], pack_id)
 
-    if pack is None:
-        return flask.abort(404)
+        if pack is None:
+            return flask.abort(404)
 
-    question = None
-    for pack_question in pack.get_all_questions():
-        if pack_question.id == question_id:
-            question = pack_question
-            break
+        question = None
+        for pack_question in pack.get_all_questions():
+            if pack_question.id == question_id:
+                question = pack_question
+                break
 
-    if question is None:
-        return flask.abort(404)
+        if question is None:
+            return flask.abort(404)
 
-    question_json = question.dump(id="question_id")
+        question_json = question.dump(id="question_id")
 
     return render_locale_template(
         "question_view.html",
         pack.language,
+        editable=True,
+        stage="QUESTION",
         **question_json,
     )

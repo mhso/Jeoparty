@@ -3,8 +3,13 @@
 {% include 'dashboard/head.html' %}
 <body>
     <script src="{{ url_for('static', filename='js/question_pack.js') }}"></script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/question_style.css') }}">
     
     {% include 'logo.html' %}
+
+    <!-- Variables for 'question_view' template -->
+    {% set editable = True %}
+    {% set stage = "QUESTION" %}
 
     <div id="question-pack-outer-wrapper">
         <div id="question-pack-wrapper">
@@ -25,7 +30,7 @@
 
             <div class="input-field">
                 <label for="language">Language</label>
-                <select id="question-pack-language" name="language">
+                <select id="question-pack-language" name="language" onchange="syncPackLanguage(); dataChanged();">
                     {% if not language %}
                     {% set active_language = 'ENGLISH' %}
                     {% else %}
@@ -57,44 +62,41 @@
                         <input class="question-pack-round-name" value="{{ round_data['name'] }}" onchange="syncRoundData({{ round_num }}); dataChanged();">
 
                         <div class="question-pack-round-body">
-                            {% for category_data in round_data["categories"] %}
+                            {% for category in round_data["categories"] %}
                             {% set category_num = loop.index0 %}
                             <div class="question-pack-category-wrapper question-pack-category-wrapper-{{ category_num }}">
                                 <div class="question-pack-category-header">
-                                    <button class="question-pack-delete-category-btn" onclick="deleteCategory({{ round_num }}, {{ category_num }})">&times;</button>
-                                    <input class="question-pack-category-name" value="{{ category_data['name'] }}" onchange="syncCategoryData({{ round_num }}, {{ category_num }}); dataChanged();">
+                                    <button class="question-pack-delete-category-btn delete-button" onclick="deleteCategory(event, {{ round_num }}, {{ category_num }})">&times;</button>
+                                    <input class="question-pack-category-name" value="{{ category['name'] }}" onchange="syncCategoryData({{ round_num }}, {{ category_num }}); dataChanged();">
                                 </div>
             
                                 <div class="question-pack-category-body">
-                                    {% for question_data in category_data["questions"] %}
-                                    <input class="question-pack-question-wrapper question-pack-question-wrapper-{{ loop.index0 }}" onclick="openQuestionModal({{ round_num }}, {{ category_num }}, {{ loop.index0 }})" value="{{ question_data['value'] }}" readonly>
-                                    
-                                    {% if "video" in question_data["extra"] %}
-                                        {% if ".mp4" in question_data["extra"]["video"] %}
-                                        {% set video_type = "mp4" %}
-                                        {% else %}
-                                        {% set video_type = "webm" %}
-                                        {% endif %}
-                                    <video class="modal-drag-target-video question-pack-question-video-{{ loop.index0 }} d-none" controls>
-                                        <source src="{{ url_for('static', filename=question_data['extra']['video']) }}" type="video/{{ video_type }}">
-                                    </video>
-                                    {% elif "question_image" in question_data["extra"] %}
-                                    <img class="question-pack-question-image-{{ loop.index0 }} d-none" src="{{ url_for('static', filename=question_data['extra']['question_image']) }}">
-                                    {% endif %}
+                                    {% for question_data in category["questions"] %}
+                                    <div class="question-pack-question-wrapper" onclick="showQuestionView({{ round_num }}, {{ category_num }}, {{ loop.index0 }})">
+                                        <button class="question-pack-delete-question-btn delete-button" onclick="deleteQuestion(event, {{ round_num }}, {{ category_num }}, {{ loop.index0 }}); event.stopPropagation();">&times;</button>
+                                        <input class="question-pack-question-name question-pack-question-name-{{ loop.index0 }}" value="{{ question_data['value'] }}" readonly>
+                                    </div>
 
-                                    {% if "answer_image" in question_data["extra"] %}
-                                    <img class="question-pack-answer-image-{{ loop.index0 }} d-none" src="{{ url_for('static', filename=question_data['extra']['answer_image']) }}">
-                                    {% endif %}
+                                    {% set question = question_data["question"] %}
+                                    {% set answer = question_data["answer"] %}
+                                    {% set value = question_data["value"] %}
+                                    {% set extra = question_data["extra"] %}
+
+                                    <div class="question-pack-question-view question-pack-question-view-{{ loop.index0 }} d-none">
+                                        <button class="question-pack-question-view-exit" onclick="saveQuestion({{ round_num }}, {{ category_num }}, {{ loop.index0 }});">&times;</button>
+                                        {% include 'question_view.html' %}
+                                    </div>
+
                                     {% endfor %}
                                 </div>
-                                <button class="question-pack-add-question-btn" onclick="openQuestionModal({{ round_num }}, {{ category_num }}, null)">+</button>
+                                <button class="question-pack-add-question-btn" onclick="createQuestionView({{ round_num }}, {{ category_num }})">+</button>
                             </div>
                             {% endfor -%}
                         </div>
 
-                        <div class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}">Add a category below to get started!</div>
+                        <button class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}" onclick="addCategory({{ round_num }});">Click here to add a category</button>
 
-                        <button class="question-pack-add-category-btn" onclick="addCategory({{ round_num }});">+</button>
+                        <button class="question-pack-add-category-btn{% if not round_data['categories'] %} d-none{% endif %}" onclick="addCategory({{ round_num }});">+</button>
                     </div>
                     {% endfor %}
                 </div>
@@ -116,89 +118,23 @@
         
         <!-- Popup -->
         <div id="question-pack-popup" class="d-none"></div>
+    </div>
 
-        <!-- Question Modal -->
-        <div id="question-pack-modal-wrapper" class="d-none">
-            <div id="question-pack-modal">
-                <div id="question-pack-modal-header">
-                    <h2><span id="question-pack-modal-action"></span> <span id="question-pack-modal-category"></span></h2>
-                    <button onclick="closeQuestionModal();">&times;</button>
-                </div>
-        
-                <div id="question-pack-modal-body">
-                    <div class="input-field">
-                        <label for="modal-question">Question</label>
-                        <input id="question-pack-modal-question" name="modal-question" type="text">
-                    </div>
-        
-                    <div class="input-field">
-                        <label for="modal-answer">Answer</label>
-                        <input id="question-pack-modal-answer" name="modal-answer" type="text">
-                    </div>
-
-                    <div class="input-field">
-                        <label for="modal-value">Value</label>
-                        <input id="question-pack-modal-value" name="modal-value" type="number" min="1" max="10000">
-                    </div>
-
-                    <div class="input-field">
-                        <label for="modal-explanation">Explanation</label>
-                        <input id="question-pack-modal-explanation" name="modal-explanation" type="text">
-                    </div>
-                    
-                    <div class="input-field">
-                        <label for="do-buzz-timer" style="display: inline;">Buzz Timer</label>
-                        <input id="question-pack-modal-do-buzz-timer" name="modal-do-buzz-timer" type="checkbox" onchange="modalSetDoBuzzTime()">
-                    </div>
-
-                    <div class="input-field">
-                        <label for="modal-value">Buzz Time (seconds)</label>
-                        <input id="question-pack-modal-buzztime" name="modal-buzztime" type="number" min="3" max="60">
-                    </div>
-            
-                    <div class="input-field">
-                        <label for="multiple_choice" style="display: inline;">Multiple Choice</label>
-                        <input id="question-pack-modal-multiple_choice" name="modal-multiple_choice" type="checkbox" onchange="modalSetMultipleChoice()">
-                    </div>
-
-                    <div id="question-pack-modal-choices" class="d-none">
-                        <div id="question-pack-modal-choices-data">
-
-                        </div>
-                        <button onclick="modalAddAnswerChoice()">+</button>
-                    </div>
-            
-                    <!-- Question image/video -->
-                    <div id="question-pack-modal-question-media-wrapper">
-                        <label for="modal-question-media">Image/Video</label>
-                        <div class="media-drag-target" onclick="openMediaInput(event);" ondragenter="modalMediaDragEnter(event);" ondragleave="modalMediaDragLeave(event);" ondragend="modalMediaDragLeave(event);" ondrop="modalMediaDragDropped(event, 'question');">
-                            <div class="modal-drag-target-preview-wrapper d-none"></div>
-                            <div class="modal-drag-target-header">Drop file or click here to upload</div>
-                            <input id="question-pack-modal-question-media-input" class="modal-drag-input" name="modal-question-media" type="file" accept=".png, .jpeg, .jpg, .webp, .webm, .mp4" hidden onchange="modalMediaFileSelected(event, 'question')">
-                        </div>
-                    </div>
-        
-                    <!-- Answer image -->
-                    <div id="question-pack-modal-answer-media-wrapper">
-                        <div class="media-drag-target">
-                            <input id="question-pack-modal-answer-media-input" name="modal-answer-media" type="file">
-                        </div>
-                    </div>
-                </div>
-        
-                <div id="question-pack-modal-footer">
-                    <button id="question-pack-modal-save-btn" class="default-button">OK</button>
-                    <button id="question-pack-modal-delete-btn" class="default-button">Delete</button>
-                </div>
-            </div>
-        </div>
+    <!-- Question View Placeholder -->
+    {% set category = {'name': 'Category Name', 'buzz_time': 10} %}
+    {% set question = 'Question Goes Here' %}
+    {% set answer = 'Answer Goes Here' %}
+    {% set value = 100 %}
+    {% set extra = {} %}
+    <div class="question-pack-question-view question-pack-question-view-placeholder d-none">
+        <button class="question-pack-question-view-exit">&times;</button>
+        {% include 'question_view.html' %}
     </div>
 
     <script>
-        questionData["id"] = "{{ id | safe }}";
-        questionData["name"] = "{{ name | safe }}";
-        questionData["public"] = {{ public | tojson }};
-        questionData["include_finale"] = {{ include_finale | tojson }};
+        {% for key in base_entries %}
+        questionData["{{ key }}"] = {{ base_entries[key] | tojson }};
+        {% endfor %}
         questionData['rounds'] = {{ rounds | tojson }};
         lastSaveState = JSON.stringify(questionData);
     </script>

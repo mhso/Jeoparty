@@ -2,6 +2,19 @@ body {
     background-color: rgb(23, 23, 23);
 }
 
+#bg-image {
+    position: absolute;
+    z-index: -1;
+    background-size: cover;
+    backdrop-filter: blur(5px);
+    background-blend-mode: luminosity;
+    filter: blur(5px) brightness(0.55);
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+}
+
 .d-none {
     display: none !important;
 }

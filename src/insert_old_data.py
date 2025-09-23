@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 from datetime import datetime
 import json
 
-from sqlalchemy import text
+from sqlalchemy import delete, text
 
 from api.database import Database
 from api.enums import PowerUpType
@@ -74,7 +74,7 @@ ANSWER_SOUNDS = [
 ]
 
 extra_keys = [
-    "image", "answer_image", "video", "height", "border", "explanation", "tips", "volume"
+    "image", "answer_image", "video", "choices", "height", "border", "explanation", "tips", "volume"
 ]
 def get_question_extras(question: Dict[str, Any]):
     extra = {}
@@ -121,19 +121,30 @@ with database as session:
 
         created_date, changed_date = pack_dates[version - 1]
 
-        pack_model = QuestionPack(
-            pack_id=pack_id,
-            name=f"LoL Jeopardy v{version}",
-            created_by=user_id,
-            created_at=created_date,
-            changed_at=changed_date,
-        )
+        tables_to_clear = [
+            Question, QuestionCategory, QuestionRound
+        ]
 
-        database.save_models(pack_model)
+        for table in tables_to_clear:
+            session.execute(delete(table))
+
+        session.commit()
+
+        if pack_id is None:
+            pack_model = QuestionPack(
+                pack_id=pack_id,
+                name=f"LoL Jeopardy v{version}",
+                created_by=user_id,
+                created_at=created_date,
+                changed_at=changed_date,
+            )
+
+            database.save_models(pack_model)
+            pack_id = pack_model.id
 
         round_models = [
             QuestionRound(
-                pack_id=pack_model.id,
+                pack_id=pack_id,
                 name="Jeopardy!",
                 round=1,
             ),
@@ -141,7 +152,7 @@ with database as session:
         if rounds[version - 1] == 2:
             round_models.append(
                 QuestionRound(
-                    pack_id=pack_model.id,
+                    pack_id=pack_id,
                     name="Double Jeopardy!",
                     round=2,
                 )
@@ -149,7 +160,7 @@ with database as session:
 
         round_models.append(
             QuestionRound(
-                pack_id=pack_model.id,
+                pack_id=pack_id,
                 name="Final Jeopardy!",
                 round=3,
             )
@@ -242,28 +253,28 @@ with database as session:
 
         database.save_models(finale_question)
 
-        # Save power-ups
-        power_ups = [
-            PowerUp(
-                pack_id=pack_model.id,
-                type=power_type,
-                icon=f"{power_type.value}_power.png",
-                video=f"{power_type.value}_power_used.webm",
-            )
-            for power_type in PowerUpType
-        ]
+        # # Save power-ups
+        # power_ups = [
+        #     PowerUp(
+        #         pack_id=pack_model.id,
+        #         type=power_type,
+        #         icon=f"{power_type.value}_power.png",
+        #         video=f"{power_type.value}_power_used.webm",
+        #     )
+        #     for power_type in PowerUpType
+        # ]
 
-        database.save_models(*power_ups)
+        # database.save_models(*power_ups)
 
-        # Save buzzer sounds
-        buzz_sound_models = []
-        for index, sound_list in enumerate(ANSWER_SOUNDS):
-            for sound in sound_list:
-                model = BuzzerSound(
-                    pack_id=pack_model.id,
-                    filename=f"{sound}.mp3",
-                    correct=index == 0,
-                )
-                buzz_sound_models.append(model)
+        # # Save buzzer sounds
+        # buzz_sound_models = []
+        # for index, sound_list in enumerate(ANSWER_SOUNDS):
+        #     for sound in sound_list:
+        #         model = BuzzerSound(
+        #             pack_id=pack_model.id,
+        #             filename=f"{sound}.mp3",
+        #             correct=index == 0,
+        #         )
+        #         buzz_sound_models.append(model)
 
-        database.save_models(*buzz_sound_models)
+        # database.save_models(*buzz_sound_models)

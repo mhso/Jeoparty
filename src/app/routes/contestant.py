@@ -73,6 +73,11 @@ def join_lobby():
             return flask.redirect(
                 flask.url_for(".lobby", join_code=join_code, error="Failed to join: Game does not exist")
             )
+        
+        if game_data.password is not None and flask.request.form.get("password") != game_data.password:
+            return flask.redirect(
+                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Wrong password")
+            )
 
         index = len(game_data.game_contestants)
         if index == game_data.max_contestants:
@@ -120,9 +125,9 @@ def join_lobby():
 
         response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
 
-    # Save user ID to cookie
-    cookie_id, data, max_age = _save_user_id_to_cookie(str(model.id))
-    response.set_cookie(cookie_id, data, max_age=max_age)
+        # Save user ID to cookie
+        cookie_id, data, max_age = _save_user_id_to_cookie(str(model.id))
+        response.set_cookie(cookie_id, data, max_age=max_age)
 
     return response
 

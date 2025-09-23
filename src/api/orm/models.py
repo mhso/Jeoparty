@@ -44,7 +44,7 @@ class QuestionPack(Base):
     name: Mapped[str] = mapped_column(String(64))
     public: Mapped[bool] = mapped_column(Boolean, default=False)
     include_finale: Mapped[bool] = mapped_column(Boolean, default=True)
-    language: Mapped[Optional[Language]] = mapped_column(Enum(Language), default=Language.ENGLISH)
+    language: Mapped[Language] = mapped_column(Enum(Language), default=Language.ENGLISH)
     created_by: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
@@ -74,16 +74,31 @@ class QuestionRound(Base):
     pack = relationship("QuestionPack", back_populates="rounds")
     categories = relationship("QuestionCategory", back_populates="round", cascade="all, delete-orphan", order_by="QuestionCategory.order.asc()")
 
-    def dump_questions_nested(self):
-        round_json = self.dump(id="round_id")
+    def dump_questions_nested(self, remap_keys: bool = True, **keys_to_delete):
+        def get_key_map(key: str):
+            if not remap_keys:
+                return {}
+
+            return {"id": f"{key}_id"}
+
+        round_json = self.dump(**get_key_map("round"))
         round_json["categories"] = []
 
+        for key in keys_to_delete.get("round", []):
+            del round_json[key]
+
         for category in self.categories:
-            category_json = category.dump(id="category_id")
+            category_json = category.dump(**get_key_map("category"))
             category_json["questions"] = []
 
+            for key in keys_to_delete.get("category", []):
+                del category_json[key]
+
             for question in category.questions:
-                question_json = question.dump(id="question_id")
+                question_json = question.dump(**get_key_map("question"))
+
+                for key in keys_to_delete.get("question", []):
+                    del question_json[key]
 
                 category_json["questions"].append(question_json)
 
@@ -280,7 +295,7 @@ class Game(Base):
 
         return {
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
-            "player_with_turn": player_with_turn.dump() if player_with_turn else None,
+            "player_with_turn": player_with_turn.dump(include_relations=False) if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
             "question_num": sum(1 if gq.used else 0 for gq in self.game_questions) + 1,
         }

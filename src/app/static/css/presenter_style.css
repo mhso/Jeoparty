@@ -22,19 +22,6 @@ body {
     left: 0;
 }
 
-#bg-image {
-    position: absolute;
-    z-index: -1;
-    background-size: cover;
-    backdrop-filter: blur(5px);
-    background-blend-mode: luminosity;
-    filter: blur(5px) brightness(0.55);
-    height: 101%;
-    width: 101%;
-    top: -0.5%;
-    left: -0.5%;
-}
-
 p {
     text-align: center;
 }
@@ -631,48 +618,8 @@ h3 {
 \****************##############****************/
 
 #question-wrapper {
-    color: #dedede;
-    margin-top: 10px;
-    text-align: center;
     width: 100vw;
     height: 100vh;
-    margin: 0 auto;
-}
-
-#question-wrapper, #scoreboard-wrapper {
-    text-align: center;
-}
-
-#question-wrapper > #logo-wrapper {
-    width: 100%;
-}
-
-#question-wrapper > #logo-wrapper > #lol-logo {
-    width: 420px;
-    float: left;
-    position: relative;
-    top: 10px;
-    left: 10px;
-}
-
-#question-wrapper > #logo-wrapper > #jeopardy-logo {
-    width: 420px;
-    float: right;
-    position: relative;
-    top: 30px;
-    right: 30px;
-}
-
-.question-divider {
-    width: 400px;
-    height: 1px;
-    border-top: 2px solid white;
-    margin: 20px auto;
-}
-
-#question-choices-indicator {
-    height: 48px;
-    vertical-align: baseline;
 }
 
 #question-buzz-feed {
@@ -727,140 +674,6 @@ h3 {
     font-weight: bold;
 }
 
-#question-choices-wrapper {
-    margin: 0 auto;
-    width: 650px;
-    margin-top: 20px;
-}
-
-#question-category-header, #question-question-header {
-    margin: 0 auto;
-}
-
-#question-category-header {
-    color: white;
-    font-family: league;
-    font-size: 4rem;
-    margin-top: 25px;
-    width: 900px;
-}
-
-#question-question-header {
-    font-size: 1.5rem;
-    font-style: italic;
-    opacity: 0;
-    transition: opacity 1.5s;
-    margin-top: 20px;
-    background-color: rgba(0, 0, 0, 0.7);
-    padding: 10px;
-    width: 650px;
-}
-
-#question-category-span {
-    font-weight: 1000;
-    text-decoration: underline;
-    color: rgb(255, 45, 222);
-}
-
-#question-reward-span {
-    color: gold;
-    font-weight: 1000;
-}
-
-#question-question-image-wrapper {
-    width: 100%;
-    position: relative;
-    text-align: center;
-    margin: 0 auto;
-    margin-top: 20px;
-    margin-bottom: 10px;
-}
-
-#question-question-image, #question-answer-image {
-    display: block;
-    height: 120px;
-    opacity: 0;
-    transition: opacity 1.5s;
-    margin: 0 auto;
-}
-
-#question-question-image.image-border, #question-answer-image.image-border {
-    border: 2px solid white;
-    border-radius: 10px;
-}
-
-#question-answer-image {
-    z-index: 5;
-    position: absolute;
-    top: 0;
-    border: 2px solid gold;
-}
-
-#question-question-video {
-    display: block;
-    opacity: 0;
-    transition: opacity 1s;
-    margin: 0 auto;
-}
-
-.question-tip-wrapper {
-    position: absolute;
-    text-align: center;
-    bottom: 200px;
-    opacity: 0;
-    transition: opacity 1s;
-    pointer-events: none;
-}
-
-.question-tip-header {
-    font-weight: 1000;
-    color: gold;
-}
-
-.question-tip-content {
-    font-size: 1.25rem;
-}
-
-#question-tip-1 {
-    right: 68%;
-}
-
-#question-tip-2 {
-    left: 68%;
-}
-
-#question-answers-wrapper {
-    display: inline-flex;
-    flex-direction: row;
-    align-items: center;
-    width: 600px;
-    flex-wrap: wrap;
-    margin-top: 20px;
-}
-
-.question-answer-entry {
-    width: 47.5%;
-    display: inline-block;
-    margin: 1% 0.5%;
-    height: 60px;
-    background-color: #2e28f2;
-    border-radius: 10px;
-    border: 1px solid white;
-    font-size: 20px;
-    padding: 12px 10px;
-    text-align: left;
-    opacity: 0;
-    transition: opacity 1s;
-}
-
-.question-answer-entry > p {
-    font-size: inherit;
-}
-
-.question-answer-number {
-    font-weight: bold;
-}
-
 .question-emph {
     font-weight: 1000;
 }
@@ -882,85 +695,17 @@ h3 {
     animation-direction: alternate;
 }
 
-.question-answered-correct {
+.question-choice-entry.question-answered-correct {
     background-color: rgb(31, 187, 31);
 }
 
-.question-answered-wrong {
+.question-choice-entry.question-answered-wrong {
     background-color: rgb(221, 17, 17);
 }
 
 .question-result-avatar {
     width: 80px;
     height: auto;
-}
-
-#question-player-answering {
-    position: relative;
-    font-size: 30px;
-    font-weight: 1000;
-    display: none;
-}
-
-#question-player-answering-name {
-    text-decoration: underline;
-}
-
-#question-countdown-wrapper {
-    position: relative;
-    display: inline-block;
-    border: 1px solid white;
-    margin-top: 15px;
-    width: 500px;
-    height: 50px;
-    font-size: 30px;
-    color: rgb(33, 189, 251);
-    font-weight: 800;
-    opacity: 0;
-    transition: opacity 1s;
-}
-
-#question-countdown-filled {
-    position: absolute;
-    background-color: rgb(136, 255, 0);
-    height: 100%;
-    z-index: -1;
-}
-
-#question-countdown-frozen {
-    position: absolute;
-    width: 100%;
-    z-index: 1;
-
-    opacity: 0;
-    transition: all 1.5s;
-}
-
-#question-countdown-frozen > img {
-    width: 110%;
-    margin-left: -20px;
-    margin-top: -10px;
-}
-
-#question-out-of-questions {
-    color: red;
-}
-
-#question-categories-wrapper {
-    width: 600px;
-    margin: 0 auto;
-    margin-top: 30px;
-}
-
-.question-category-entry {
-    display: inline-block;
-    border: 2px solid white;
-    width: calc(300px - 23px);
-    height: 60px;
-    margin: 8px 5px;
-    background-color: #1c6bbf;
-    border-radius: 5px;
-    padding-top: 3px;
 }
 
 /****************##############****************\
@@ -1039,15 +784,6 @@ h3 {
     height: 100%;
     z-index: 10;
     pointer-events: none;
-}
-
-#scoreboard-wrapper {
-    position: relative;
-    margin-top: 8%;
-}
-
-#scoreboard-wrapper > h3 {
-    font-size: 1.5rem;
 }
 
 #score-points-wrapper {

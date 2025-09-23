@@ -124,7 +124,7 @@ function disablePowerUp(playerId=null, powerId=null) {
 function disableFreeze(playerId) {
     disablePowerUp(playerId, "FREEZE");
 
-    let freezeWrapper = document.getElementById("question-countdown-frozen");
+    let freezeWrapper = document.querySelector(".question-countdown-frozen");
     freezeWrapper.style.transition = "opacity 2s";
     freezeWrapper.style.opacity = 0;
     setTimeout(function() {
@@ -160,7 +160,7 @@ function afterAnswer() {
         return;
     }
 
-    let videoElem = document.getElementById("question-question-video");
+    let videoElem = document.querySelector(".question-question-video");
 
     let delay = 4000;
 
@@ -320,7 +320,7 @@ function stopCountdown() {
     countdownInterval = null;
     countdownPaused = false;
 
-    let countdownElem = document.getElementById("question-countdown-wrapper");
+    let countdownElem = document.querySelector(".question-countdown-wrapper");
     if (!countdownElem.classList.contains("d-none")) {
         countdownElem.classList.add("d-none");
         countdownElem.style.opacity = 0;
@@ -334,7 +334,7 @@ function pauseCountdown(paused) {
 }
 
 function isQuestionMultipleChoice() {
-    return document.getElementsByClassName("question-answer-entry").length > 0;
+    return document.getElementsByClassName("question-choice-entry").length > 0;
 }
 
 function answerQuestion(event) {
@@ -342,8 +342,8 @@ function answerQuestion(event) {
         if (isQuestionMultipleChoice()) {
             // Highlight element as having been selected as the answer.
             let delay = 2500
-            let elem = document.getElementById("question-answer-" + event.key);
-            let answerElem = elem.getElementsByClassName("question-answer-text").item(0);
+            let elem = document.querySelector(".question-choice-" + event.key);
+            let answerElem = elem.querySelector(".question-choice-text");
             elem.classList.add("question-answering");
 
             setTimeout(function() {
@@ -381,13 +381,13 @@ function setCountdownBar(countdownBar, milis, green, red, maxMilis) {
 }
 
 function startCountdown(duration, callback=null) {
-    let countdownWrapper = document.getElementById("question-countdown-wrapper");
+    let countdownWrapper = document.querySelector(".question-countdown-wrapper");
     if (countdownWrapper.classList.contains("d-none")) {
         countdownWrapper.classList.remove("d-none");
     }
     countdownWrapper.style.opacity = 1;
-    let countdownBar = document.getElementById("question-countdown-filled");
-    let countdownText = document.getElementById("question-countdown-text");
+    let countdownBar = document.querySelector(".question-countdown-filled");
+    let countdownText = document.querySelector(".question-countdown-text");
 
     let green = 255
     let red = 136;
@@ -437,7 +437,7 @@ function startCountdown(duration, callback=null) {
 }
 
 function pauseVideo() {
-    let videoElem = document.getElementById("question-question-video");
+    let videoElem = document.querySelector(".question-question-video");
     if (videoElem != null) {
         videoElem.onended = null;
         videoElem.pause();
@@ -511,7 +511,7 @@ function afterBuzzIn(playerId) {
     hideAnswerIndicator();
 
     // Show who was fastest at buzzing in
-    setPlayerTurn(answeringPlayer, false);
+    setPlayerTurn(playerId, false);
 
     // Start new countdown for answering after small delay
     setTimeout(function() {
@@ -573,7 +573,7 @@ function onFreezeUsed() {
 function afterFreezeUsed() {
     let opacity = 0.85;
 
-    let freezeWrapper = document.getElementById("question-countdown-frozen");
+    let freezeWrapper = document.querySelector(".question-countdown-frozen");
     freezeWrapper.classList.remove("d-none");
     freezeWrapper.style.transition = "opacity 2s";
     freezeWrapper.style.opacity = opacity;
@@ -736,7 +736,7 @@ function questionAsked(countdownDelay) {
 }
 
 function showAnswerChoice(index) {
-    let choiceElem = document.getElementsByClassName("question-answer-entry").item(index);
+    let choiceElem = document.querySelectorAll(".question-choice-entry")[index];
     choiceElem.style.opacity = 1;
 
     if (index == 3) {
@@ -766,8 +766,8 @@ function afterShowQuestion() {
 
 function showImageOrVideo(elem) {
     if (elem.offsetHeight > IMG_MAX_HEIGHT) {
-        document.getElementById("question-category-header").style.display = "none";
-        document.getElementById("question-question-header").style.display = "none";
+        document.querySelector(".question-category-header").style.display = "none";
+        document.querySelector(".question-question-header").style.display = "none";
     }
     elem.style.opacity = 1;
 }
@@ -780,14 +780,14 @@ function showQuestion() {
     }
 
     // Show the question, if it exists
-    let questionElem = document.getElementById("question-question-header");
+    let questionElem = document.querySelector(".question-question-header");
     if (questionElem != null) {
         questionElem.style.opacity = 1;
     }
 
-    let questionImage = document.getElementById("question-question-image");
-    let answerImage = document.getElementById("question-answer-image");
-    let videoElem = document.getElementById("question-question-video");
+    let questionImage = document.querySelector(".question-question-image");
+    let answerImage = document.querySelector(".question-answer-image");
+    let videoElem = document.querySelector(".question-question-video");
 
     if (answerImage != null || videoElem != null) {
         // If there is an answer image, first show the question, then show
@@ -993,8 +993,10 @@ function setPlayerTurn(playerId, save) {
         }
     });
 
-    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
-    playerEntry.classList.add("active-contestant-entry");
+    if (playerId != null) {
+        let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
+        playerEntry.classList.add("active-contestant-entry");
+    }
 
     if (save) {
         playerTurn = playerId;

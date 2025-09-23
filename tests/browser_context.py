@@ -177,7 +177,7 @@ class ContextHandler:
         await asyncio.sleep(0.5)
 
         # Check if question is multiple choice
-        is_multiple_choice = await self.presenter_page.evaluate("() => document.getElementsByClassName('question-answer-entry').length > 0")
+        is_multiple_choice = await self.presenter_page.evaluate("() => document.getElementsByClassName('question-choice-entry').length > 0")
         if is_multiple_choice:
             for _ in range(4):
                 await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
