@@ -13,12 +13,12 @@
             
             <!-- Correct answer -->
             <div id="question-answer-correct" class="d-none">
-                <div id="question-correct-reason">{{ _locale["correct_answer"] }}{% if "explanation" in extra %} ({{ extra["explanation"] }}){% endif %} <img class="question-result-avatar" src="{{ url_for('static', _external=True, filename='img/correct_answer.png') }}"> <span class="question-answer-value"></span></div>
+                <div id="question-correct-reason">{{ _locale["correct_answer"] }}{% if "explanation" in extra %} ({{ extra["explanation"] }}){% endif %} <img class="question-result-avatar" src="{{ url_for('static', _external=True, filename=correct_image) }}"> <span class="question-answer-value"></span></div>
             </div>
             
             <!-- Wrong answer -->
             <div id="question-answer-wrong" class="d-none">
-                <div id="question-wrong-reason"><span id="question-wrong-reason-text"></span> <img class="question-result-avatar" src="{{ url_for('static', _external=True, filename='img/wrong_answer.png') }}"> <span class="question-answer-value"></span></div>
+                <div id="question-wrong-reason"><span id="question-wrong-reason-text"></span> <img class="question-result-avatar" src="{{ url_for('static', _external=True, filename=wrong_image) }}"> <span class="question-answer-value"></span></div>
                 <p id="question-actual-answer" class="d-none">{{ _locale["correct_answer_was"] }} <span class="question-emph">'{{ answer }}'{% if "explanation" in extra %} ({{ extra["explanation"] }}){% endif %}</span></p>
             </div>
         </div>

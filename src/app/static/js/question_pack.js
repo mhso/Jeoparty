@@ -2,6 +2,10 @@ var questionData = {};
 var questionMedia = {};
 var lastSaveState = null;
 
+const REGULAR_MEDIA_HEIGHT = 420
+const SMALL_MEDIA_HEIGHT = 256
+const MAXIMIZED_MEDIA_HEIGHT = 760
+
 const imageFileTypes = [
     "image/apng",
     "image/gif",
@@ -716,10 +720,10 @@ function deleteAnswerChoice(event) {
 function getDefaultMediaHeight(wrapper) {
     let isMultipleChoice = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
     if (isMultipleChoice) {
-        return 256;
+        return SMALL_MEDIA_HEIGHT;
     }
 
-    return 420;
+    return REGULAR_MEDIA_HEIGHT;
 }
 
 function resizeMedia(wrapper) {
@@ -784,11 +788,18 @@ function showMediaPreview(wrapper, fileSrc, fileType, mediaKey) {
     }
 
     mediaElem.src = fileSrc;
-    mediaElem.style.height = getDefaultMediaHeight(wrapper) + "px";
+    let outerWrapper = getSpecificParent(wrapper, "question-view-wrapper");
+    mediaElem.style.height = getDefaultMediaHeight(outerWrapper) + "px";
 
     wrapper.classList.remove("target-empty");
 
     previewWrapper.appendChild(mediaElem);
+
+    let deleteBtn = wrapper.querySelector(".media-delete-btn");
+    deleteBtn.classList.remove("d-none");
+
+    let maximizeBtn = wrapper.querySelector(".media-maximize-btn");
+    maximizeBtn.classList.remove("d-none");
 
     previewWrapper.classList.remove("d-none");
     header.classList.add("d-none");
@@ -847,11 +858,90 @@ function mediaDragLeave(event) {
     }
 }
 
+function getMedia(wrapper) {
+    let media = wrapper.querySelector(".question-question-video");
+
+    if (media == null) {
+        media = wrapper.querySelector(".question-question-image");
+    }
+
+    return media;
+}
+
+function _maximizeMedia(wrapper, media, maximize=true) {
+    let questionHeader = wrapper.querySelector(".question-question-header");
+    let categoryHeader = wrapper.querySelector(".question-category-header");
+
+    let height;
+    if (maximize && !media.classList.contains("media-maximized")) {
+        // Maximize media
+        media.classList.add("media-maximized");
+        height = MAXIMIZED_MEDIA_HEIGHT;
+        questionHeader.classList.add("d-none");
+        categoryHeader.classList.add("d-none");
+    }
+    else if (!maximize && media.classList.contains("media-maximized")) {
+        // Minimize media
+        media.classList.remove("media-maximized");
+        height = REGULAR_MEDIA_HEIGHT;
+        questionHeader.classList.remove("d-none");
+        categoryHeader.classList.remove("d-none");
+    }
+    else {
+        return;
+    }
+
+    media.style.height = height + "px";
+
+    let answerImage = wrapper.querySelector(".question-answer-image");
+    if (answerImage != null) {
+        answerImage.style.height = height + "px";
+    }
+}
+
+function maximizeMedia(event) {
+    event.stopPropagation();
+
+    let target = event.target;
+
+    let wrapper = getSpecificParent(target, "question-view-wrapper");
+    let media = getMedia(wrapper);
+
+    if (media == null) {
+        return;
+    }
+
+    _maximizeMedia(wrapper, media, !media.classList.contains("media-maximized"));
+
+    if (!target.classList.contains("media-maximize-btn")) {
+        target = target.parentElement;
+    }
+
+    let minimizeIcon = target.querySelector(".media-minimize-icon");
+    let maximizeIcon = target.querySelector(".media-maximize-icon");
+
+    if (minimizeIcon.classList.contains("d-none")) {
+        minimizeIcon.classList.remove("d-none");
+        maximizeIcon.classList.add("d-none");
+    }
+    else {
+        minimizeIcon.classList.add("d-none");
+        maximizeIcon.classList.remove("d-none");
+    }
+}
+
 function deleteMedia(event) {
     event.stopPropagation();
 
-    let wrapper = getSpecificParent(event.target, "media-drag-target");
+    let outerWrapper = getSpecificParent(event.target, "question-view-wrapper");
+
+    let wrapper = outerWrapper.querySelector(".media-drag-target");
     wrapper.classList.add("target-empty");
+
+    let media = getMedia(outerWrapper);
+    if (media != null && media.classList.contains("media-maximized")) { 
+        _maximizeMedia(outerWrapper, media, false);
+    }
 
     let previewWrapper = wrapper.querySelector(".drag-target-preview-wrapper");
     previewWrapper.innerHTML = "";
@@ -860,8 +950,12 @@ function deleteMedia(event) {
     let toolTip = wrapper.querySelector(".drag-target-tooltip");
     toolTip.classList.remove("d-none");
 
-    let mediaInput = wrapper.querySelector(".question-question-media-input drag-input");
-    mediaInput.files = [];
+    let mediaInput = wrapper.querySelector(".drag-input");
+    mediaInput.value = "";
+
+    let maximizeBtn = wrapper.querySelector(".media-maximize-btn");
+    maximizeBtn.classList.add("d-none");
+    event.target.classList.add("d-none");
 }
 
 function showQuestionView(roundId, categoryId, questionId, show=true) {
@@ -960,6 +1054,18 @@ $(function() {
 });
 
 document.addEventListener("DOMContentLoaded", function() {
+    let mediaWrappers = document.querySelectorAll(".question-view-wrapper");
+    mediaWrappers.forEach((elem) => {
+        let media = getMedia(elem);
+        if (media != null) {
+            let prevHeight = Number.parseInt(window.getComputedStyle(media).height.replace("px", ""));
+
+            if (prevHeight > REGULAR_MEDIA_HEIGHT) {
+                _maximizeMedia(elem, media);
+            }
+        }
+    });
+
     showRoundView(0);
     if (window.location.hash) {
         if (!window.location.hash.startsWith("#question_")) {

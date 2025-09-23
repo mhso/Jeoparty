@@ -11,6 +11,8 @@
 
 .question-choices-indicator {
     height: 48px;
+    top: 4px;
+    position: relative;
     vertical-align: baseline;
 }
 
@@ -32,6 +34,7 @@
     opacity: 0;
     transition: opacity 1.5s;
     margin-top: 20px;
+    margin-bottom: 20px;
     background-color: rgba(0, 0, 0, 0.7);
     padding: 10px;
     width: 650px;

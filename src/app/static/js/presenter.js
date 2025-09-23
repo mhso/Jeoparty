@@ -273,7 +273,7 @@ function wrongAnswer(reason, questionOver=false) {
         updatePlayerScore(answeringPlayer, -activeValue);
 
         // Send update to server
-        socket.emit("wrong_answer", answeringPlayer);
+        socket.emit("wrong_answer", answeringPlayer, activeValue);
 
         // Disable the use of 'freeze' power up, enable the use of 'rewind'
         activePowerUp = null;

@@ -236,7 +236,7 @@ class GameSocketHandler(Namespace):
         self.emit("turn_chosen", user_id, to="contestants")
 
     @_presenter_event
-    def use_power_up(self, user_id: str, power_id: str, value: int | None = None):
+    def on_use_power_up(self, user_id: str, power_id: str, value: int | None = None):
         contestant_data = self.game_data.get_game_contestant(user_id)
         contestant_metadata = self.contestant_metadata[user_id]
         power = getattr(PowerUpType, power_id)
@@ -269,11 +269,11 @@ class GameSocketHandler(Namespace):
             self.emit("power_up_used", power_id, to=contestant_metadata.sid)
 
     @_presenter_event
-    def enable_finale_wager(self):
+    def on_enable_finale_wager(self):
         self.emit("finale_wager_enabled", to="contestants")
 
     @_presenter_event
-    def reveal_finale_category(self):
+    def on_reveal_finale_category(self):
         self.emit("finale_category_revealed", to="contestants")
 
     @_contestants_event
@@ -352,7 +352,7 @@ class GameSocketHandler(Namespace):
         else:
             self.emit("invalid_wager", max_wager)
 
-    def make_finale_wager(self, user_id: str, amount: str):
+    def on_make_finale_wager(self, user_id: str, amount: str):
         contestant_data = self.game_data.get_game_contestant(user_id)
 
         max_wager = max(contestant_data.score, 1000)
@@ -374,7 +374,7 @@ class GameSocketHandler(Namespace):
         else:
             self.emit("invalid_wager", max_wager)
 
-    def give_finale_answer(self, user_id: str, answer: str):
+    def on_give_finale_answer(self, user_id: str, answer: str):
         contestant = self.game_data.get_game_contestant(user_id)
         contestant.finale_answer = answer
 
