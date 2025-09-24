@@ -29,7 +29,10 @@ CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
 PRESENTER_ACTION_KEY = "Space"
 
 class ContextHandler:
-    def __init__(self, player_names={}, setup_callback=None):
+    def __init__(self, database: Database, setup_callback=None):
+        self.database = database
+        self._setup_callback = setup_callback
+    
         self.playwright_contexts = []
         self.flask_process = None
         self.presenter_context: BrowserContext = None
@@ -37,22 +40,20 @@ class ContextHandler:
         self.contestant_contexts: List[BrowserContext] = []
         self.contestant_pages: List[Page] = []
         self._browser_tasks = []
-        self._player_names = player_names
-        self._setup_callback = setup_callback
 
     async def _create_browser(self, context: Playwright):
         return await context.chromium.launch(**BROWSER_OPTIONS)
 
-    async def _create_game(
+    async def create_game(
         self,
-        title: str = None,
-        password: str = None,
-        rounds: int = 2,
-        contestants: int = 4,
-        doubles: bool = True,
-        power_ups: bool = True,
         pack_name: str = "LoL Jeopardy v5",
-        page: Page = None,
+        title: str | None = None,
+        password: str | None = None,
+        rounds: int | None = 2,
+        contestants: int | None = 4,
+        doubles: bool | None = True,
+        power_ups: bool | None = None,
+        page: Page | None = None,
     ):
         if page is None:
             page = await self.presenter_context.new_page()
@@ -69,6 +70,9 @@ class ContextHandler:
         ]
 
         for field, value in field_data:
+            if value is None:
+                continue
+
             input_field = await page.query_selector(f"#create-game-{field}")
             if isinstance(value, bool):
                 await input_field.set_checked(value)
@@ -79,7 +83,11 @@ class ContextHandler:
         await pack_input.select_option(label=pack_name)
 
         submit_btn = await page.query_selector('input[type="submit"]')
-        await submit_btn.press()
+
+        async with await page.expect_navigation(wait_until="domcontentloaded"):
+            await submit_btn.press()
+
+        return page
 
     async def _open_presenter_lobby_page(self):
         page = await self.presenter_context.new_page()

@@ -72,7 +72,7 @@ h3 {
     color: white;
 }
 
-#menu-wrapper > h2 {
+#menu-game-title {
     font-family: 'Lucida Sans';
     font-style: italic;
     filter: drop-shadow(5px 5px 5px black);

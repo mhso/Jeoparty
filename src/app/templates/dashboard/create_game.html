@@ -29,7 +29,7 @@
             </div>
 
             <div class="input-field">
-                <label for="daily_doubles" style="display: inline;">Allow Daily Doubles</label>
+                <label for="daily_doubles" style="display: inline;">Include Daily Doubles</label>
                 <input id="create-game-double" type="checkbox" name="daily_doubles" checked>
             </div>
 
@@ -41,8 +41,8 @@
             <div class="input-field">
                 <label>Question Pack</label>
                 <select id="create-game-pack" name="pack_id">
-                    {% for question_data in questions %}
-                    <option value="{{ question_data['id'] }}">{{ question_data['name'] }}</option>
+                    {% for question_pack in questions %}
+                    <option value="{{ question_pack['id'] }}">{{ question_pack['name'] }}</option>
                     {% endfor %}
                     <option value="missing" selected>Select Pack</option>
                 </select>

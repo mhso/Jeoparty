@@ -1,3 +1,12 @@
+import os
+
+def _get_project_folder():
+    folder = os.getcwd()
+    while os.path.basename(folder) != "jeoparty":
+        folder = os.path.join(os.path.pardir, folder)
+
+    return os.path.abspath(folder)
+
 class Config:
     ROUND_NAMES = [
         "Jeoparty!",
@@ -7,8 +16,11 @@ class Config:
 
     FINALE_NAME = "Final Jeoparty!"
     REGULAR_ROUNDS = 2
-    STATIC_FOLDER = "app/static"
-    RESOURCES_FOLDER = "../resources/"
+
+    PROJECT_FOLDER = _get_project_folder()
+
+    STATIC_FOLDER = f"{PROJECT_FOLDER}/app/static"
+    RESOURCES_FOLDER = f"{PROJECT_FOLDER}/resources/"
 
     DEFAULT_AVATAR = "questionmark.png"
     DEFAULT_CORRECT_IMAGE = "check.png"
