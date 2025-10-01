@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+{% include 'dashboard/head.html' %}
+<body style="text-align: center;">
+    {% include 'logo.html' %}
+
+    <div id="create-pack-wrapper">
+        <h1>Create Question Pack</h1>
+
+        <form action="{{ url_for('dashboard.create_pack') }}" method="POST" enctype="multipart/form-data">
+            <div class="input-field">
+                <label for="name">Pack Name</label>
+                <input type="text" name="name" minlength="1" maxlength="64" value="{{ user_name }}'s Question Pack">
+            </div>
+   
+            <div class="input-field">
+                <label style="display: inline;" name="public">Make Public</label>
+                <input type="checkbox" name="public">
+            </div>
+
+            <div class="input-field">
+                <label style="display: inline;" for="finale">Include Final Jeopardy</label>
+                <input type="checkbox" name="include_finale" checked>
+            </div>
+
+            <div class="input-field">
+                <label for="language">Language</label>
+                <select name="language">
+                    {% for language_id, language_name in languages %}
+                    <option value="{{ language_id }}" {% if language_id == 'ENGLISH' %}selected{% endif %}>{{ language_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+             <div class="input-field">
+                <label for="music">Lobby Music</label>
+                <input  id="create-game-music" type="file" name="music" accept=".mp3">
+            </div>
+
+            <input type="submit" value="Create" class="default-button">
+        </form>
+    </div>
+
+    <p id="dashboard-form-error">{% if error %}Error: {{ error }}{% endif %}</p>
+</body>
+</html>

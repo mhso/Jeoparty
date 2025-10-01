@@ -4,9 +4,8 @@ import json
 
 from sqlalchemy import delete, text
 
-from api.database import Database
-from api.enums import PowerUpType
-from api.orm.models import *
+from jeoparty.api.database import Database
+from jeoparty.api.orm.models import *
 
 version_choices = list(range(1, 6))
 

@@ -1,9 +1,18 @@
 import asyncio
+import os
+from io import BytesIO
+from multiprocessing import Process
 from typing import List
+from argparse import Namespace
 
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
+from PIL import Image
+from sqlalchemy import Enum
 
-from api.database import Database
+from jeoparty.api.database import Database
+from jeoparty.api.enums import Language
+from tests.config import PRESENTER_USER_ID, PRESENTER_USERNAME, PRESENTER_PASSWORD
+import main
 
 BROWSER_OPTIONS = {
     "args": [
@@ -22,7 +31,7 @@ BROWSER_OPTIONS = {
 }
 
 BASE_URL = "http://localhost:5006/jeoparty"
-JEOPARDY_PRESENTER_URL = f"{BASE_URL}/presenter"
+PRESENTER_URL = f"{BASE_URL}/presenter"
 
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
@@ -44,19 +53,37 @@ class ContextHandler:
     async def _create_browser(self, context: Playwright):
         return await context.chromium.launch(**BROWSER_OPTIONS)
 
+    async def _login_to_dashboard(self):
+        page = await self.presenter_context.new_page()
+
+        await page.goto(BASE_URL)
+
+        name_input = await page.query_selector('input[type="text"]')
+        await name_input.fill(PRESENTER_USERNAME)
+
+        password_input = await page.query_selector('input[type="password"]')
+        await password_input.fill(PRESENTER_PASSWORD)
+
+        login_btn = await page.query_selector(".login-login-btn")
+
+        async with page.expect_navigation():
+            await login_btn.click()
+
+        return page
+
     async def create_game(
         self,
-        pack_name: str = "LoL Jeopardy v5",
+        pack_name: str | None = None,
         title: str | None = None,
         password: str | None = None,
-        rounds: int | None = 2,
-        contestants: int | None = 4,
-        doubles: bool | None = True,
+        rounds: int | None = None,
+        contestants: int | None = None,
+        daily_doubles: bool | None = None,
         power_ups: bool | None = None,
         page: Page | None = None,
     ):
         if page is None:
-            page = await self.presenter_context.new_page()
+            page = self.presenter_page
 
         await page.goto(f"{BASE_URL}/create_game")
 
@@ -65,8 +92,8 @@ class ContextHandler:
             ("password", password),
             ("rounds", rounds),
             ("contestants", contestants),
-            ("daily_doubles", doubles),
-            ("power_ups", power_ups)
+            ("double", daily_doubles),
+            ("powers", power_ups)
         ]
 
         for field, value in field_data:
@@ -77,21 +104,55 @@ class ContextHandler:
             if isinstance(value, bool):
                 await input_field.set_checked(value)
             else:
-                await input_field.fill(value)
+                await input_field.fill(str(value))
 
-        pack_input = await page.query_selector("#create-game-pack")
-        await pack_input.select_option(label=pack_name)
+        if pack_name is not None:
+            pack_input = await page.query_selector("#create-game-pack")
+            await pack_input.select_option(label=pack_name, timeout=2000)
 
         submit_btn = await page.query_selector('input[type="submit"]')
 
-        async with await page.expect_navigation(wait_until="domcontentloaded"):
-            await submit_btn.press()
+        async with page.expect_navigation(wait_until="domcontentloaded"):
+            await submit_btn.click()
 
         return page
 
-    async def _open_presenter_lobby_page(self):
-        page = await self.presenter_context.new_page()
-        await page.goto(JEOPARDY_PRESENTER_URL)
+    async def create_pack(
+        self,
+        name: str | None,
+        public: bool | None = None,
+        finale: bool | None = None,
+        language: Language | None = None,
+        page: Page | None = None,
+    ):
+        if page is None:
+            page = self.presenter_page
+
+        await page.goto(f"{BASE_URL}/create_pack")
+
+        field_data = [
+            ("name", name),
+            ("public", public),
+            ("include_finale", finale),
+            ("language", language),
+        ]
+
+        for field, value in field_data:
+            if value is None:
+                continue
+
+            input_field = await page.query_selector(f"#create-game-{field}")
+            if isinstance(value, bool):
+                await input_field.set_checked(value)
+            elif isinstance(value, Enum):
+                await input_field.select_option(value.name, timeout=2000)
+            else:
+                await input_field.fill(str(value))
+
+        submit_btn = await page.query_selector('input[type="submit"]')
+
+        async with page.expect_navigation(wait_until="domcontentloaded"):
+            await submit_btn.click()
 
         return page
 
@@ -123,7 +184,7 @@ class ContextHandler:
         strings = [str(await arg.json_value()) for arg in msg.args]
         print("Message from console:", " ".join(strings))
 
-    async def _setup_contestant_browser(self, disc_id):
+    async def _setup_contestant_browser(self, user_id: str):
         if self._setup_callback:
             playwright_context = await async_playwright().__aenter__()
             self.playwright_contexts.append(playwright_context)
@@ -132,12 +193,11 @@ class ContextHandler:
 
         browser = await self._create_browser(playwright_context)
         browser_context = await browser.new_context(viewport=CONTESTANT_VIEWPORT, is_mobile=True, has_touch=True)
-        page = await self._open_contestant_lobby_page(browser_context, disc_id)
+        page = await browser_context.new_page()
         page.on("console", self._print_console_output)
-        await self._join_lobby(disc_id, page)
 
         if self._setup_callback:
-            await self._setup_callback(disc_id, page)
+            await self._setup_callback(user_id, page)
 
         return browser_context, page
 
@@ -255,30 +315,24 @@ class ContextHandler:
         new_cwd = os.path.join(cwd, "src")
         os.chdir(new_cwd)
 
-        meta_database = MetaDatabase(self.config)
-        self.flask_process = Process(target=run_app, args=(self.config, meta_database, {}, {}, {}, None))
+        self.flask_process = Process(target=main.run_app, args=(Namespace(database="test.db"),))
         self.flask_process.start()
 
         os.chdir(cwd)
 
         # Create presenter browser and context
-        client_secret = meta_database.get_client_secret(ADMIN_DISC_ID)
-        hashed_secret = get_hashed_secret(client_secret)
-
         presenter_browser = await self._create_browser(self.playwright_contexts[0])
         self.presenter_context = await presenter_browser.new_context(viewport=PRESENTER_VIEWPORT)
-        await self.presenter_context.add_cookies([{"name": "user_id", "value": hashed_secret, "url": BASE_URL}])
 
-        # Go to presenter URL
-        self.presenter_page = await self._open_presenter_lobby_page()
+        self.presenter_page = await self._login_to_dashboard()
 
         # Create contestant browsers and contexts
-        for disc_id in CONTESTANT_IDS:
+        for user_id in self.database.get_all_contestants():
             if self._setup_callback:
-                task = asyncio.create_task(self._setup_contestant_browser(disc_id))
+                task = asyncio.create_task(self._setup_contestant_browser(user_id))
                 self._browser_tasks.append(task)
             else:
-                context, page = await self._setup_contestant_browser(disc_id)
+                context, page = await self._setup_contestant_browser(user_id)
                 self.contestant_contexts.append(context)
                 self.contestant_pages.append(page)
 

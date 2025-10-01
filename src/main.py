@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import json
 from os.path import basename
 from glob import glob
@@ -7,11 +8,10 @@ from mhooge_flask import init
 from mhooge_flask.init import Route, SocketIOServerWrapper
 from mhooge_flask.restartable import restartable
 
-from api.config import Config
-from api.database import Database
+from jeoparty.api.config import Config
+from jeoparty.api.database import Database
 
-@restartable
-def main():
+def run_app(args):
     routes = [
         Route("dashboard", "dashboard_page"),
         Route("contestant", "contestant_page"),
@@ -19,7 +19,7 @@ def main():
         Route("login", "login_page")
     ]
 
-    database = Database()
+    database = Database(args.database)
     app_name = "jeoparty"
 
     locale_data = {}
@@ -34,17 +34,26 @@ def main():
         f"/{app_name}/",
         routes,
         database,
+        root_folder="jeoparty/app",
         server_cls=SocketIOServerWrapper,
         persistent_variables={"app_name": app_name.capitalize()},
         exit_code=0,
         locales=locale_data,
     )
 
-    ports_file = "../../flask_ports.json"
+    ports_file = f"{Config.PROJECT_FOLDER}/../flask_ports.json"
 
     logger.info("Starting Flask web app.")
 
     init.run_app(web_app, app_name, ports_file)
 
+@restartable
+def main():
+    run_app(args)
+
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("-db", "--database", default="database.db")
+    args = parser.parse_args()
+
     main()

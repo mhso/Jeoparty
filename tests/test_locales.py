@@ -1,8 +1,8 @@
 import json
 import os
 
-from src.api.enums import Language
-from src.api.config import Config
+from jeoparty.api.enums import Language
+from jeoparty.api.config import Config
 
 def _get_locale_filename(language: Language):
     return f"{Config.RESOURCES_FOLDER}/locales/{language.value}.json"

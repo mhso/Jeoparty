@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ app_name }} Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/style.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/dashboard_style.css') }}">
+</head>
+<body style="text-align: center;">
+    <div id="login-wrapper">
+        <h1>Login to {{ app_name }}</h1>
+        <form action="{{ url_for('login.login', redirect_url=redirect_url) }}" method="POST">
+            <div class="input-field">
+                <label for="name">Username</label>
+                <input type="text" name="user">
+            </div class="login-field">
+    
+            <div class="input-field">
+                <label for="pass">Password</label>
+                <input type="password" name="pass">
+            </div>
+    
+            <input class="login-submit-btn login-login-btn default-button" type="submit" value="Login" class="btn">
+            <input class="login-submit-btn login-signup-btn default-button" type="submit" value="Sign Up" class="btn" formaction="{{ url_for('login.signup') }}">
+        </form>
+
+        <p id="login-error-msg">{% if error %}{{ error }}{% endif %}</p>
+    </div>
+</body>
+</html>

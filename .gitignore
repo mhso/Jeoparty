@@ -3,11 +3,12 @@ __pycache__
 __pypackages__
 
 log
-resources/database.db
+resources/*.db
 src/app/static/*
 src/app/static/*/bootstrap/
 !src/app/static/js/
 !src/app/static/css/
+*.png
 
 .pdm-python
 .pdm-config

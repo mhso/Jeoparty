@@ -1,0 +1,3 @@
+PRESENTER_USER_ID = "user_id_123"
+PRESENTER_USERNAME = "Presenter"
+PRESENTER_PASSWORD = "password321"

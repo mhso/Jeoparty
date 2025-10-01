@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+{% include 'dashboard/head.html' %}
+<body style="text-align: center;">
+    {% include 'logo.html' %}
+
+    <div id="create-game-wrapper">
+        <h1>Create Game</h1>
+
+        <form action="{{ url_for('dashboard.create_game') }}" method="POST">
+            <div class="input-field">
+                <label for="title">Lobby Name</label>
+                <input id="create-game-title" type="text" name="title" minlength="1" maxlength="64" value="{{ user_name }}'s Game">
+            </div>
+
+            <div class="input-field">
+                <label for="password">Password</label>
+                <input id="create-game-password" type="text" name="password" placeholder="Optional password">
+            </div>
+            
+            <div class="input-field">
+                <label for="rounds">Regular Rounds</label>
+                <input id="create-game-rounds" type="number" name="regular_rounds" minlength="1" maxlength="9" value="2">
+            </div>
+
+            <div class="input-field">
+                <label for="contestants">Contestants</label>
+                <input id="create-game-contestants" type="number" name="max_contestants" minlength="1" maxlength="9" value="4">
+            </div>
+
+            <div class="input-field">
+                <label for="daily_doubles" style="display: inline;">Include Daily Doubles</label>
+                <input id="create-game-double" type="checkbox" name="use_daily_doubles" checked>
+            </div>
+
+            <div class="input-field">
+                <label style="display: inline;" for="power_ups">Allow Power-Ups</label>
+                <input id="create-game-powers" type="checkbox" name="use_powerups" checked>
+            </div>
+
+            <div class="input-field">
+                <label>Question Pack</label>
+                <select id="create-game-pack" name="pack_id">
+                    {% for question_pack in questions %}
+                    <option value="{{ question_pack['id'] }}">{{ question_pack['name'] }}</option>
+                    {% endfor %}
+                    <option value="missing" selected>Select Pack</option>
+                </select>
+            </div>
+
+            <input type="submit" value="Create" class="default-button">
+        </form>
+    </div>
+
+    <p id="dashboard-form-error">{% if error %}{{ error }}{% endif %}</p>
+</body>
+</html>
