@@ -31,7 +31,7 @@ def home():
     user_id, user_name = user_details
 
     with database:
-        question_data = database.get_questions_for_user(user_id)
+        question_data = database.get_question_packs_for_user(user_id)
         questions_json = []
         for question_pack in question_data:
             total_questions = 0
@@ -77,7 +77,7 @@ def create_pack():
         success, pack_model_or_error = create_and_validate_model(QuestionPack, data, "creating question pack")
 
         if not success:
-            return flask.redirect(flask.url_for(".question_pack", error=pack_model_or_error, _external=True))
+            return flask.redirect(flask.url_for(".create_pack", error=pack_model_or_error, _external=True))
 
         database.create_question_pack(pack_model_or_error)
 
@@ -95,7 +95,7 @@ def create_pack():
     return make_template_context(
         "dashboard/create_pack.html",
         user_name=user_name,
-        languages=[(lang.name, lang.value.capitalize()) for lang in Language],
+        languages=[(lang.value, lang.value.capitalize()) for lang in Language],
     )
 
 @dashboard_page.route("/create_game", methods=["GET", "POST"])
@@ -117,7 +117,7 @@ def create_game():
         if not success:
             return flask.redirect(flask.url_for(".create_game", error=game_model_or_error, _external=True))
 
-        pack_data = database.get_questions_for_user(user_id, game_model_or_error.pack_id)
+        pack_data = database.get_question_packs_for_user(user_id, game_model_or_error.pack_id)
         if not pack_data:
             error = "Error: The selected question pack is invalid."
             return flask.redirect(flask.url_for(".create_game", error=error, _external=True)) 
@@ -134,7 +134,7 @@ def create_game():
 
         return flask.redirect(flask.url_for("presenter.lobby", game_id=game_model_or_error.id, _external=True))
 
-    questions = database.get_questions_for_user(user_id, include_public=True)
+    questions = database.get_question_packs_for_user(user_id, include_public=True)
     error = flask.request.args.get("error")
 
     return make_template_context(
@@ -182,7 +182,7 @@ def save_pack(pack_id: str):
     database: Database = flask.current_app.config["DATABASE"]
     user_id = user_details[0]
 
-    if database.get_questions_for_user(user_id, pack_id) is None:
+    if database.get_question_packs_for_user(user_id, pack_id) is None:
         return make_text_response("You are not authorized to edit this question package", 401)
 
     try:
@@ -219,7 +219,7 @@ def question_pack(pack_id: str):
     with database:
         user_id, user_name = user_details
 
-        pack_data: QuestionPack | None = database.get_questions_for_user(user_id, pack_id)
+        pack_data: QuestionPack | None = database.get_question_packs_for_user(user_id, pack_id)
         if pack_data is None:
             return flask.abort(404)
 
@@ -239,7 +239,7 @@ def question_pack(pack_id: str):
         "dashboard/question_pack.html",
         pack_data.language,
         user_name=user_name,
-        languages=[(lang.name, lang.value.capitalize()) for lang in Language],
+        languages=[(lang.value, lang.value.capitalize()) for lang in Language],
         base_entries=base_entries,
         **pack_json,
     )

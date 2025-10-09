@@ -122,7 +122,7 @@ function disablePowerUp(playerId=null, powerId=null) {
 }
 
 function disableFreeze(playerId) {
-    disablePowerUp(playerId, "FREEZE");
+    disablePowerUp(playerId, "freeze");
 
     let freezeWrapper = document.querySelector(".question-countdown-frozen");
     freezeWrapper.style.transition = "opacity 2s";
@@ -277,7 +277,7 @@ function wrongAnswer(reason, questionOver=false) {
 
         // Disable the use of 'freeze' power up, enable the use of 'rewind'
         activePowerUp = null;
-        enablePowerUp(playerIds[answeringPlayer], "REWIND");
+        enablePowerUp(playerIds[answeringPlayer], "rewind");
     }
 
     if (Object.values(activePlayers).every(v => !v) || outOfTime) {
@@ -457,7 +457,7 @@ function startAnswerCountdown(duration) {
     window.onkeydown = function(e) {
         if (e.code == PRESENTER_ACTION_KEY) {
             // Disable 'hijack' power-up after an answer has been given
-            disablePowerUp(null, "HIJACK");
+            disablePowerUp(null, "hijack");
 
             // Pause video if one is playing
             pauseVideo();
@@ -518,18 +518,18 @@ function afterBuzzIn(playerId) {
         startAnswerCountdown(TIME_FOR_ANSWERING);
 
         // Enable 'freeze' for player who buzzed
-        enablePowerUp(playerId, "FREEZE");
+        enablePowerUp(playerId, "freeze");
     }, 500);
 }
 
 function playerBuzzedFirst(playerId) {
-    if (activePowerUp != null && activePowerUp != "HIJACK") {
+    if (activePowerUp != null && activePowerUp != "hijack") {
         return;
     }
 
     playersBuzzedIn.push(playerId);
 
-    if (!activePlayers[playerId] || (answeringPlayer != null && activePowerUp != "HIJACK")) {
+    if (!activePlayers[playerId] || (answeringPlayer != null && activePowerUp != "hijack")) {
         return;
     }
 
@@ -640,11 +640,11 @@ function powerUpUsed(playerId, powerId) {
     console.log(`Player ${playerNames[playerId]} used power '${powerId}'`);
 
     callback = null;
-    if (powerId == "FREEZE") {
+    if (powerId == "freeze") {
         onFreezeUsed();
         callback = afterFreezeUsed;
     }
-    else if (powerId == "REWIND") {
+    else if (powerId == "rewind") {
         onRewindUsed(playerId);
         callback = afterRewindUsed;
     }
@@ -714,7 +714,7 @@ function questionAsked(countdownDelay) {
                 startCountdown(buzzInTime);
             }
         }
-        else if (isDailyDouble || activePowerUp == "HIJACK") {
+        else if (isDailyDouble || activePowerUp == "hijack") {
             let timeToAnswer = isDailyDouble ? TIME_FOR_DOUBLE_ANSWER : buzzInTime;
             startAnswerCountdown(timeToAnswer);
         }

@@ -101,11 +101,54 @@ async def test_errors(database):
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_games_for_user(PRESENTER_USER_ID) == []
-        assert await error_elem.text_content() == "Error when creating game: Input 'Title' with value 'No': String should have at least 3 characters"
+        assert await error_elem.text_content() == "Error when creating game: Field 'Title' should have at least 3 characters"
 
         # Create game with a title with invalid characters
-        page = await context.create_game("Test Pack", "Cool T!tl€")
+        page = await context.create_game("Test Pack", "Cööl T!tl€")
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_games_for_user(PRESENTER_USER_ID) == []
-        assert await error_elem.text_content() == "Error when creating game: Input 'Title' with value 'Cool T!tl€' contains invalid characters"
+        assert await error_elem.text_content() == "Error when creating game: Field 'Title' contains invalid characters"
+
+        # Create game with too short of a password
+        page = await context.create_game("Test Pack", "Game Title", "P")
+
+        error_elem = await page.query_selector("#dashboard-form-error")
+        assert database.get_games_for_user(PRESENTER_USER_ID) == []
+        assert await error_elem.text_content() == "Error when creating game: Field 'Password' should have at least 3 characters"
+
+        # Create game with too long of a password
+        long_password = "abcdefghijklmn" * 10
+        page = await context.create_game("Test Pack", "Game Title", long_password)
+
+        error_elem = await page.query_selector("#dashboard-form-error")
+        assert database.get_games_for_user(PRESENTER_USER_ID) == []
+        assert await error_elem.text_content() == "Error when creating game: Field 'Password' should have at most 64 characters"
+
+        # Create game with too few rounds
+        page = await context.create_game("Test Pack", rounds=0)
+
+        error_elem = await page.query_selector("#dashboard-form-error")
+        assert database.get_games_for_user(PRESENTER_USER_ID) == []
+        assert await error_elem.text_content() == "Error when creating game: Field 'Regular rounds' - Input should be greater than 0"
+
+        # Create game with too many rounds
+        page = await context.create_game("Test Pack", rounds=10)
+
+        error_elem = await page.query_selector("#dashboard-form-error")
+        assert database.get_games_for_user(PRESENTER_USER_ID) == []
+        assert await error_elem.text_content() == "Error when creating game: Field 'Regular rounds' - Input should be less than 10"
+
+        # Create game with too few contestants
+        page = await context.create_game("Test Pack", contestants=0)
+
+        error_elem = await page.query_selector("#dashboard-form-error")
+        assert database.get_games_for_user(PRESENTER_USER_ID) == []
+        assert await error_elem.text_content() == "Error when creating game: Field 'Max contestants' - Input should be greater than 0"
+
+        # Create game with too many contestants
+        page = await context.create_game("Test Pack", contestants=10)
+
+        error_elem = await page.query_selector("#dashboard-form-error")
+        assert database.get_games_for_user(PRESENTER_USER_ID) == []
+        assert await error_elem.text_content() == "Error when creating game: Field 'Max contestants' - Input should be less than 10"

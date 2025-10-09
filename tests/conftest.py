@@ -94,4 +94,7 @@ def database():
         yield database
 
     database.engine.dispose()
-    os.remove(db_file_path)
+    try:
+       os.remove(db_file_path)
+    except PermissionError:
+        pass

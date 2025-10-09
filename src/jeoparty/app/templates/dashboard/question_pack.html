@@ -32,7 +32,7 @@
                 <label for="language">Language</label>
                 <select id="question-pack-language" name="language" onchange="syncPackLanguage(); dataChanged();">
                     {% if not language %}
-                    {% set active_language = 'ENGLISH' %}
+                    {% set active_language = 'english' %}
                     {% else %}
                     {% set active_language = language %}
                     {% endif %}

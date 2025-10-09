@@ -40,7 +40,7 @@ class PowerUp(Base):
 class QuestionPack(Base):
     __tablename__ = "question_packs"
     __validate_fields__ = {
-        "name": {"min_length": 3, "pattern": Config.VALID_NAME_CHARACTERS},
+        "name": {"min_length": 3, "pattern": Config.VALID_TITLE_CHARACTERS},
     }
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
@@ -70,7 +70,7 @@ class QuestionPack(Base):
 class QuestionRound(Base):
     __tablename__ = "question_rounds"
     __validate_fields__ = {
-        "name": {"min_length": 1, "pattern": Config.VALID_NAME_CHARACTERS},
+        "name": {"min_length": 1, "pattern": Config.VALID_TITLE_CHARACTERS},
         "round": {"gt": 0, "le": 10},
     }
 
@@ -117,7 +117,7 @@ class QuestionRound(Base):
 class QuestionCategory(Base):
     __tablename__ = "question_categories"
     __validate_fields__ = {
-        "name": {"min_length": 1, "pattern": Config.VALID_NAME_CHARACTERS},
+        "name": {"min_length": 1, "pattern": Config.VALID_TITLE_CHARACTERS},
         "buzz_time": {"ge": 0, "le": 60},
     }
 
@@ -140,8 +140,8 @@ class QuestionCategory(Base):
 class Question(Base):
     __tablename__ = "questions"
     __validate_fields__ = {
-        "question": {"min_length": 3, "max_length": 128, "pattern": Config.VALID_NAME_CHARACTERS},
-        "answer": {"min_length": 1, "max_length": 128, "pattern": Config.VALID_NAME_CHARACTERS},
+        "question": {"min_length": 3, "max_length": 128, "pattern": Config.VALID_TITLE_CHARACTERS},
+        "answer": {"min_length": 1, "max_length": 128, "pattern": Config.VALID_TITLE_CHARACTERS},
         "value": {"gt": 0, "lt": 10000},
     }
 
@@ -277,7 +277,7 @@ class GameQuestion(Base):
 class Game(Base):
     __tablename__ = "games"
     __validate_fields__ = {
-        "title": {"min_length": 3, "pattern": Config.VALID_NAME_CHARACTERS},
+        "title": {"min_length": 3, "pattern": Config.VALID_TITLE_CHARACTERS},
         "password": {"min_length": 3, "max_length": 128},
         "regular_rounds": {"gt": 0, "lt": 10},
         "max_contestants": {"gt": 0, "lt": 10},
@@ -293,7 +293,7 @@ class Game(Base):
     use_powerups: Mapped[bool] = mapped_column(Boolean, default=True)
     stage: Mapped[StageType] = mapped_column(Enum(StageType), default=StageType.LOBBY)
     round: Mapped[int] = mapped_column(Integer, default=1)
-    password: Mapped[Optional[str]] = mapped_column(String(128))
+    password: Mapped[Optional[str]] = mapped_column(String(64))
     created_by: Mapped[str] = mapped_column(String(64))
     started_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime)

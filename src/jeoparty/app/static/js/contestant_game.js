@@ -175,7 +175,7 @@ function monitorGame(userId, localeData) {
         let usedIcon = document.querySelector(`#contestant-power-btn-${powerId} > .contestant-power-used`);
         usedIcon.classList.remove("d-none");
 
-        if (powerId == "FREEZE") {
+        if (powerId == "freeze") {
             return;
         }
 

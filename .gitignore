@@ -4,10 +4,10 @@ __pypackages__
 
 log
 resources/*.db
-src/app/static/*
-src/app/static/*/bootstrap/
-!src/app/static/js/
-!src/app/static/css/
+src/jeoparty/app/static/*
+src/jeoparty/app/static/*/bootstrap/
+!src/jeoparty/app/static/js/
+!src/jeoparty/app/static/css/
 *.png
 
 .pdm-python

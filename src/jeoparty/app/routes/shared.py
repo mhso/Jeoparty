@@ -1,11 +1,11 @@
 import os
 import random
 import traceback
+from enum import Enum
 from typing import Any, Dict, List, Tuple, TypeVar
 from os.path import basename
 
 from pydantic_core import ErrorDetails
-from sqlalchemy import Enum
 from werkzeug.datastructures.file_storage import FileStorage
 from werkzeug.utils import secure_filename
 from pydantic import ValidationError
@@ -121,10 +121,15 @@ def render_question_template(game_data: Game, question: Question, daily_double: 
 T = TypeVar("T", bound="Base")
 
 def get_validation_error_msg(detail: ErrorDetails):
-    if detail.type == "string_pattern_mismatch":
-        f"Input '{detail['loc'][0].capitalize()}' with value '{detail['input']}' contains invalid characters"
+    loc_fmt = detail["loc"][0].replace("_", " ").capitalize()
 
-    return f"Input '{detail['loc'][0].capitalize()}' with value '{detail['input']}': {detail['msg']}"
+    if detail["type"] == "string_pattern_mismatch":
+        return f"Field '{loc_fmt}' contains invalid characters"
+
+    if detail["type"] in ("string_too_long", "string_too_short"):
+        return f"Field '{loc_fmt}' {detail['msg'].replace('String ', '')}"
+
+    return f"Field '{loc_fmt}' - {detail['msg']}"
 
 def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: str) -> Tuple[bool, T | str]:
     try:
@@ -141,9 +146,9 @@ def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: 
                 else:
                     data[column.name] = value
 
-            if isinstance(column.type.python_type, Enum) and value is not None:
+            if column.type.python_type.__base__ is Enum and value is not None:
                 try:
-                    enum = getattr(column.type.python_type, value)
+                    enum = column.type.python_type(value)
                 except AttributeError:
                     continue
 

@@ -171,7 +171,7 @@ class GameSocketHandler(Namespace):
         for contestant_id in player_ids:
             contestant = self.game_data.get_game_contestant(contestant_id)
             metadata = self.contestant_metadata[contestant_id]
-            power_up = contestant.get_power(getattr(PowerUpType, power_id))
+            power_up = contestant.get_power(PowerUpType(power_id))
             if power_up.used:
                 skip_contestants.append(metadata.sid)
                 continue
@@ -194,7 +194,7 @@ class GameSocketHandler(Namespace):
         else:
             player_ids = [contestant_id for contestant_id in self.contestant_metadata]
 
-        power_ups = [getattr(PowerUpType, power_id)] if power_id is not None else list(PowerUpType)
+        power_ups = [PowerUpType(power_id)] if power_id is not None else list(PowerUpType)
         for contestant_id in player_ids:
             contestant = self.game_data.get_game_contestant(contestant_id)
             for power_up in power_ups:
@@ -239,7 +239,7 @@ class GameSocketHandler(Namespace):
     def on_use_power_up(self, user_id: str, power_id: str, value: int | None = None):
         contestant_data = self.game_data.get_game_contestant(user_id)
         contestant_metadata = self.contestant_metadata[user_id]
-        power = getattr(PowerUpType, power_id)
+        power = PowerUpType(power_id)
 
         print(f"Power up '{power}' used by {contestant_data.contestant.name}", flush=True)
 
@@ -264,7 +264,7 @@ class GameSocketHandler(Namespace):
             if power_id in (PowerUpType.HIJACK, PowerUpType.REWIND):
                 self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
 
-            self.emit("power_ups_disabled", list(PowerUpType), to="contestants")
+            self.emit("power_ups_disabled", [power.value for power in PowerUpType], to="contestants")
             self.emit("power_up_used", (user_id, power_id), to="presenter")
             self.emit("power_up_used", power_id, to=contestant_metadata.sid)
 

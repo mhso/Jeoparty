@@ -27,7 +27,7 @@ class Database(SQLAlchemyDatabase):
     def __init__(self, db_file="database.db"):
         super().__init__(f"{Config.RESOURCES_FOLDER}/{db_file}", "api/orm", True, True)
 
-    def get_questions_for_user(self, user_id: str, pack_id: str = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
+    def get_question_packs_for_user(self, user_id: str, pack_id: str = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:
             if include_public:
                 filters = [(QuestionPack.created_by == user_id) | (QuestionPack.public == True)]
@@ -90,7 +90,7 @@ class Database(SQLAlchemyDatabase):
 
     def get_unique_join_code(self, join_code: str):
         with self as session:
-            statement = select(func.count()).select_from(Game).where(Game.join_code == join_code)
+            statement = select(func.count()).select_from(Game).where(Game.join_code == join_code, Game.ended_at == None)
             count = session.execute(statement).scalar()
             if not count:
                 return join_code
@@ -161,7 +161,7 @@ class Database(SQLAlchemyDatabase):
                     game_id=game_model.id,
                     question_id=question.id,
                 ) 
-                for question in self.get_questions_for_user(game_model.created_by, game_model.pack_id, True).get_all_questions()
+                for question in self.get_question_packs_for_user(game_model.created_by, game_model.pack_id, True).get_all_questions()
             ]
             session.add_all(game_questions)
 

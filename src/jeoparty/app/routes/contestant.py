@@ -11,14 +11,17 @@ from jeoparty.api.config import get_avatar_path
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
 
 _VALID_AVATAR_FILETYPES = set(["jpg", "jpeg", "png", "webp"])
-_COOKIE_ID = "jeoparty_contestant_id"
+COOKIE_ID = "jeoparty_contestant_id"
 
 def _save_user_id_to_cookie(user_id: str):
     max_age = 60 * 60 * 24 * 365 # 1 year
-    return _COOKIE_ID, user_id, max_age
+    return COOKIE_ID, user_id, max_age
 
 def _get_user_id_from_cookie(cookies) -> str:
-    return str(cookies.get(_COOKIE_ID))
+    if (cid := cookies.get(COOKIE_ID)):
+        return str(cid)
+
+    return None
 
 def _validate_join_params(params: Dict[str, Any]) -> Contestant | str:
     name, error = validate_param(params, "name", str, 2, 16)

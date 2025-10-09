@@ -28,8 +28,8 @@
                 {% if id %}
                 <input name="user_id" type="hidden" value="{{ id }}">
                 {% endif %}
-                <input name="join_code" type="hidden" value="{{ join_code }}">
-                
+                <input id="contestant-lobby-code" name="join_code" type="hidden" value="{{ join_code }}">
+    
                 <input id="contestant-lobby-join" type="submit" value="{{ _locale['join'] }}">
             </form>
 

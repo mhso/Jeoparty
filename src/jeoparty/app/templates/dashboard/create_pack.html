@@ -10,24 +10,24 @@
         <form action="{{ url_for('dashboard.create_pack') }}" method="POST" enctype="multipart/form-data">
             <div class="input-field">
                 <label for="name">Pack Name</label>
-                <input type="text" name="name" minlength="1" maxlength="64" value="{{ user_name }}'s Question Pack">
+                <input id="create-pack-name" type="text" name="name" minlength="1" maxlength="64" value="{{ user_name }}'s Question Pack">
             </div>
    
             <div class="input-field">
                 <label style="display: inline;" name="public">Make Public</label>
-                <input type="checkbox" name="public">
+                <input id="create-pack-public" type="checkbox" name="public">
             </div>
 
             <div class="input-field">
                 <label style="display: inline;" for="finale">Include Final Jeopardy</label>
-                <input type="checkbox" name="include_finale" checked>
+                <input id="create-pack-finale" type="checkbox" name="include_finale" checked>
             </div>
 
             <div class="input-field">
                 <label for="language">Language</label>
-                <select name="language">
+                <select id="create-pack-language" name="language">
                     {% for language_id, language_name in languages %}
-                    <option value="{{ language_id }}" {% if language_id == 'ENGLISH' %}selected{% endif %}>{{ language_name }}</option>
+                    <option value="{{ language_id }}" {% if language_id == 'english' %}selected{% endif %}>{{ language_name }}</option>
                     {% endfor %}
                 </select>
             </div>
