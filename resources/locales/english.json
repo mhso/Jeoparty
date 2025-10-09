@@ -33,7 +33,7 @@
         "contestant/lobby": {
             "welcome_header": "Welcome to the Jeoparty!",
             "placeholder_name": "Your Name",
-            "color_label": "Choose a color:",
+            "color_label": "Your Color",
             "join": "Join"
         },
         "contestant/game": {

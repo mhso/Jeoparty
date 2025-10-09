@@ -9,7 +9,7 @@
             {% include 'logo.html' %}
 
             <!-- Categories -->
-            {% if stage == "SELECTION" %}
+            {% if stage == "selection" %}
 
             <!-- Regular rounds question selection -->
             <div id="selection-categories-wrapper">
@@ -90,9 +90,9 @@
                         goToSelectedCategory();
                     }
                 };
-                {% if stage == "SELECTION" and not first_round %}
+                {% if stage == "selection" and not first_round %}
                 setPlayerTurn("{{ player_with_turn['id'] }}");
-                {% elif stage == "FINALE_WAGER" %}
+                {% elif stage == "finale_wager" %}
                 showFinaleCategory();
                 socket.on("contestant_ready", setPlayerReady);
                 {% endif %}

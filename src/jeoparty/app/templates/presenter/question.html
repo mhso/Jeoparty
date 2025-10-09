@@ -51,7 +51,7 @@
     {% endfor %}
 
     <!-- Correct/wrong answers sounds -->
-    {% if stage == "QUESTION" %}
+    {% if stage == "question" %}
     <audio id="question-sound-correct">
         <source src="{{ url_for('static', _external=True, filename=correct_sound) }}" type="audio/mpeg">
     </audio>
@@ -102,7 +102,7 @@
                 }
                 {% endif %}
 
-                {% if not daily_double and stage == "FINALE_QUESTION" %}
+                {% if not daily_double and stage == "finale_question" %}
                 {% for contestant_data in game_contestants %}
                     {% if contestant_data["finale_wager"] == 0 %}
                     setPlayerReady({{ contestant_data["contestant_id"] }});

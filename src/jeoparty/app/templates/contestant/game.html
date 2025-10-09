@@ -8,11 +8,11 @@
         {% endif %}
 
         <div id="contestant-game-wrapper">
-            <h1{% if stage == "QUESTION" %} class="d-none"{% endif %}>{{ app_name }}!</h1>
+            <h1{% if stage == "question" %} class="d-none"{% endif %}>{{ app_name }}!</h1>
 
             <div id="contestant-game-header" style="border: 2px solid {{ color }};">
                 <div>
-                    <img src="{{ url_for('static', filename=avatar) }}">
+                    <img id="contestant-game-avatar" src="{{ url_for('static', filename=avatar) }}">
                     <div id="contestant-game-name">{{ name }}</div>
                 </div>
                 <div id="contestant-game-info">
@@ -23,11 +23,11 @@
                 </div>
             </div>
     
-            {% if stage == "LOBBY" %}
+            {% if stage == "lobby" %}
 
                 <h2 id="contestant-game-waiting">{{ _locale["waiting_for_start"] }}</h2>
 
-            {% elif stage == "ENDED" %}
+            {% elif stage == "ended" %}
 
                 <!-- Endscreen -->
                 {% if user_id in winner_ids %}
@@ -38,15 +38,15 @@
 
             {% else %}
                 <h2 class="contestant-round-header">{{ _locale["round_header"] }} {{ round }}/{{ total_rounds }}</h2>
-                {% if stage == "FINALE" %}
+                {% if stage == "finale" %}
                 <h2 class="contestant-round-header">{{ round_name }}</h2>
                 {% else %}
                 <h2 class="contestant-round-header">{{ _locale["question_header"] }} {{ question_num }}/{{ total_questions }}</h2>
                 {% endif %}
 
-                {% if stage == "QUESTION" or stage == "FINALE_RESULT" %}
+                {% if stage == "question" or stage == "finale_result" %}
 
-                    {% if stage == "FINALE_RESULT" %}
+                    {% if stage == "finale_result" %}
     
                     <!-- Final Jeopardy answer -->
                     <h2 id="question-category-name">{{ question["category"]["name"] }}</h2>
@@ -67,7 +67,7 @@
 
                     {% else %}
                     <!-- Question screen -->
-                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "QUESTION" %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ question["value"] }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "question" %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ question["value"] }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
 
                     {% if daily_double %}
 
@@ -111,7 +111,7 @@
 
                 {% else %}
     
-                {% if stage == "FINALE_WAGER" %}
+                {% if stage == "finale_wager" %}
                 
                 <!-- Final Jeopardy wager -->
                 <h2 id="finale-category-header">{{ question["category"]["name"] }}</h2>
@@ -164,8 +164,8 @@
                                 elem.textContent = "{{ _locale['waiting_turn_3'] }}";
                             }
                         });
-                        {% elif stage == "FINALE_WAGER" or stage == "FINALE_QUESTION" %}
-                            {% if stage == "FINALE_QUESTION" %}
+                        {% elif stage == "finale_wager" or stage == "finale_question" %}
+                            {% if stage == "finale_question" %}
                             socket.on("finale_category_revealed", function() {
                                 document.getElementById("finale-question-wrapper").classList.remove("d-none");
                             });

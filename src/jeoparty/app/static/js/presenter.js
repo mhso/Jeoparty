@@ -1069,7 +1069,7 @@ function addContestantDiv(id, name, avatar, color) {
         avatarElem.src = `${getBaseURL()}/static/${avatar}`;
     
         let nameElem = document.createElement("div");
-        nameElem.className = "menu-contestant-id";
+        nameElem.className = "menu-contestant-name";
         nameElem.textContent = name;
     
         div.appendChild(avatarElem);
@@ -1078,7 +1078,7 @@ function addContestantDiv(id, name, avatar, color) {
         wrapper.appendChild(div);
     }
     else {
-        let nameElem = div.querySelector(".menu-contestant-id");
+        let nameElem = div.querySelector(".menu-contestant-name");
         nameElem.textContent = name;
  
         let avatarElem = div.querySelector(".menu-contestant-avatar");

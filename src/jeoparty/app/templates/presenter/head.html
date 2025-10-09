@@ -1,8 +1,8 @@
 <head>
-    {% if stage == "SELECTION" or stage == "FINALE_WAGER" %}
+    {% if stage == "selection" or stage == "finale_wager" %}
     <title>{{ round_name }}</title>
-    {% elif stage == "QUESTION" or stage == "FINALE_QUESTION" %}
-    <title>{{ round_name }} - {{ category["name"] }}{% if stage == "QUESTION" %} {{ _locale["for"] }} {{ value }} {{ _locale["points"] }}{% endif %}</title>
+    {% elif stage == "question" or stage == "finale_question" %}
+    <title>{{ round_name }} - {{ category["name"] }}{% if stage == "question" %} {{ _locale["for"] }} {{ value }} {{ _locale["points"] }}{% endif %}</title>
     {% else %}
     <title>{{ app_name }}!</title>
     {% endif %}
@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', _external=True, filename='img/favicon-48.png') }}" sizes="48x48">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/style.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/presenter_style.css') }}">
-    {% if stage == "QUESTION" or stage == "FINALE_QUESTION" %}
+    {% if stage == "question" or stage == "finale_question" %}
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/question_style.css') }}">
     {% endif %}
     <script src="{{ url_for('static', _external=True, filename='js/jquery.min.js') }}"></script>

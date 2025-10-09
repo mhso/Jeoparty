@@ -33,7 +33,7 @@
         "contestant/lobby": {
             "welcome_header": "Velkommen til Jeoparty!",
             "placeholder_name": "Dit Navn",
-            "color_label": "Vælg en farve",
+            "color_label": "Din Farve",
             "join": "Deltag"
         },
         "contestant/game": {

@@ -12,7 +12,7 @@ from sqlalchemy import Enum
 
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
-from jeoparty.api.config import get_data_path_for_question_pack
+from jeoparty.api.config import get_data_path_for_question_pack, get_avatar_path
 from jeoparty.app.routes.contestant import COOKIE_ID
 from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
 import main
@@ -37,6 +37,20 @@ PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
 PRESENTER_ACTION_KEY = "Space"
 
+def _to_hex(r: str):
+    hex_num = hex(int(r))
+    if hex_num == "0x0":
+        return "00"
+
+    return hex_num.removeprefix("0x").upper()
+
+def rgb_to_hex(color: str):
+    if color.startswith("rgb"):
+        r, g, b = color.removeprefix("rgb(").removesuffix(")").split(",")
+        return f"#{_to_hex(r)}{_to_hex(g)}{_to_hex(b)}"
+
+    return color
+
 class ContextHandler:
     BASE_URL = "http://localhost:5006/jeoparty"
     PRESENTER_URL = f"{BASE_URL}/presenter"
@@ -52,6 +66,7 @@ class ContextHandler:
         self.contestant_contexts: Dict[str, BrowserContext] = {}
         self.contestant_pages: Dict[str, Page] = {}
         self.pack_folders = []
+        self.avatar_images = []
         self._browser_tasks = []
 
     async def _create_browser(self, context: Playwright):
@@ -181,27 +196,42 @@ class ContextHandler:
         self,
         join_code: str,
         name: str | None = None,
-        avatar: str | None = None
-    ):
-        context, page = await self._setup_contestant_browser()
+        color: str | None = None,
+        avatar: str | None = None,
+        page: Page | None = None
+    ) -> str:
+        if page is None:
+            contestant_context, contestant_page = await self._setup_contestant_browser()
+        else:
+            contestant_page = page
 
         url = f"{ContextHandler.BASE_URL}/{join_code}"
-        await page.goto(url)
+        await contestant_page.goto(url)
 
         if name is not None:
             # Input player name
-            name_input = await page.query_selector("#contestant-lobby-name")
+            name_input = await contestant_page.query_selector("#contestant-lobby-name")
             await name_input.fill(name)
 
+        if color is not None:
+            # Input player color (the hard way because Playwright is no)
+            color_input = await contestant_page.query_selector("#contestant-lobby-color")
+            await color_input.evaluate(f"(e) => e.value = '{color}'")
+
+        if avatar is not None:
+            # Set player avatar
+            avatar_input = await contestant_page.query_selector("#contestant-lobby-avatar-input")
+            await avatar_input.set_input_files(avatar)
+
         # Join the lobby
-        join_button = await page.query_selector("#contestant-lobby-join")
+        join_button = await contestant_page.query_selector("#contestant-lobby-join")
 
         # # Wait for the lobby page to load
-        async with page.expect_navigation(wait_until="domcontentloaded"):
+        async with contestant_page.expect_navigation(wait_until="domcontentloaded"):
             await join_button.click()
 
         # Get contestant ID from cookie after they joined the lobby
-        cookies = await page.context.cookies()
+        cookies = await contestant_page.context.cookies()
         contestant_id = None
         for cookie in cookies:
             if cookie["name"] == COOKIE_ID:
@@ -211,9 +241,13 @@ class ContextHandler:
         if contestant_id is None:
             return None
 
-        # Safe context and page for contestant
-        self.contestant_contexts[contestant_id] = context
-        self.contestant_pages[contestant_id] = page
+        if avatar is not None:
+            self.avatar_images.append(contestant_id)
+
+        if page is None:
+            # Safe context and page for contestant
+            self.contestant_contexts[contestant_id] = contestant_context
+            self.contestant_pages[contestant_id] = contestant_page
 
         return contestant_id
 
@@ -226,6 +260,117 @@ class ContextHandler:
         await asyncio.sleep(1.5)
         # Starts the game
         await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+    async def assert_contestant_values(
+        self,
+        contestant_id: str,
+        name: str | None = None,
+        color: str | None = None,
+        avatar: str | None = None,
+        score: int | None = None,
+        buzzes: int | None = None,
+        hits: int | None = None,
+        misses: int | None = None,
+    ):
+        page = self.contestant_pages[contestant_id]
+
+        if color is not None:
+            header_elem = await page.query_selector("#contestant-game-header")
+            header_style = await header_elem.get_property("style")
+            border_color = await header_style.get_property("borderColor")
+
+            assert rgb_to_hex(await border_color.json_value()) == color
+
+        if avatar is not None:
+            avatar_elem = await page.query_selector("#contestant-game-avatar")
+
+            src_path = await avatar_elem.get_attribute("src")
+            if len(src_path) > len(avatar):
+                assert src_path.endswith(avatar)
+            elif len(src_path) < len(avatar):
+                assert avatar.endswith(src_path)
+            else:
+                assert src_path == avatar
+
+        header_data = [
+            ("name", name),
+            ("score", f"{score} points" if score else None),
+            ("buzzes", f"{buzzes} buzzes" if buzzes else None),
+            ("hits", str(hits) if hits else None),
+            ("misses", str(misses) if misses else None),
+        ]
+
+        for elem, value in header_data:
+            if value is None:
+                continue
+
+            element = await page.query_selector(f"#contestant-game-{elem}")
+
+            assert await element.text_content() == value
+
+    async def assert_presenter_values(
+        self,
+        contestant_id: str,
+        name: str | None = None,
+        color: str | None = None,
+        avatar: str | None = None,
+        score: int | None = None,
+        hits: int | None = None,
+        misses: int | None = None,
+    ):
+        game_active = False
+        for endpoint in ("question", "selection", "finale"):
+            if self.presenter_page.url.endswith(f"/{endpoint}"):
+                game_active = True
+                break
+
+        if color is not None:
+            if game_active:
+                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
+            else:
+                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
+
+            header_style = await wrapper_elem.get_property("style")
+            border_color = await header_style.get_property("borderColor")
+
+            assert rgb_to_hex(await border_color.json_value()) == color
+
+        if avatar is not None:
+            if game_active:
+                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
+                avatar_elem = await wrapper_elem.query_selector(".footer-contestant-entry-avatar")
+            else:
+                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
+                avatar_elem = await wrapper_elem.query_selector(".menu-contestant-avatar")
+
+            src_path = await avatar_elem.get_attribute("src")
+            print(src_path, avatar)
+            if len(src_path) > len(avatar):
+                assert src_path.endswith(avatar)
+            elif len(src_path) < len(avatar):
+                assert avatar.endswith(src_path)
+            else:
+                assert src_path == avatar
+
+        header_data = [
+            ("name", name),
+            ("score", f"{score} points" if score else None),
+            ("hits", str(hits) if hits else None),
+            ("misses", str(misses) if misses else None),
+        ]
+
+        for elem, value in header_data:
+            if value is None:
+                continue
+
+            if game_active:
+                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
+                element = await wrapper_elem.query_selector(f".footer-contestant-entry-{elem}")
+            else:
+                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
+                element = await wrapper_elem.query_selector(f".menu-contestant-{elem}")
+
+            assert await element.text_content() == value
 
     async def open_presenter_selection_page(
         self,
@@ -352,9 +497,6 @@ class ContextHandler:
         return self
 
     async def __aexit__(self, *args):
-        for pack_folder in self.pack_folders:
-            shutil.rmtree(get_data_path_for_question_pack(pack_folder), True)
-
         await self.playwright_contexts[0].stop()
 
         while any(not task.done() for task in self._browser_tasks):
@@ -365,3 +507,9 @@ class ContextHandler:
             await asyncio.sleep(0.1)
 
         self.flask_process.close()
+
+        for pack_folder in self.pack_folders:
+            shutil.rmtree(get_data_path_for_question_pack(pack_folder), True)
+
+        for avatar_image in self.avatar_images:
+            os.remove(f"{get_avatar_path()}/{avatar_image}.png")

@@ -224,7 +224,6 @@ def selection(game_data: Game):
             database.save_models(*contestant.power_ups)
 
     round_data = game_data.pack.rounds[game_data.round - 1]
-
     round_json = round_data.dump_questions_nested()
     del round_json["pack"]
     del round_json["round"]
@@ -320,11 +319,14 @@ def endscreen(game_data: Game):
     )
 
 @presenter_page.route("/<game_id>/cheatsheet")
-def cheatsheet():
-    if get_user_details() is None:
-        return redirect_to_login("presenter.cheatsheet")
+@_request_decorator
+def cheatsheet(game_data: Game):
+    all_round_data = []
+    for round_data in game_data.pack.rounds:
+        round_json = round_data.dump_questions_nested()
+        del round_json["pack"]
+        del round_json["round"]
 
-    with open(QUESTIONS_FILE, encoding="utf-8") as fp:
-        questions = json.load(fp)
+        all_round_data.append(round_json)
 
-    return render_locale_template("presenter/cheat_sheet.html", questions=questions)
+    return render_locale_template("presenter/cheat_sheet.html", rounds=all_round_data)
