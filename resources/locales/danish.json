@@ -30,6 +30,9 @@
             "answer_wrong_1": "og",
             "answer_wrong_2": "taber"
         },
+        "presenter/connection_status": {
+            "connecting": "Forbinder til serveren"  
+        },
         "contestant/lobby": {
             "welcome_header": "Velkommen til Jeoparty!",
             "placeholder_name": "Dit Navn",

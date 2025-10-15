@@ -265,7 +265,7 @@ function wrongAnswer(reason, questionOver=false) {
     if (answeringPlayer != null) {
         if (freezeTimeout != null) {
             clearTimeout(freezeTimeout);
-            disableFreeze(playerIds[answeringPlayer]);
+            disableFreeze(answeringPlayer);
         }
 
         // Deduct points from player if someone buzzed in
@@ -277,7 +277,7 @@ function wrongAnswer(reason, questionOver=false) {
 
         // Disable the use of 'freeze' power up, enable the use of 'rewind'
         activePowerUp = null;
-        enablePowerUp(playerIds[answeringPlayer], "rewind");
+        enablePowerUp(answeringPlayer, "rewind");
     }
 
     if (Object.values(activePlayers).every(v => !v) || outOfTime) {
@@ -450,7 +450,7 @@ function startAnswerCountdown(duration) {
     // Disable 'freeze' power-up one second before time expires
     freezeTimeout = setTimeout(function() {
         freezeTimeout = null;
-        disableFreeze(playerIds[answeringPlayer]);
+        disableFreeze(answeringPlayer);
     }, (duration - 1) * 1000);
 
     // Action key has to be pressed before an answer can be given (for safety)
@@ -580,7 +580,7 @@ function afterFreezeUsed() {
 
     let duration = 38;
 
-    freezeWrapper.style.transition = `opacity ${delay}s`;
+    freezeWrapper.style.transition = `opacity ${duration}s`;
     freezeWrapper.style.opacity = 0;
 
     setTimeout(function() {
@@ -595,6 +595,7 @@ function onRewindUsed(playerId) {
     stopCountdown();
 
     // Refund the score the player lost on the previous answer
+    socket.emit("rewind_used", playerId, activeValue); 
     answeringPlayer = playerId;
     updatePlayerScore(answeringPlayer, activeValue);
 }
@@ -718,7 +719,7 @@ function questionAsked(countdownDelay) {
             let timeToAnswer = isDailyDouble ? TIME_FOR_DOUBLE_ANSWER : buzzInTime;
             startAnswerCountdown(timeToAnswer);
         }
-        else {
+        else if (activeStage == "finale_question") {
             // Go to finale screen after countdown is finished if it's round 3
             document.getElementById("question-finale-suspense").play();
             startCountdown(TIME_FOR_FINAL_ANSWER, () => window.location.href = getFinaleURL());

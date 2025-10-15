@@ -213,10 +213,11 @@ def selection(game_data: Game):
 
         # Reset used power-ups
         for contestant in game_data.game_contestants:
-            for power_up in contestant.power_ups:
-                power_up.used = False
+            if contestant.power_ups:
+                for power_up in contestant.power_ups:
+                    power_up.used = False
 
-            database.save_models(*contestant.power_ups)
+                database.save_models(*contestant.power_ups)
 
     round_data = game_data.pack.rounds[game_data.round - 1]
     round_json = round_data.dump(id="round_id")

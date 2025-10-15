@@ -23,7 +23,7 @@ async def test_first_turn(database):
     ]
 
     async with ContextHandler(database) as context:
-        game_page, game_id = await context.create_game(pack_name)
+        game_id = (await context.create_game(pack_name))[1]
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
@@ -70,5 +70,3 @@ async def test_first_turn(database):
 
             active_elem = await context.presenter_page.query_selector(".active-contestant-entry")
             assert await active_elem.evaluate(f"(e) => e.classList.contains('footer-contestant-{contestant_with_turn.id}')")
-
-            

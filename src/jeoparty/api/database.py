@@ -243,25 +243,27 @@ class Database(SQLAlchemyDatabase):
             session.commit()
             session.refresh(contestant_model)
 
-    def add_contestant_to_game(self, game_contestant_model: GameContestant):
+    def add_contestant_to_game(self, game_contestant_model: GameContestant, use_powerups: bool):
         with self as session:
             session.add(game_contestant_model)
 
             session.flush()
             session.refresh(game_contestant_model)
 
-            # Add power-ups to contestant
-            power_ups = [
-                GamePowerUp(
-                    game_id=game_contestant_model.game_id,
-                    contestant_id=game_contestant_model.id,
-                    power_id=power_up.id,
-                    type=power_up.type
-                )
-                for power_up in game_contestant_model.game.pack.power_ups
-            ]
+            if use_powerups:
+                # Add power-ups to contestant
+                power_ups = [
+                    GamePowerUp(
+                        game_id=game_contestant_model.game_id,
+                        contestant_id=game_contestant_model.id,
+                        power_id=power_up.id,
+                        type=power_up.type
+                    )
+                    for power_up in game_contestant_model.game.pack.power_ups
+                ]
 
-            session.add_all(power_ups)
+                session.add_all(power_ups)
+
             session.commit()
 
             session.refresh(game_contestant_model)

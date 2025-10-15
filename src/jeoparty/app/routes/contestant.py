@@ -116,7 +116,7 @@ def join_lobby():
                 game_id=game_data.id,
                 contestant_id=model.id
             )
-            database.add_contestant_to_game(game_contestant_model)
+            database.add_contestant_to_game(game_contestant_model, game_data.use_powerups)
 
         response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
 

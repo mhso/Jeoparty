@@ -131,12 +131,13 @@ class GameSocketHandler(Namespace):
             sid = flask.request.sid
             self.contestant_metadata[user_id] = ContestantMetadata(sid)
 
+            contestant_data = game_contestant.extra_fields
+    
             # Add socket IO session ID to contestant and join 'contestants' room
-            print(f"User with ID '{user_id}' and SID '{sid}' joined the lobby")
+            print(f"User '{contestant_data['name']}' with ID '{user_id}' and SID '{sid}' joined the lobby")
             self.leave_room(sid, "contestants")
             self.enter_room(sid, "contestants")
 
-            contestant_data = game_contestant.extra_fields
             self.emit("contestant_joined", (user_id, contestant_data["name"], contestant_data["avatar"], contestant_data["color"]), to="presenter")
             self.emit("contestant_joined", to=sid)
 
@@ -172,6 +173,7 @@ class GameSocketHandler(Namespace):
             player_ids = [contestant_id for contestant_id in self.contestant_metadata]
 
         skip_contestants = []
+        power_up_models = []
         for contestant_id in player_ids:
             contestant = self.game_data.get_contestant(game_contestant_id=contestant_id)
             metadata = self.contestant_metadata[contestant_id]
@@ -181,11 +183,14 @@ class GameSocketHandler(Namespace):
                 continue
 
             power_up.enabled = True
+            power_up_models.append(power_up)
 
         self.game_metadata.power_use_decided = False
 
         if skip_contestants != [] and user_id is not None:
             return
+
+        self.database.save_models(*power_up_models)
 
         send_to = self.contestant_metadata[user_id].sid if user_id is not None else "contestants"
         self.emit("power_up_enabled", power_id, to=send_to, skip_sid=skip_contestants)
@@ -199,13 +204,17 @@ class GameSocketHandler(Namespace):
             player_ids = [contestant_id for contestant_id in self.contestant_metadata]
 
         power_ups = [PowerUpType(power_id)] if power_id is not None else list(PowerUpType)
+        power_up_models = []
         for contestant_id in player_ids:
             contestant = self.game_data.get_contestant(game_contestant_id=contestant_id)
             for power_up in power_ups:
                 power = contestant.get_power(power_up)
                 power.enabled = False
+                power_up_models.append(power)
 
         self.game_metadata.power_use_decided = True
+
+        self.database.save_models(*power_up_models)
 
         send_to = self.contestant_metadata[user_id].sid if user_id is not None else "contestants"
         self.emit("power_ups_disabled", [power_up.value for power_up in power_ups], to=send_to)
@@ -214,11 +223,18 @@ class GameSocketHandler(Namespace):
     def on_correct_answer(self, user_id: str, value: int):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
 
+        player_with_turn = self.game_data.get_contestant_with_turn()
+
         contestant_data.hits += 1
         contestant_data.score += value
         contestant_data.has_turn = True
+        models_to_save = [contestant_data]
 
-        self.database.save_models(contestant_data)
+        if player_with_turn is not None:
+            player_with_turn.has_turn = False
+            models_to_save.append(player_with_turn)
+
+        self.database.save_models(*models_to_save)
 
     @_presenter_event
     def on_wrong_answer(self, user_id: int, value: int):
@@ -239,14 +255,21 @@ class GameSocketHandler(Namespace):
     def on_first_turn(self, user_id: str):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
 
-        contestant_data.has_turn = True
+        player_with_turn = self.game_data.get_contestant_with_turn()
 
-        self.database.save_models(contestant_data)
+        contestant_data.has_turn = True
+        models_to_save = [contestant_data]
+
+        if player_with_turn is not None:
+            player_with_turn.has_turn = False
+            models_to_save.append(player_with_turn)
+
+        self.database.save_models(*models_to_save)
 
         self.emit("turn_chosen", user_id, to="contestants")
 
     @_contestants_event
-    def on_use_power_up(self, user_id: str, power_id: str, value: int | None = None):
+    def on_use_power_up(self, user_id: str, power_id: str):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
         contestant_metadata = self.contestant_metadata[user_id]
         power = PowerUpType(power_id)
@@ -265,11 +288,7 @@ class GameSocketHandler(Namespace):
 
             power_up.used = True
 
-            if power is PowerUpType.REWIND:
-                # Refund points lost from wrong answer
-                contestant_data.score += value
-
-            self.database.save_game(self.game_data)
+            self.database.save_models(contestant_data, power_up)
 
             if power_id in (PowerUpType.HIJACK, PowerUpType.REWIND):
                 self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
@@ -277,6 +296,16 @@ class GameSocketHandler(Namespace):
             self.emit("power_ups_disabled", [power.value for power in PowerUpType], to="contestants")
             self.emit("power_up_used", (user_id, power_id), to="presenter")
             self.emit("power_up_used", power_id, to=contestant_metadata.sid)
+
+    @_presenter_event
+    def on_rewind_used(self, user_id: str, value: int):
+        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+
+        # Refund points lost from wrong answer when rewind is used
+        contestant_data.score += value
+        contestant_data.misses -= 1
+
+        self.database.save_models(contestant_data)
 
     @_presenter_event
     def on_enable_finale_wager(self):
@@ -382,7 +411,7 @@ class GameSocketHandler(Namespace):
             print(f"Made finale wager for {user_id} ({contestant_data.contestant.name}) for {amount} points")
             contestant_data.finale_wager = amount
 
-            self.database.save_game(self.game_data)
+            self.database.save_models(contestant_data)
 
             self.emit("finale_wager_made")
             self.emit("contestant_ready", user_id, to="presenter")
@@ -394,7 +423,7 @@ class GameSocketHandler(Namespace):
         contestant = self.game_data.get_contestant(game_contestant_id=user_id)
         contestant.finale_answer = answer
 
-        self.database.save_game(self.game_data)
+        self.database.save_models(contestant_data)
 
         self.emit("finale_answer_given")
         self.emit("contestant_ready", user_id, to="presenter")
