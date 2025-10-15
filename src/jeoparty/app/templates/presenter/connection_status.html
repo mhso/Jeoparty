@@ -1,0 +1,21 @@
+<div id="connection-status-wrapper">
+    <div id="connection-status">Connecting to server</div>
+</div>
+
+<script>
+    const statusElem = document.getElementById("connection-status");
+
+    const intervalId = setInterval(function() {
+        if (statusElem.textContent.endsWith("...")) {
+            statusElem.textContent = statusElem.textContent.slice(0, statusElem.textContent.length - 3);
+        }
+        else {
+            statusElem.textContent += ".";
+        }
+    }, 1000);
+
+    function hideConnectionStatus() {
+        clearInterval(intervalId);
+        document.getElementById("connection-status-wrapper").classList.add("d-none");
+    }
+</script>

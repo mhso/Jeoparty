@@ -52,3 +52,20 @@ function updateAvatarImg() {
         }
     }
 }
+
+function getRenderedColor(color) {
+    const elem = document.createElement("div");
+    elem.style.color = color;
+    return elem.style.color.replace(/\s+/,'').toLowerCase();
+}
+
+function validateForm() {
+    let color = document.getElementById("contestant-lobby-color").value;
+
+    if (!getRenderedColor(color)) {
+        alert(`Invalid color: '${color}', please provide a valid color.`);
+        return false;
+    }
+
+    return true;
+}

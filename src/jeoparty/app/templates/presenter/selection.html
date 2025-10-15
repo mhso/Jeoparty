@@ -7,6 +7,9 @@
         <div id="selection-wrapper">
             <!-- Logo -->
             {% include 'logo.html' %}
+            
+            <!-- Connection status -->
+            {% include 'presenter/connection_status.html' %}
 
             <!-- Categories -->
             {% if stage == "selection" %}
@@ -19,7 +22,7 @@
                         <span>{{ category_data["name"] }}</span>
                     </div>
                     {% for question_data in category_data["questions"] %}
-                    <div class="selection-question-box{% if question_data['used'] or first_round %} inactive{% endif %}" onclick="goToQuestion(event.target, '{{ question_data['question_id'] }}', {{ question_data['daily_double'] | tojson }})">
+                    <div class="selection-question-box{% if question_data['used'] or first_round %} inactive{% endif %}" onclick="goToQuestion(event.target, '{{ question_data['id'] }}', {{ question_data['daily_double'] | tojson }})">
                         <span>{{ question_data["value"] }}</span>
                     </div>
                     {% endfor %}
@@ -65,6 +68,7 @@
 
         socket.on("connect", function() {
             socket.on("presenter_joined", function () {
+                hideConnectionStatus();
                 window.onkeydown = function(e) {
                     {% if first_round %}
                     if (e.code == PRESENTER_ACTION_KEY) {

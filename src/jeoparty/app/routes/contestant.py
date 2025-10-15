@@ -1,11 +1,11 @@
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 import flask
 
 from jeoparty.api.database import Database
 from jeoparty.api.orm.models import Contestant, GameContestant
-from jeoparty.app.routes.shared import validate_param, render_locale_template
+from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template
 from jeoparty.api.config import get_avatar_path
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
@@ -23,25 +23,17 @@ def _get_user_id_from_cookie(cookies) -> str:
 
     return None
 
-def _validate_join_params(params: Dict[str, Any]) -> Contestant | str:
-    name, error = validate_param(params, "name", str, 2, 16)
-    if error:
-        return error
-
-    color, error = validate_param(params, "color", str)
-    if error:
-        return error
-
+def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | str]:
     if "join_code" not in params:
-        return "Failed to join: Lobby ID is missing"
+        return False, "Failed to join: Lobby ID is missing"
 
     if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
         file = flask.request.files["avatar"]
         file_split = file.filename.split(".")
         if len(file_split) != 2 or file_split[1] not in _VALID_AVATAR_FILETYPES:
-            return "Invalid avatar file type, must be .jpg, .png, or .webp"
+            return False, "Invalid avatar file type, must be .jpg, .png, or .webp"
 
-    return Contestant(name=name, color=color)
+    return create_and_validate_model(Contestant, params, "joining lobby")
 
 def _get_random_bg_image(index):
     return None # TODO: Make this sometime
@@ -59,10 +51,10 @@ def _save_contestant_avatar(file, user_id):
 def join_lobby():
     database: Database = flask.current_app.config["DATABASE"]
 
-    contestant_model_or_error = _validate_join_params(flask.request.form)
+    success, contestant_model_or_error = _validate_join_params(flask.request.form)
     join_code = flask.request.form.get("join_code")
 
-    if not isinstance(contestant_model_or_error, Contestant) and contestant_model_or_error is not None:
+    if not success:
         if join_code is None:
             return flask.abort(400)
 
@@ -76,7 +68,7 @@ def join_lobby():
             return flask.redirect(
                 flask.url_for(".lobby", join_code=join_code, error="Failed to join: Game does not exist")
             )
-        
+
         if game_data.password is not None and flask.request.form.get("password") != game_data.password:
             return flask.redirect(
                 flask.url_for(".lobby", join_code=join_code, error="Failed to join: Wrong password")
@@ -143,22 +135,23 @@ def game_view(game_id: str):
     with database:
         game_data = database.get_game_from_id(game_id)
         if game_data is None:
-            return render_locale_template("contestant/nogame.html", game_data.pack.language)
+            return render_locale_template("contestant/nogame.html", game_data.pack.language, status=404)
 
         # Validate that user_id is saved as a cookie
         if user_id is None:
             return flask.redirect(flask.url_for(".lobby", join_code=game_data.join_code, _external=True))
 
         # Find the game contestant matching the given user_id
-        contestant_data = game_data.get_contestant(user_id)
+        contestant_data = game_data.get_contestant(contestant_id=user_id)
 
         if contestant_data is None: # User haven't joined the game yet
-            return flask.redirect(flask.url_for(".lobby", _external=True, join_code=game_data.join_code))
+            return flask.redirect(flask.url_for(".lobby", join_code=game_data.join_code, _external=True))
 
         # Get question data
         game_question = game_data.get_active_question()
         if game_question is not None:
-            question = game_question.question.dump()
+            question = game_question.question.dump() 
+            question["category"] = game_question.question.category.dump(included_relations=[])
             question["daily_double"] = game_question.daily_double
         else:
             question = None
@@ -166,11 +159,8 @@ def game_view(game_id: str):
         round_name = game_data.pack.rounds[game_data.round - 1].name
         first_round = not game_data.get_active_question() and game_data.round == 1 and game_data.get_contestant_with_turn() is None
 
-        game_json = game_data.dump(id="game_id")
-        game_contestant_json = {}
-        for game_contestant in game_data.game_contestants:
-            if game_contestant.contestant_id == user_id:
-                game_contestant_json = game_contestant.dump(id="user_id")
+        game_json = game_data.dump(included_relations=[], id="game_id")
+        game_contestant_json = contestant_data.dump(id="user_id")
 
         total_questions = len(game_data.get_questions_for_round())
 
@@ -202,7 +192,7 @@ def lobby(join_code: str):
             user_data = database.get_contestant_from_id(user_id).dump()
 
     if "avatar" not in user_data:
-        user_data["avatar"] = get_avatar_path("questionmark.png")
+        user_data["avatar"] = f"{get_avatar_path(False)}/questionmark.png"
         user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
 
     error = flask.request.args.get("error")

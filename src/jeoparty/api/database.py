@@ -66,7 +66,7 @@ class Database(SQLAlchemyDatabase):
                 selectinload(Game.game_contestants).selectinload(GameContestant.power_ups).selectinload(GamePowerUp.power_up)
             ).filter(Game.id == game_id)
 
-            return session.execute(statement).scalar_one()
+            return session.execute(statement).scalar_one_or_none()
 
     def get_game_from_code(self, join_code: str):
         with self as session:
@@ -144,6 +144,9 @@ class Database(SQLAlchemyDatabase):
 
             for (round_num, name) in rounds_to_create:
                 session.add(QuestionRound(pack_id=pack_model.id, name=name, round=round_num))
+
+            for power_up_type in PowerUpType:
+                session.add(PowerUp(pack_id=pack_model.id, type=power_up_type))
 
             session.commit()
             session.refresh(pack_model)

@@ -58,6 +58,8 @@ class QuestionPack(Base):
     buzzer_sounds = relationship("BuzzerSound", back_populates="pack", cascade="all, delete-orphan", order_by="BuzzerSound.id.asc()")
     power_ups = relationship("PowerUp", back_populates="pack", cascade="all, delete-orphan", order_by="PowerUp.pack_id.asc()")
 
+    __serialize_relationships__ = [creator, rounds, buzzer_sounds, power_ups]
+
     def get_all_questions(self):
         questions = []
         for round_data in self.rounds:
@@ -82,37 +84,7 @@ class QuestionRound(Base):
     pack = relationship("QuestionPack", back_populates="rounds")
     categories = relationship("QuestionCategory", back_populates="round", cascade="all, delete-orphan", order_by="QuestionCategory.order.asc()")
 
-    def dump_questions_nested(self, remap_keys: bool = True, **keys_to_delete):
-        def get_key_map(key: str):
-            if not remap_keys:
-                return {}
-
-            return {"id": f"{key}_id"}
-
-        round_json = self.dump(**get_key_map("round"))
-        round_json["categories"] = []
-
-        for key in keys_to_delete.get("round", []):
-            del round_json[key]
-
-        for category in self.categories:
-            category_json = category.dump(**get_key_map("category"))
-            category_json["questions"] = []
-
-            for key in keys_to_delete.get("category", []):
-                del category_json[key]
-
-            for question in category.questions:
-                question_json = question.dump(**get_key_map("question"))
-
-                for key in keys_to_delete.get("question", []):
-                    del question_json[key]
-
-                category_json["questions"].append(question_json)
-
-            round_json["categories"].append(category_json)
-
-        return round_json
+    __serialize_relationships__ = [categories]
 
 class QuestionCategory(Base):
     __tablename__ = "question_categories"
@@ -130,6 +102,8 @@ class QuestionCategory(Base):
 
     round = relationship("QuestionRound", back_populates="categories")
     questions = relationship("Question", back_populates="category", cascade="all, delete-orphan", order_by="Question.value.asc()")
+
+    __serialize_relationships__ = [questions]
 
     @property
     def extra_fields(self):
@@ -182,7 +156,6 @@ class Contestant(Base):
     __tablename__ = "contestants"
     __validate_fields__ = {
         "name": {"min_length": 2, "max_length": 16, "pattern": Config.VALID_NAME_CHARACTERS},
-        "color": {"min_length": 1, "max_length": 16},
     }
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
@@ -217,6 +190,8 @@ class GamePowerUp(Base):
     power_up = relationship("PowerUp", back_populates="game_power_ups")
     contestant = relationship("GameContestant", back_populates="power_ups")
 
+    __serialize_relationships__ = [power_up]
+
     @property
     def extra_fields(self):
         return self.power_up.extra_fields
@@ -247,6 +222,8 @@ class GameContestant(Base):
     contestant = relationship("Contestant", back_populates="game_contestants")
     power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by=case(power_up_order_case, value=GamePowerUp.type))
 
+    __serialize_relationships__ = [contestant, power_ups]
+
     @property
     def extra_fields(self):
         return {
@@ -273,6 +250,8 @@ class GameQuestion(Base):
 
     game = relationship("Game", back_populates="game_questions")
     question = relationship("Question", back_populates="game_questions")
+
+    __serialize_relationships__ = [question]
 
 class Game(Base):
     __tablename__ = "games"
@@ -302,6 +281,8 @@ class Game(Base):
     game_questions = relationship("GameQuestion", back_populates="game", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
     game_contestants = relationship("GameContestant", back_populates="game", cascade="all, delete-orphan", order_by="GameContestant.joined_at.asc()")
 
+    __serialize_relationships__ = [pack, game_questions, game_contestants]
+
     @property
     def extra_fields(self):
         player_with_turn = self.get_contestant_with_turn()
@@ -309,27 +290,20 @@ class Game(Base):
 
         return {
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
-            "player_with_turn": player_with_turn.dump(include_relations=False) if player_with_turn else None,
+            "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
             "question_num": sum(1 if gq.used else 0 for gq in self.game_questions) + 1,
         }
 
-    def get_contestant(self, contestant_id: str | None) -> Contestant | None:
-        if contestant_id is None:
+    def get_contestant(self, *, contestant_id: str | None = None, game_contestant_id: str | None = None) -> GameContestant | None:
+        if contestant_id is None and game_contestant_id is None:
             return None
 
         for contestant in self.game_contestants:
-            if contestant.contestant_id == contestant_id:
-                return contestant.contestant
+            if contestant_id is not None and contestant.contestant_id == contestant_id:
+                return contestant
 
-        return None
-    
-    def get_game_contestant(self, contestant_id: str | None) -> GameContestant | None:
-        if contestant_id is None:
-            return None
-
-        for contestant in self.game_contestants:
-            if contestant.id == contestant_id:
+            elif game_contestant_id is not None and contestant.id == game_contestant_id:
                 return contestant
 
         return None

@@ -33,6 +33,7 @@ def render_locale_template(template: str, lang_code: str | None = None, status=2
 
 def dump_game_to_json(game_data: Game):
     game_json = game_data.dump(id="game_id")
+    game_json["pack"] = game_json.pack.dump()
     game_json["game_contestants"] = []
 
     # Handle contestants and their power-ups
@@ -124,40 +125,42 @@ def get_validation_error_msg(detail: ErrorDetails):
     loc_fmt = detail["loc"][0].replace("_", " ").capitalize()
 
     if detail["type"] == "string_pattern_mismatch":
-        return f"Field '{loc_fmt}' contains invalid characters"
+        return f"'{loc_fmt}' contains invalid characters"
 
     if detail["type"] in ("string_too_long", "string_too_short"):
-        return f"Field '{loc_fmt}' {detail['msg'].replace('String ', '')}"
+        return f"'{loc_fmt}' {detail['msg'].replace('String ', '')}"
 
-    return f"Field '{loc_fmt}' - {detail['msg']}"
+    return f"'{loc_fmt}' - {detail['msg']}"
 
 def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: str) -> Tuple[bool, T | str]:
     try:
+        model_data = {}
         for column in model_cls.__table__.columns:
             value = data.get(column.name)
 
             if column.type.python_type is bool:
                 if value == "on":
-                    data[column.name] = True
+                    value = True
                 elif value == "off":
-                    data[column.name] = False
+                    value = False
                 elif value is None:
-                    data[column.name] = False
-                else:
-                    data[column.name] = value
+                    value = False
 
-            if column.type.python_type.__base__ is Enum and value is not None:
+            elif column.type.python_type.__base__ is Enum and value is not None:
                 try:
                     enum = column.type.python_type(value)
                 except AttributeError:
                     continue
 
-                data[column.name] = enum
+                value = enum
 
-            if column.type.python_type is str and value == "":
-                data[column.name] = None
+            elif column.type.python_type is str and value == "":
+                value = None
 
-        return True, model_cls(**data)
+            if value is not None:
+                model_data[column.name] = value
+
+        return True, model_cls(**model_data)
 
     except ValidationError as exc:
         traceback.print_exc()

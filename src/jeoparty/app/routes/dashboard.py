@@ -223,17 +223,9 @@ def question_pack(pack_id: str):
         if pack_data is None:
             return flask.abort(404)
 
-        pack_json = pack_data.dump(include_relations=False)
-        base_entries = dict(pack_json.items())
-        pack_json["rounds"] = [
-            round_data.dump_questions_nested(
-                remap_keys=False,
-                round=["pack"],
-                category=["round"],
-                question=["category", "game_questions"],
-            )
-            for round_data in pack_data.rounds
-        ]
+        pack_json = pack_data.dump(included_relations=[QuestionPack.rounds])
+        print(pack_json)
+        base_entries = {k: v for k, v in pack_json.items() if not isinstance(v, list)}
 
     return render_locale_template(
         "dashboard/question_pack.html",

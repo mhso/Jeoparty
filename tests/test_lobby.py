@@ -1,9 +1,10 @@
+import asyncio
 import os
+
 import pytest
 
 from jeoparty.api.config import get_avatar_path
 from tests.browser_context import ContextHandler, rgb_to_hex
-from tests.config import PRESENTER_USER_ID
 
 @pytest.mark.asyncio
 async def test_join_lobby_defaults(database):
@@ -23,20 +24,22 @@ async def test_join_lobby_defaults(database):
     contestant_avatar = "http://localhost:5006/static/img/avatars/questionmark.png"
 
     async with ContextHandler(database) as context:
-        await context.create_game(pack_name)
+        game_id = (await context.create_game(pack_name))[1]
 
         placeholder_elem = await context.presenter_page.query_selector("#menu-no-contestants-placeholder")
         assert await placeholder_elem.is_visible()
 
         with database as session:
-            game_data = database.get_games_for_user(PRESENTER_USER_ID)[0]
+            game_data = database.get_game_from_id(game_id)
 
             assert game_data.game_contestants == []
 
+            contestants_placeholder = await context.presenter_page.query_selector("#menu-no-contestants-placeholder")
+            assert await contestants_placeholder.text_content() == "None yet..."
+
             for index, (name, color) in enumerate(zip(contestant_names, contestant_colors)):
                 # Add a contestant to the game
-                contestant_id = await context.join_lobby(game_data.join_code, name, color)
-
+                contestant_id = (await context.join_lobby(game_data.join_code, name, color))[1]
                 session.refresh(game_data)
 
                 assert len(game_data.game_contestants) == index + 1
@@ -44,6 +47,8 @@ async def test_join_lobby_defaults(database):
                 contestant = game_data.game_contestants[index]
 
                 assert contestant.contestant_id == contestant_id
+
+                await context.screenshot_views(index)
 
                 assert not await placeholder_elem.is_visible()
                 contestants_wrapper = await context.presenter_page.query_selector("#menu-contestants")
@@ -76,12 +81,12 @@ async def test_rejoin_lobby(database):
     contestant_avatar_2 = "D:/mhooge/jeoparty/src/jeoparty/app/static/img/avatars/f909a1fc-d673-469d-ad82-b51ed7672e7f.png"
 
     async with ContextHandler(database) as context:
-        await context.create_game(pack_name)
+        game_id = (await context.create_game(pack_name))[1]
 
         with database as session:
-            game_data = database.get_games_for_user(PRESENTER_USER_ID)[0]
+            game_data = database.get_game_from_id(game_id)
 
-            contestant_id_1 = await context.join_lobby(game_data.join_code, contestant_name_1, contestant_color_1)
+            contestant_id_1 = (await context.join_lobby(game_data.join_code, contestant_name_1, contestant_color_1))[1]
 
             session.refresh(game_data)
             contestant = game_data.game_contestants[0]
@@ -104,13 +109,11 @@ async def test_rejoin_lobby(database):
                 contestant_avatar_1,
             )
 
-            await context.screenshot_views()
-
             # Go back and change contestant name and color and join again
             page = context.contestant_pages[contestant_id_1]
             await page.go_back()
 
-            contestant_id_2 = await context.join_lobby(game_data.join_code, contestant_name_2, contestant_color_2, contestant_avatar_2, page)
+            contestant_id_2 = (await context.join_lobby(game_data.join_code, contestant_name_2, contestant_color_2, contestant_avatar_2, page))[1]
 
             assert contestant_id_1 == contestant_id_2
 
@@ -135,6 +138,68 @@ async def test_rejoin_lobby(database):
                 contestant_color_2,
                 expected_avatar,
             )
-            await context.screenshot_views(1)
 
             assert os.path.exists(f"{get_avatar_path()}/{contestant_id_1}.png")
+
+@pytest.mark.asyncio
+async def test_errors(database):
+    pack_name = "Test Pack"
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+
+            # Try to join with too short of a name
+            too_short_name = "X"
+            page, contestant_id = await context.join_lobby(game_data.join_code, too_short_name)
+
+            # Assert that player failed to join
+            assert contestant_id is None
+            session.refresh(game_data)
+            assert game_data.game_contestants == []
+
+            error_elem = await page.query_selector("#contestant-lobby-error")
+            assert await error_elem.text_content() == "Error when joining lobby: 'Name' should have at least 2 characters"
+
+            # Try to join with too long of a name
+            too_long_name = "Contestant With Way Too Long Name"
+            page, contestant_id = await context.join_lobby(game_data.join_code, too_long_name)
+
+            # Assert that player failed to join
+            assert contestant_id is None
+            session.refresh(game_data)
+            assert game_data.game_contestants == []
+
+            error_elem = await page.query_selector("#contestant-lobby-error")
+            assert await error_elem.text_content() == "Error when joining lobby: 'Name' should have at most 16 characters"
+
+            # Try to join with a name that has invalid characters
+            invalid_name = "Inv@l!d Nam£"
+            page, contestant_id = await context.join_lobby(game_data.join_code, invalid_name)
+
+            # Assert that player failed to join
+            assert contestant_id is None
+            session.refresh(game_data)
+            assert game_data.game_contestants == []
+
+            error_elem = await page.query_selector("#contestant-lobby-error")
+            assert await error_elem.text_content() == "Error when joining lobby: 'Name' contains invalid characters"
+
+            # # Try to join with an invalid color
+            # name = "Regular Name"
+            # invalid_color = "redd"
+
+            # async def dialog_callback(dialog: Dialog):
+            #     assert dialog.message == f"Invalid color: '{invalid_color}', please provide a valid color."
+            #     await dialog.accept()
+
+            # page.on("dialog", dialog_callback)
+
+            # contestant_id = (await context.join_lobby(game_data.join_code, name, invalid_color, page=page))[1]
+
+            # # Assert that player failed to join
+            # assert contestant_id is None
+            # session.refresh(game_data)
+            # assert game_data.game_contestants == []

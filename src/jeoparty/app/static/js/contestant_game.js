@@ -147,11 +147,13 @@ function monitorGame(userId, localeData) {
 
     // Called when this person was the fastest to buzz in during a question.
     socket.on("buzz_winner", function() {
+        console.log("We won the buzz!");
         handleBuzzInResult(buzzerWinnerImg);
     });
 
     // Called when this person was not the fastest to buzz in during a question.
     socket.on("buzz_loser", function() {
+        console.log("We lost the buzz!");
         if (!buzzerStatus.classList.contains("d-none")) {
             // We already buzzed in (and answered incorrectly) previously
             return;

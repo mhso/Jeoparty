@@ -96,9 +96,9 @@
 
         {% else %}
         {% if "question_image" in extra %}
-        <img class="question-question-image{% if 'border' in extra %} image-border"{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-question-image{% if 'border' in extra %} image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% if "answer_image" in extra %}
-        <img class="question-answer-image{% if 'border' in extra %} image-border"{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-answer-image{% if 'border' in extra %} image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% endif %}
         {% else %}
         <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" style="height: {{ extra['height'] }}px;">

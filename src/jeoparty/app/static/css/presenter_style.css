@@ -61,6 +61,38 @@ h3 {
     filter: drop-shadow(0 5px 5px black);
 }
 
+@keyframes appear {
+    0% {
+        opacity: 0;
+    }
+    90% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+#connection-status-wrapper {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    font-size: 4rem;
+    opacity: 0;
+
+    animation-name: appear;
+    animation-duration: 3s;
+    animation-iteration-count: 1;
+    animation-fill-mode: forwards;
+}
+
 /****************##############****************\
 |                     MENU                     |
 \****************##############****************/

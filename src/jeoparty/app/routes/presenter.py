@@ -15,7 +15,6 @@ from jeoparty.app.routes.socket import GameSocketHandler
 from jeoparty.app.routes.shared import (
     redirect_to_login,
     render_locale_template,
-    dump_game_to_json,
     get_question_answer_sounds,
     get_question_answer_images,
 )
@@ -80,15 +79,12 @@ def lobby(game_data: Game):
     else:
         lobby_music_path = None
 
-    # Get game JSON data with nested contestant data
-    game_json = dump_game_to_json(game_data)
-    game_json["stage"] = "LOBBY"
-
     lan_mode = (
         game_data.pack.name.startswith("LoL Jeopardy")
         and game_data.created_by == Config.ADMIN_ID
         and False
     )
+    game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
 
     return render_locale_template(
         "presenter/lobby.html",
@@ -111,8 +107,8 @@ def question(game_data: Game):
 
     is_daily_double = game_data.use_daily_doubles and game_question.daily_double
     question_json = game_question.question.dump(id="question_id")
+    question_json["category"] = game_question.question.category.dump(included_relations=[])
     question_json["daily_double"] = game_question.daily_double
-    del question_json["game_questions"]
 
     # If question is multiple-choice, randomize order of choices
     if "choices" in question_json["extra"]:
@@ -139,9 +135,7 @@ def question(game_data: Game):
     correct_sound, wrong_sounds = get_question_answer_sounds(game_data.pack, game_data.max_contestants)
 
     round_name = game_data.pack.rounds[game_data.round - 1].name
-
-    # Get game JSON data with nested contestant data
-    game_json = dump_game_to_json(game_data)
+    game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
 
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
@@ -206,15 +200,16 @@ def selection(game_data: Game):
         questions[0].active = True
 
     first_round = not previous_question and game_data.round == 1 and game_data.get_contestant_with_turn() is None
-    if not previous_question or end_of_round and not is_finale and game_data.use_daily_doubles:
+    if (not previous_question or end_of_round) and not is_finale:
         # If it's the first question of a new round, select random questions to be daily doubles
-        questions_copy = list(questions)
-        random.shuffle(questions_copy)
+        if game_data.use_daily_doubles:
+            questions_copy = list(questions)
+            random.shuffle(questions_copy)
 
-        for index, game_question in enumerate(questions_copy):
-            game_question.daily_double = index < game_data.round
+            for index, game_question in enumerate(questions_copy):
+                game_question.daily_double = index < game_data.round
 
-        database.save_models(*questions_copy)
+            database.save_models(*questions_copy)
 
         # Reset used power-ups
         for contestant in game_data.game_contestants:
@@ -224,23 +219,18 @@ def selection(game_data: Game):
             database.save_models(*contestant.power_ups)
 
     round_data = game_data.pack.rounds[game_data.round - 1]
-    round_json = round_data.dump_questions_nested()
-    del round_json["pack"]
+    round_json = round_data.dump(id="round_id")
     del round_json["round"]
 
     for category_json in round_json["categories"]:
-        del category_json["round"]
         for question_json in category_json["questions"]:
-            del question_json["game_questions"]
-            del question_json["category"]
             for game_question in questions:
-                if game_question.question_id == question_json["question_id"]:
+                if game_question.question_id == question_json["id"]:
                     question_json["active"] = game_question.active
                     question_json["used"] = game_question.used
                     question_json["daily_double"] = game_question.daily_double
 
-    # Get game JSON data with nested contestant data
-    game_json = dump_game_to_json(game_data)
+    game_json = game_data.dump(included_relations=[Game.game_contestants], id="game_id")
 
     database.save_game(game_data)
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
@@ -259,13 +249,15 @@ def selection(game_data: Game):
 def finale(game_data: Game):
     database: Database = flask.current_app.config["DATABASE"]
 
-    question_json = game_data.get_active_question().question.dump(id="question_id")
+    active_question = game_data.get_active_question().question
+    question_json = active_question.dump(id="question_id")
+    question_json["category"] = active_question.category.dump(included_relations=[])
     game_data.stage = StageType.FINALE_RESULT
 
     database.save_game(game_data)
 
     # Get game JSON data with nested contestant data
-    game_json = dump_game_to_json(game_data)
+    game_json = game_data.dump(included_relations=[Game.game_contestants], id="game_id")
 
     for contestant in game_json["game_contestants"]:
         wager = contestant.finale_wager
@@ -308,12 +300,14 @@ def endscreen(game_data: Game):
     winners_json = [winner.dump() for winner in winners]
     logger.bind(event="jeopardy_player_data", player_data=winners_json).info(f"Jeopardy player data at endscreen: {winners_json}")
 
+    game_json = game_data.dump(included_relations=[Game.game_contestants], id="game_id")
+
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
     return render_locale_template(
         "jeopardy/presenter_endscreen.html",
         game_data.pack.language,
-        **dump_game_to_json(game_data),
+        **game_json,
         winners=winners_json,
         winner_desc=winner_desc,
     )
@@ -323,10 +317,7 @@ def endscreen(game_data: Game):
 def cheatsheet(game_data: Game):
     all_round_data = []
     for round_data in game_data.pack.rounds:
-        round_json = round_data.dump_questions_nested()
-        del round_json["pack"]
-        del round_json["round"]
-
+        round_json = round_data.dump()
         all_round_data.append(round_json)
 
     return render_locale_template("presenter/cheat_sheet.html", rounds=all_round_data)

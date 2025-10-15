@@ -33,7 +33,7 @@ let playerColors = {};
 let playersBuzzedIn = [];
 
 function canPlayersBuzzIn() {
-    return activeStage == "QUESTION" && !isDailyDouble;
+    return activeStage == "question" && !isDailyDouble;
 }
 
 function getBaseURL() {

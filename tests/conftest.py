@@ -1,6 +1,8 @@
 import os
 import pytest
 
+pytest.register_assert_rewrite("tests.browser_context")
+
 from mhooge_flask.auth import get_hashed_password
 
 from jeoparty.api.config import Config

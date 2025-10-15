@@ -24,7 +24,7 @@ async def test_create_pack_defaults(database):
         session.commit()
 
     async with ContextHandler(database) as context:
-        pack_page = await context.create_pack(expected_name)
+        pack_page, pack_id = await context.create_pack(expected_name)
 
         title_elem = await pack_page.query_selector("#question-pack-name")
         assert await title_elem.input_value() == expected_name
@@ -60,12 +60,12 @@ async def test_create_pack_defaults(database):
         assert await category_placeholder_2.is_visible()
         assert await category_placeholder_2.text_content() == "Click here to add a category"
 
-        pack_data = database.get_question_packs_for_user(PRESENTER_USER_ID)
-        assert len(pack_data) == 1
+        pack_data = database.get_question_packs_for_user(PRESENTER_USER_ID, pack_id)
 
-        assert pack_data[0].name == expected_name
-        assert pack_data[0].public is expected_public
-        assert pack_data[0].include_finale is expected_finale
-        assert pack_data[0].language is expected_language
+        assert pack_data is not None
+        assert pack_data.name == expected_name
+        assert pack_data.public is expected_public
+        assert pack_data.include_finale is expected_finale
+        assert pack_data.language is expected_language
 
-        assert os.path.exists(get_data_path_for_question_pack(pack_data[0].id))
+        assert os.path.exists(get_data_path_for_question_pack(pack_data.id))

@@ -3,7 +3,7 @@ import os
 from io import BytesIO
 from multiprocessing import Process
 import shutil
-from typing import Any, Dict, List
+from typing import Dict, Tuple
 from argparse import Namespace
 
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
@@ -55,9 +55,8 @@ class ContextHandler:
     BASE_URL = "http://localhost:5006/jeoparty"
     PRESENTER_URL = f"{BASE_URL}/presenter"
 
-    def __init__(self, database: Database, contestants: List[Dict[str, Any]] | None = None):
+    def __init__(self, database: Database):
         self.database = database
-        self.contestants = contestants
 
         self.playwright_contexts = []
         self.flask_process = None
@@ -100,7 +99,7 @@ class ContextHandler:
         daily_doubles: bool | None = None,
         power_ups: bool | None = None,
         page: Page | None = None,
-    ):
+    ) -> Tuple[Page, str]:
         if page is None:
             page = self.presenter_page
 
@@ -131,10 +130,20 @@ class ContextHandler:
 
         submit_btn = await page.query_selector('input[type="submit"]')
 
-        async with page.expect_navigation(wait_until="domcontentloaded"):
+        async with page.expect_navigation():
             await submit_btn.click()
 
-        return page
+        async def socket_connected():
+            return await page.evaluate("socket.connected")
+
+        if not "/create_game" in page.url:
+            await self.wait_for_event(socket_connected)
+
+            game_id = page.url.split("/")[-1]
+        else:
+            game_id = None
+
+        return page, game_id
 
     async def create_pack(
         self,
@@ -143,7 +152,7 @@ class ContextHandler:
         finale: bool | None = None,
         language: Language | None = None,
         page: Page | None = None,
-    ):
+    ) -> Tuple[Page, str]:
         if page is None:
             page = self.presenter_page
 
@@ -176,7 +185,7 @@ class ContextHandler:
         pack_id = page.url.split("/")[-1]
         self.pack_folders.append(pack_id)
 
-        return page
+        return page, pack_id
 
     async def _print_console_output(self, msg: ConsoleMessage):
         strings = [str(await arg.json_value()) for arg in msg.args]
@@ -199,7 +208,7 @@ class ContextHandler:
         color: str | None = None,
         avatar: str | None = None,
         page: Page | None = None
-    ) -> str:
+    ) -> Tuple[Page, str]:
         if page is None:
             contestant_context, contestant_page = await self._setup_contestant_browser()
         else:
@@ -239,7 +248,7 @@ class ContextHandler:
                 break
 
         if contestant_id is None:
-            return None
+            return contestant_page, None
 
         if avatar is not None:
             self.avatar_images.append(contestant_id)
@@ -249,17 +258,17 @@ class ContextHandler:
             self.contestant_contexts[contestant_id] = contestant_context
             self.contestant_pages[contestant_id] = contestant_page
 
-        return contestant_id
+        return contestant_page, contestant_id
 
     async def start_game(self):
-        reset_questions_btn = await self.presenter_page.query_selector("#menu-buttons > button")
-        await reset_questions_btn.click()
+        if await self.presenter_page.query_selector("#menu-lobby-music") is not None:
+            # Plays intro music
+            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+            await asyncio.sleep(1.5)
 
-        # Plays intro music
-        await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-        await asyncio.sleep(1.5)
         # Starts the game
-        await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+        async with self.presenter_page.expect_navigation():
+            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def assert_contestant_values(
         self,
@@ -317,6 +326,8 @@ class ContextHandler:
         score: int | None = None,
         hits: int | None = None,
         misses: int | None = None,
+        has_turn: bool | None = None,
+        used_power_ups: Dict[str, bool] | None = None,
     ):
         game_active = False
         for endpoint in ("question", "selection", "finale"):
@@ -331,9 +342,15 @@ class ContextHandler:
                 wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
 
             header_style = await wrapper_elem.get_property("style")
-            border_color = await header_style.get_property("borderColor")
 
-            assert rgb_to_hex(await border_color.json_value()) == color
+            if game_active:
+                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
+                element_color = await header_style.get_property("backgroundColor")
+            else:
+                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
+                element_color = await header_style.get_property("borderColor")
+
+            assert rgb_to_hex(await element_color.json_value()) == color
 
         if avatar is not None:
             if game_active:
@@ -344,13 +361,22 @@ class ContextHandler:
                 avatar_elem = await wrapper_elem.query_selector(".menu-contestant-avatar")
 
             src_path = await avatar_elem.get_attribute("src")
-            print(src_path, avatar)
             if len(src_path) > len(avatar):
                 assert src_path.endswith(avatar)
             elif len(src_path) < len(avatar):
                 assert avatar.endswith(src_path)
             else:
                 assert src_path == avatar
+
+        if has_turn is not None:
+            wrapper_element = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
+            assert (await wrapper_element.evaluate("(e) => e.classList.contains('active-contestant-entry')")) is has_turn
+
+        if used_power_ups is not None:
+            for power_up in used_power_ups:
+                wrapper_element = await self.presenter_page.query_selector(f".footer-contestant-power-{power_up}")
+                used_icon = await wrapper_element.query_selector(".footer-contestant-entry-power-used")
+                assert (used_icon is not None) is used_power_ups[power_up]
 
         header_data = [
             ("name", name),
@@ -448,6 +474,19 @@ class ContextHandler:
         query_str = _get_players_query_string("null", 1, player_data)
         await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/endscreen?{query_str}")
 
+    async def wait_for_event(self, event_func, condition=None, timeout=30):
+        time_slept = 0
+        sleep_interval = 1
+        while time_slept < timeout:
+            result = await event_func()
+            if (condition is None and result) or (condition is not None and result == condition):
+                return
+
+            await asyncio.sleep(sleep_interval)
+            time_slept += sleep_interval
+
+        raise TimeoutError("Event never happened!")
+
     async def screenshot_views(self, index: int = 0):
         width = PRESENTER_VIEWPORT["width"]
         height = PRESENTER_VIEWPORT["height"] + CONTESTANT_VIEWPORT["height"]
@@ -486,11 +525,6 @@ class ContextHandler:
         self.presenter_context = await presenter_browser.new_context(viewport=PRESENTER_VIEWPORT)
 
         self.presenter_page = await self._login_to_dashboard()
-
-        # Create contestant browsers and contexts
-        if self.contestants:
-            for contestant_data in self.contestants:
-                await self.join_lobby(**contestant_data)
 
         await asyncio.sleep(1)
 

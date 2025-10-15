@@ -14,7 +14,7 @@
             <img class="footer-contestant-entry-ready" src="{{ url_for('static', _external=True, filename='img/check.png') }}">
             <div class="footer-contestant-entry-powers">
                 {% for power_up in contestant['power_ups'] %}
-                <div>
+                <div class="footer-contestant-power-{{ power_up['type'] }}">
                     {% if power_up['used'] %}
                     <img src="{{ url_for('static', _external=True, filename='img/forbidden.png') }}" class="footer-contestant-entry-power-used">
                     {% endif %}

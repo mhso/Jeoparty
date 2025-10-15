@@ -3,6 +3,9 @@
     {% include 'presenter/head.html' %}
     
     <body>
+        <!-- Connection status -->
+        {% include 'presenter/connection_status.html' %}
+
         <div id="question-wrapper">
             {% include 'question_view.html' %}
 
@@ -79,6 +82,7 @@
 
         socket.on("connect", function() {
             socket.on("presenter_joined", function () {
+                hideConnectionStatus();
                 socket.on("buzz_received", addBuzzToFeed);
                 socket.on("buzz_winner", playerBuzzedFirst);
                 socket.on("power_up_used", powerUpUsed);
