@@ -94,6 +94,15 @@ with database as session:
     if args.iteration:
         versions = [args.iteration]
 
+    tables_to_clear = [
+        Question, QuestionCategory, QuestionRound
+    ]
+
+    for table in tables_to_clear:
+        session.execute(delete(table))
+
+    session.commit()
+
     # Find old data and keep the same ID
     old_data = session.execute(text("SELECT id FROM question_packs WHERE name LIKE 'LoL Jeopardy v%' ORDER BY name")).scalars().all()
     old_ids = {}
@@ -119,15 +128,6 @@ with database as session:
             questions_data = json.load(fp)
 
         created_date, changed_date = pack_dates[version - 1]
-
-        tables_to_clear = [
-            Question, QuestionCategory, QuestionRound
-        ]
-
-        for table in tables_to_clear:
-            session.execute(delete(table))
-
-        session.commit()
 
         if pack_id is None:
             pack_model = QuestionPack(

@@ -1,11 +1,12 @@
 import os
+import shutil
 import pytest
 
 pytest.register_assert_rewrite("tests.browser_context")
 
 from mhooge_flask.auth import get_hashed_password
 
-from jeoparty.api.config import Config
+from jeoparty.api.config import Config, get_question_pack_data_path
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question
@@ -18,6 +19,7 @@ def _create_question_packs(database: Database):
             created_by=PRESENTER_USER_ID,
         )
         pack_model_1 = database.create_question_pack(pack_model_1)
+        os.mkdir(get_question_pack_data_path(pack_model_1.id))
 
         pack_model_2 = QuestionPack(
             name="Other Pack",
@@ -27,6 +29,9 @@ def _create_question_packs(database: Database):
             created_by=PRESENTER_USER_ID,
         )
         pack_model_2 = database.create_question_pack(pack_model_2)
+        os.mkdir(get_question_pack_data_path(pack_model_2.id))
+
+        shutil.copy(f"{Config.STATIC_FOLDER}/img/clock.png", f"{get_question_pack_data_path(pack_model_1.id)}/clock.png")
 
         category_model_1_1 = QuestionCategory(
             round_id=pack_model_1.rounds[0].id,
@@ -39,9 +44,9 @@ def _create_question_packs(database: Database):
             name="Category Dos",
             order=1,
         )
-        pack_model_2 = database.save_models(category_model_1_1, category_model_1_2)
+        database.save_models(category_model_1_1, category_model_1_2)
 
-        question_model_1_1 = Question(
+        question_model_1_1_1 = Question(
             category_id=category_model_1_1.id,
             question="What is the meaning of life, the universe, and everything?",
             answer="42",
@@ -49,14 +54,25 @@ def _create_question_packs(database: Database):
             extra={"choices": ["42", "No idea", "Alcohol", "Eggs"]}
         )
 
-        question_model_1_2 = Question(
+        question_model_1_2_1 = Question(
             category_id=category_model_1_2.id,
             question="Where is Waldo?",
             answer="Where you least expect him",
             value=100,
             extra={"tips": ["Where is he not?"]}
         )
-        pack_model_2 = database.save_models(question_model_1_1, question_model_1_2)
+
+        question_model_1_2_2 = Question(
+            category_id=category_model_1_2.id,
+            question="What is time?",
+            answer="An emergent property of entropy, maybe? Who knows, man",
+            value=200,
+            extra={"image": "clock.png", "height": 256}
+        )
+
+        database.save_models(question_model_1_1_1, question_model_1_2_1, question_model_1_2_2)
+
+        return [pack_model_1.id, pack_model_2.id]
 
         # category_model_2_1 = QuestionCategory(
         #     round_id=pack_model_2.rounds[0].id,
@@ -82,18 +98,18 @@ def database():
         colors = ["#ee1105", "#0564e8", "#35ae3b", "#9f1dd6", "#1565c6"]
         database.save_models(
             *[
-                Contestant(
-                    id=f"contestant_id_{i}",
-                    name=f"Contestant {i}",
-                    color=color,
-                )
+                Contestant(id=f"contestant_id_{i}", name=f"Contestant {i}", color=color)
                 for i, color in enumerate(colors)
             ]
         )
 
-        _create_question_packs(database)
+        pack_ids = _create_question_packs(database)
 
         yield database
+
+    for pack_id in pack_ids:
+        folder = get_question_pack_data_path(pack_id)
+        shutil.rmtree(folder)
 
     database.engine.dispose()
     try:

@@ -12,7 +12,7 @@ from sqlalchemy import Enum
 
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
-from jeoparty.api.config import get_data_path_for_question_pack, get_avatar_path
+from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
 from jeoparty.app.routes.contestant import COOKIE_ID
 from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
 import main
@@ -543,7 +543,7 @@ class ContextHandler:
         self.flask_process.close()
 
         for pack_folder in self.pack_folders:
-            shutil.rmtree(get_data_path_for_question_pack(pack_folder), True)
+            shutil.rmtree(get_question_pack_data_path(pack_folder), True)
 
         for avatar_image in self.avatar_images:
             os.remove(f"{get_avatar_path()}/{avatar_image}.png")

@@ -24,15 +24,15 @@
     {% endif %}
 
     <!-- Question header -->
-    {% if question %}
-    {{ element("question-question-header", question, 'h3', 'textarea', rows="3") }}
+    {% if question or editable %}
+    {{ element("question-question-header", question, 'h3', 'textarea', rows="3", placeholder="Question Goes Here") }}
     {% endif %}
 
     {% if editable %}
     <!-- Question answer and explanation -->
     <div class="question-answer-explanation-wrapper">
         <label for="question-editable-answer">Answer</label>
-        <div><span class="input-resizer"></span><input class="question-answer-input resize-target" value="{{ answer }}" name="question-editable-answer"></div> (<div><span class="input-resizer"></span><input class="question-explanation-input resize-target" {% if "explanation" in extra %}value="{{ extra['explanation'] }}"{% else %}placeholder="Optional Explanation"{% endif %}></div>)
+        <div><span class="input-resizer"></span><input class="question-answer-input resize-target" value="{{ answer }}" name="question-editable-answer"{% if not answer %} placeholder="Answer Goes Here"{% endif %}></div> (<div><span class="input-resizer"></span><input class="question-explanation-input resize-target" {% if "explanation" in extra %}value="{{ extra['explanation'] }}"{% else %}placeholder="Optional Explanation"{% endif %}></div>)
     </div>
     {% endif %}
 
@@ -49,10 +49,10 @@
     {% if has_media or editable %}
     <div class="question-question-image-wrapper">
         {% if editable %}
-        <div class="media-drag-target{% if not has_media %} target-empty{% endif %}" onclick="openMediaInput(event);" ondragenter="mediaDragEnter(event);" ondragleave="mediaDragLeave(event);" ondragend="mediaDragLeave(event);" ondrop="mediaDragDropped(event, 'question');">
-            <button class="media-delete-btn delete-button{% if not has_media %} d-none{% endif %}" onclick="deleteMedia(event)">&times;</button>
+        <div class="media-drag-target{% if not has_media %} target-empty{% endif %}" onclick="openMediaInput(event);" ondragover="event.preventDefault();" ondragenter="mediaDragEnter(event);" ondragleave="mediaDragLeave(event);" ondragend="mediaDragLeave(event);" ondrop="mediaDragDropped(event, 'question');">
+            <button class="media-delete-btn delete-button media-control-btn{% if not has_media %} d-none{% endif %}" onclick="deleteMedia(event)">&times;</button>
 
-            <button class="media-maximize-btn{% if not has_media %} d-none{% endif %}" onclick="maximizeMedia(event);">
+            <button class="media-maximize-btn media-control-btn{% if not has_media %} d-none{% endif %}" onclick="maximizeMedia(event);">
                 {% if 'height' in extra and extra['height'] > 420 %}
                 {% set isMaximized = true %}
                 {% else %}
@@ -61,6 +61,8 @@
                 <img src="{{ url_for('static', filename='img/pop_out.png') }}" class="media-maximize-icon{% if isMaximized %} d-none{% endif %}">
                 <img src="{{ url_for('static', filename='img/pop_in.png') }}" class="media-minimize-icon{% if not isMaximized %} d-none{% endif %}">
             </button>
+
+            <input class="media-color-btn media-control-btn{% if not has_media %} d-none{% endif %}" type="color" onchange="setMediaBorderColor(event);"{% if 'border' in extra %} value="{{ extra['border'] }}"{% endif %}>
 
             <div class="drag-target-preview-wrapper{% if not has_media%} d-none{% endif %}">
                 {% if has_media %}

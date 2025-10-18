@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Any, Dict
+import requests
 
 import flask
 
@@ -9,7 +10,7 @@ from mhooge_flask.routing import make_template_context, make_text_response
 from mhooge_flask.logging import logger
 
 from jeoparty.api.database import Database
-from jeoparty.api.config import get_data_path_for_question_pack
+from jeoparty.api.config import get_question_pack_data_path
 from jeoparty.api.orm.models import *
 from jeoparty.api.enums import StageType
 from jeoparty.app.routes.shared import (
@@ -18,6 +19,21 @@ from jeoparty.app.routes.shared import (
     create_and_validate_model,
     render_locale_template,
 )
+
+_VALID_IMAGE_FILETYPES = [
+    "image/apng",
+    "image/gif",
+    "image/jpeg",
+    "image/jpg",
+    "image/pjpeg",
+    "image/png",
+    "image/webp",
+]
+
+_VALID_VIDEO_FILETYPES = [
+    "video/webm",
+    "video/mp4",
+]
 
 dashboard_page = flask.Blueprint("dashboard", __name__, template_folder="templates")
 
@@ -81,7 +97,7 @@ def create_pack():
 
         database.create_question_pack(pack_model_or_error)
 
-        data_path = get_data_path_for_question_pack(pack_model_or_error.id)
+        data_path = get_question_pack_data_path(pack_model_or_error.id)
         os.mkdir(data_path)
 
         if "music" in flask.request.files:
@@ -145,12 +161,38 @@ def create_game():
         error=error,
     )
 
+@dashboard_page.route("/pack/fetch")
+def fetch_resource():
+    user_details = get_user_details()
+    if user_details is None:
+        return make_text_response("You are not logged in!", 401)
+
+    url = flask.request.args.get("url")
+    if url is None:
+        return make_text_response("URL not specified, nothing to fetch", 404)
+
+    response = requests.options(url)
+    content_type = response.headers.get("Content-Type")
+
+    if content_type not in _VALID_IMAGE_FILETYPES and content_type not in _VALID_VIDEO_FILETYPES:
+        return make_text_response("Invalid file type to fetch", 400)
+
+    response = requests.get(url)
+    if response.status_code != 200:
+        return make_text_response("Could not fetch resources", response.status_code)
+
+    with open("test.png", "wb") as fp:
+        fp.write(response.content)
+
+    return flask.Response(response.content, 200, headers={"Content-Type": content_type}, mimetype=content_type)
+
 def _save_pack_file(pack_id, file, allowed_types):
     success, error_or_name = validate_file(file, allowed_types)
+    print(error_or_name)
     if not success:
         return False, f"Could not save question image '{file.filename}': {error_or_name}"
 
-    path = os.path.join(get_data_path_for_question_pack(pack_id), error_or_name)
+    path = os.path.join(get_question_pack_data_path(pack_id), error_or_name)
     file.save(path)
 
     return True, error_or_name
@@ -163,13 +205,39 @@ def _save_pack_files(pack_data, files):
             for question_data in category_data["questions"]:
                 for file_key in file_keys:
                     file_name = question_data["extra"].get(file_key)
-                    if file_name is not None and file_name in files:
+                    if file_name is None:
+                        continue
+
+                    if file_name in files:
                         allowed_types = ["webm", "mp4"] if file_key == "video" else ["png", "jpg", "jpeg", "webp"]
                         success, error_or_name = _save_pack_file(pack_data["id"], files[file_name], allowed_types)
                         if not success:
-                            return f"Could not save question image '{file_name}': {error_or_name}"
+                            return error_or_name
 
                         question_data["extra"][file_key] = error_or_name
+                    else:
+                        question_data["extra"][file_key] = os.path.basename(file_name)
+
+    return None
+
+def _validate_pack_data(data: Dict[str, Any]) -> str | None:
+    success, error_or_model = create_and_validate_model(QuestionPack, data, "saving question pack")
+
+    if not success:
+        return error_or_model
+    
+    for round_data in data["rounds"]:
+        for category_data in round_data["categories"]:
+            for question_data in category_data["questions"]:
+                extra = question_data.get("extra", {})
+
+                # Validate that the multiple choice questions should contain
+                # the answer to the question as one of the choices
+                if "choices" in extra and question_data["answer"] not in extra["choices"]:
+                    return "Error when saving question pack: One of the choices must be equal to the correct answer"
+
+                if ("question_image" in extra or "video" in extra) and "height" not in extra:
+                    return "Error when saving question pack: The height of an image or video must be specified"
 
     return None
 
@@ -187,11 +255,8 @@ def save_pack(pack_id: str):
 
     try:
         data: Dict[str, Any] = json.loads(flask.request.form["data"])
-
-        error = _save_pack_files(data, flask.request.files)
-        if error:
-            logger.error(f"Error when saving question media: {error}")
-            return make_text_response(error, 400)
+        print(data)
+        print(list(flask.request.files.keys()))
 
         if not data["include_finale"]:
             data["rounds"][-1] = None
@@ -200,7 +265,17 @@ def save_pack(pack_id: str):
         data["created_by"] = user_id
         data["changed_at"] = datetime.now()
         if "language" in data:
-            data["language"] = getattr(Language, data["language"])
+            data["language"] = Language(data["language"])
+
+        error = _validate_pack_data(data)
+        if error:
+            logger.error(error)
+            return make_text_response(error, 400)
+
+        error = _save_pack_files(data, flask.request.files)
+        if error:
+            logger.error(f"Error when saving question media: {error}")
+            return make_text_response(error, 400)
 
         database.update_question_pack(data)
     except Exception:
@@ -224,7 +299,6 @@ def question_pack(pack_id: str):
             return flask.abort(404)
 
         pack_json = pack_data.dump(included_relations=[QuestionPack.rounds])
-        print(pack_json)
         base_entries = {k: v for k, v in pack_json.items() if not isinstance(v, list)}
 
     return render_locale_template(

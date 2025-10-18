@@ -8,7 +8,7 @@ from mhooge_flask.logging import logger
 from mhooge_flask.routing import socket_io
 
 from jeoparty.api.database import Database
-from jeoparty.api.config import Config, get_data_path_for_question_pack
+from jeoparty.api.config import Config, get_question_pack_data_path
 from jeoparty.api.enums import PowerUpType, StageType
 from jeoparty.api.orm.models import Game, GameQuestion
 from jeoparty.app.routes.socket import GameSocketHandler
@@ -73,7 +73,7 @@ def _request_decorator(func):
 def lobby(game_data: Game):
     join_url = f"mhooge.com/jeoparty/{game_data.join_code}"
 
-    data_path = get_data_path_for_question_pack(game_data.pack_id, False)
+    data_path = get_question_pack_data_path(game_data.pack_id, False)
     if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "lobby_music.mp3")):
         lobby_music_path = f"{data_path}/lobby_music.mp3"
     else:

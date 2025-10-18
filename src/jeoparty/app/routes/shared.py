@@ -14,7 +14,7 @@ import flask
 from mhooge_flask.routing import make_template_context
 from mhooge_flask.database import Base
 
-from jeoparty.api.config import Config, get_data_path_for_question_pack
+from jeoparty.api.config import Config, get_question_pack_data_path
 from jeoparty.api.orm.models import Game, Question, QuestionPack
 
 def redirect_to_login(endpoint: str, **params):
@@ -73,7 +73,7 @@ def get_question_answer_sounds(pack: QuestionPack, max_contestants: int):
     return correct_sound, wrong_sounds
 
 def get_question_answer_images(pack_id: str):
-    data_path = get_data_path_for_question_pack(pack_id, False)
+    data_path = get_question_pack_data_path(pack_id, False)
     if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "correct_answer.png")):
         correct_image = f"{data_path}/correct_answer.png"
     else:
@@ -214,8 +214,8 @@ def validate_file(file: FileStorage, valid_types: List[str], validate_name: bool
         if secure_name == "":
             return False, "Filename contains invalid characters"
 
-        if (match := Config.VALID_NAME_CHARACTERS.match(basename(secure_name.split(".")[0]))) is not None:
-            return False, f"Filename contains an invalid character: {match[0]}"
+        if Config.VALID_NAME_CHARACTERS.match(basename(secure_name.split(".")[0])) is None:
+            return False, f"Filename contains an invalid character. Must be of the pattern '{str(Config.VALID_NAME_CHARACTERS)}'"
     else:
         secure_name = None
 

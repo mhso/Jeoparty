@@ -1,4 +1,6 @@
-def test_questions_well_formed(config):
+from jeoparty.api.config import Config
+
+def test_questions_well_formed(database):
     def get_base_path(filename):
         return f"{config.static_folder}/img/jeopardy/{filename}"
 

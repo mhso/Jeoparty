@@ -13,7 +13,7 @@ from jeoparty.api.config import (
     get_avatar_path,
     get_bg_image_path,
     get_buzz_sound_path,
-    get_data_path_for_question_pack
+    get_question_pack_data_path
 )
 
 power_up_order_case = {power_up.name: index for index, power_up in enumerate(PowerUpType)}
@@ -33,8 +33,8 @@ class PowerUp(Base):
     @property
     def extra_fields(self):
         return {
-            "icon": f"img/{self.type.value}_power.png" if not self.icon else f"{get_data_path_for_question_pack(self.pack_id, False)}/{self.icon}",
-            "video": f"img/{self.type.value}_power_used.webm" if not self.icon else f"{get_data_path_for_question_pack(self.pack_id, False)}/{self.video}",
+            "icon": f"img/{self.type.value}_power.png" if not self.icon else f"{get_question_pack_data_path(self.pack_id, False)}/{self.icon}",
+            "video": f"img/{self.type.value}_power_used.webm" if not self.icon else f"{get_question_pack_data_path(self.pack_id, False)}/{self.video}",
         }
 
 class QuestionPack(Base):
@@ -133,12 +133,12 @@ class Question(Base):
     def extra_fields(self):
         if self.extra is None:
             return {}
-        
+
         fields = dict(self.extra)
 
         for key in ("question_image", "video", "answer_image"):
             if key in self.extra:
-                fields[key] = f"{get_data_path_for_question_pack(self.category.round.pack_id, False)}/{self.extra[key]}"
+                fields[key] = f"{get_question_pack_data_path(self.category.round.pack_id, False)}/{self.extra[key]}"
 
         return {"extra": fields}
 

@@ -30,10 +30,10 @@ class Config:
 
     ADMIN_ID = "71532753897030078646156925193385"
 
-    VALID_NAME_CHARACTERS = re.compile(r"^[a-zA-Z0-9aøåÆØÅ_\-' ]*$")
-    VALID_TITLE_CHARACTERS = re.compile(r"^[a-zA-Z0-9aøåÆØÅ_\-'!?,. ]*$")
+    VALID_NAME_CHARACTERS = re.compile(r"^[a-zA-Z0-9æøåÆØÅ_\-' ]*$")
+    VALID_TITLE_CHARACTERS = re.compile(r"^[a-zA-Z0-9æøåÆØÅé_\/\-'!?\+\(\),\.:\& ]*$")
 
-def get_data_path_for_question_pack(pack_id: str, full: bool = True):
+def get_question_pack_data_path(pack_id: str, full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""
     return f"{prefix}data/{pack_id}"
 

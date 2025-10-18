@@ -1,11 +1,14 @@
 var questionData = {};
 var questionMedia = {};
 var lastSaveState = null;
+var wrapperHeight = 0;
+var wrapperWidth = 0;
 
 const REGULAR_MEDIA_HEIGHT = 420
 const SMALL_MEDIA_HEIGHT = 256
 const MAXIMIZED_MEDIA_HEIGHT = 760
 
+const letters = Array.from("abcdefghijklmnopqrstuvwxyz0123456789")
 const imageFileTypes = [
     "image/apng",
     "image/gif",
@@ -162,10 +165,26 @@ function syncQuestionData(round, category, question) {
             data["extra"][key] = questionMediaFile.name.split(".")[0];
             questionMedia[data["extra"][key]] = questionMediaFile;
 
-            // Save height of image/video
             let name = key == "question_image" ? ".question-question-image" : ".question-question-video";
             let questionMediaPreview = wrapper.querySelector(name);
+
+            // Save height of image/video
             data["extra"]["height"] = questionMediaPreview.height;
+
+            // Save border color
+            if (questionMediaPreview.style.borderColor) {
+                data["extra"]["border"] = questionMediaPreview.style.borderColor;
+            }
+        }
+    }
+    else {
+        if (Object.hasOwn(data, "extra") && (Object.hasOwn(data["extra"], "question_image") || Object.hasOwn(data["extra"], "video"))) {
+            let name = Object.hasOwn(data["extra"], "question_image") ? ".question-question-image" : ".question-question-video";
+            let questionMediaPreview = wrapper.querySelector(name);
+            data["extra"]["height"] = questionMediaPreview.height;
+            if (questionMediaPreview.style.borderColor) {
+                data["extra"]["border"] = questionMediaPreview.style.borderColor;
+            }
         }
     }
 
@@ -186,6 +205,35 @@ function syncQuestionData(round, category, question) {
     }
 }
 
+function resizeRoundWrappers() {
+    let roundWrappers = document.querySelectorAll(".question-pack-round-wrapper");
+
+    roundWrappers.forEach((elem) => {
+        elem.style.height = "auto";
+        elem.style.width = "auto";
+    });
+
+    let maxWidth = 0;
+    let maxHeight = 0;
+    roundWrappers.forEach((elem) => {
+        let rect = elem.getBoundingClientRect();
+        if (rect.height > maxHeight) {
+            maxHeight = rect.height;
+        }
+        if (rect.width > maxWidth) {
+            maxWidth = rect.width;
+        }
+    });
+
+    wrapperWidth = maxWidth;
+    wrapperHeight = maxHeight;
+
+    roundWrappers.forEach((elem) => {
+        elem.style.height = (maxHeight + 10) + "px";
+        elem.style.width = (maxWidth + 10) + "px";
+    });
+}
+
 function addQuestion(value, round, category) {
     let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
     let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
@@ -194,6 +242,8 @@ function addQuestion(value, round, category) {
     if (question == 0) {
         questionData["rounds"][round]["categories"][category]["questions"] = [];
     }
+
+    let outerWrapper = document.createElement("div");
 
     let questionWrapper = document.createElement("div");
     questionWrapper.classList.add("question-pack-question-wrapper");
@@ -207,6 +257,7 @@ function addQuestion(value, round, category) {
     deleteBtn.innerHTML = "&times;";
     deleteBtn.onclick = function(event) {
         deleteQuestion(event, round, category, question);
+        event.stopPropagation();
     };
 
     let questionElem = document.createElement("input");
@@ -217,7 +268,10 @@ function addQuestion(value, round, category) {
     questionWrapper.appendChild(deleteBtn);
     questionWrapper.appendChild(questionElem);
 
-    categoryWrapper.appendChild(questionWrapper);
+    outerWrapper.appendChild(questionWrapper);
+    categoryWrapper.appendChild(outerWrapper);
+
+    resizeRoundWrappers();
 }
 
 function deleteQuestion(event, round, category, question) {
@@ -229,10 +283,10 @@ function deleteQuestion(event, round, category, question) {
 
     let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
     let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
-    let questionElem = categoryWrapper.querySelector(`.question-pack-question-wrapper-${question}`);
+    let questionElem = categoryWrapper.querySelector(`div > .question-pack-question-wrapper-${question}`);
 
     if (questionElem != null) {
-        categoryWrapper.removeChild(questionElem);
+        categoryWrapper.removeChild(questionElem.parentElement);
         let dataForQuestion = questionData["rounds"][round]["categories"][category]["questions"][question];
         if (Object.hasOwn(dataForQuestion, "question_image") && Object.hasOwn(questionMedia, dataForQuestion["question_image"])) {
             questionMedia[dataForQuestion["question_image"]] = null;
@@ -249,13 +303,14 @@ function deleteQuestion(event, round, category, question) {
     }
 
     dataChanged();
+    resizeRoundWrappers();
 }
 
 function syncCategoryData(round, category) {
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
     let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${category}`);
     let name = categoryWrapper.querySelector(".question-pack-category-name").value;
-    let includeFinale = document.getElementById("#question-pack-finale").checked;
+    let includeFinale = document.getElementById("question-pack-finale").checked;
 
     let buzzTime = includeFinale && round == questionData["rounds"].length - 1 ? 60 : 10;
 
@@ -326,8 +381,12 @@ function addCategory(round) {
 
     roundBody.appendChild(categoryElem);
 
+    input.focus();
+
     syncCategoryData(round, category)
     dataChanged();
+
+    resizeRoundWrappers();
 }
 
 function deleteCategory(event, round, category) {
@@ -337,7 +396,7 @@ function deleteCategory(event, round, category) {
         return;
     }
 
-    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > div`);
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
     let categoryElem = roundElem.querySelector(`.question-pack-category-wrapper-${category}`);
 
     if (categoryElem != null) {
@@ -353,6 +412,7 @@ function deleteCategory(event, round, category) {
     }
 
     dataChanged();
+    resizeRoundWrappers();
 }
 
 function syncRoundData(round) {
@@ -384,31 +444,38 @@ function addRound() {
     roundElem.classList.add("question-pack-round-wrapper");
     roundElem.classList.add(`question-pack-round-wrapper-${round}`);
 
+    let headerDiv = document.createElement("div");
+    headerDiv.className = "input-field";
+
+    let label = document.createElement("label");
+    label.for = `round-name-${round}`;
+    label.textContent = "Round Name"
+
     let input = document.createElement("input");
     input.classList.add("question-pack-round-name");
+    input.name = `round-name-${round}`
+    input.value = `Round ${roundNum + 1}`;
     input.onchange = function() {
         syncRoundData(round);
         dataChanged();
     };
-    input.value = `Round ${roundNum + 1}`;
 
-    let placeholderDiv = document.createElement("div");
-    placeholderDiv.textContent = "Add a category below to get started!";
-    placeholderDiv.classList = "question-pack-categories-placeholder";
+    headerDiv.appendChild(label);
+    headerDiv.appendChild(input);
 
-    let dataDiv = document.createElement("div");
-
-    let addCategoryBtn = document.createElement("button");
-    addCategoryBtn.textContent = "+";
-    addCategoryBtn.classList.add("question-pack-add-category-btn");
-    addCategoryBtn.onclick = function() {
+    let placeholderBtn = document.createElement("button");
+    placeholderBtn.textContent = "Click here to add a category";
+    placeholderBtn.classList = "question-pack-categories-placeholder";
+    placeholderBtn.onclick = function() {
         addCategory(round);
     }
 
-    roundElem.appendChild(input);
+    let dataDiv = document.createElement("div");
+    dataDiv.className = "question-pack-round-body";
+
+    roundElem.appendChild(headerDiv);
     roundElem.appendChild(dataDiv);
-    roundElem.appendChild(placeholderDiv);
-    roundElem.appendChild(addCategoryBtn);
+    roundElem.appendChild(placeholderBtn);
 
     dataWrapper.insertBefore(roundElem, dataWrapper.lastElementChild);
 
@@ -437,6 +504,8 @@ function addRound() {
     syncRoundData(round);
     showRoundView(round);
     dataChanged();
+
+    resizeRoundWrappers();
 }
 
 function deleteRound(event, round) {
@@ -569,7 +638,7 @@ function showPopup(text, error) {
 
     setTimeout(function() {
         popup.classList.add("d-none");
-    }, 5000);
+    }, 7000);
 }
 
 function saveData(packId) {
@@ -612,11 +681,13 @@ function saveData(packId) {
             response = c;
         }
 
+        let contentType = response.getResponseHeader("Content-Type");
+
         let error = response.status != 200;
         if (!error) {
             showPopup("Question pack saved successfully.", false)
         }
-        else if (response.getResponseHeader("content-type") == "text/plain") {
+        else if (contentType.startsWith("text/plain") || contentType.startsWith("text/raw")) {
             showPopup(response.responseText, error);
         }
         else if (response.status == 404) {
@@ -781,13 +852,13 @@ function showMediaPreview(wrapper, fileSrc, fileType, mediaKey) {
     let mediaElem;
     if (imageFileTypes.includes(fileType)) {
         mediaElem = document.createElement("img");
-        mediaElem.className = `.question-${mediaKey}-image question-editable`;
+        mediaElem.className = `question-${mediaKey}-image question-editable`;
     }
     else {
         let video = document.createElement("video");
         mediaElem = document.createElement("source");
 
-        video.className = ".question-question-video question-editable";
+        video.className = "question-question-video question-editable";
         mediaElem.type = fileType;
     }
 
@@ -799,34 +870,41 @@ function showMediaPreview(wrapper, fileSrc, fileType, mediaKey) {
 
     previewWrapper.appendChild(mediaElem);
 
-    let deleteBtn = wrapper.querySelector(".media-delete-btn");
-    deleteBtn.classList.remove("d-none");
-
-    let maximizeBtn = wrapper.querySelector(".media-maximize-btn");
-    maximizeBtn.classList.remove("d-none");
+    let mediaButtons = wrapper.querySelectorAll(".media-control-btn");
+    mediaButtons.forEach((elem) => {
+        elem.classList.remove("d-none");
+    });
 
     previewWrapper.classList.remove("d-none");
     header.classList.add("d-none");
 }
 
 function openMediaInput(event) {
+    if (event.target.classList.contains("media-control-btn")) {
+        return;
+    }
+
     let target = getSpecificParent(event.target, "media-drag-target");
     let input = target.querySelector(".drag-input");
     input.click();
 }
 
-function validateAndGetFile(files, wrapper, mediaKey) {
+function validateAndGetFile(files, wrapper, mediaKey, blob_url=null) {
     if (files.length != 1) {
         return null;
     }
 
     let file = files[0];
-    if (mediaKey == "image" && !imageFileTypes.includes(file.type) || mediaKey == "video" && !videoFileTypes.includes(file.type)) {
+    if (!imageFileTypes.includes(file.type) && !videoFileTypes.includes(file.type)) {
         alert("Invalid file type.");
         return null;
     }
 
-    showMediaPreview(wrapper, URL.createObjectURL(file), file.type, mediaKey);
+    if (blob_url == null) {
+        blob_url = URL.createObjectURL(file)
+    }
+
+    showMediaPreview(wrapper, blob_url, file.type, mediaKey);
 
     return file;
 }
@@ -835,31 +913,115 @@ function mediaFileSelected(event, mediaKey) {
     let file = validateAndGetFile(event.target.files, event.target.parentElement, mediaKey);
 
     if (file == null) {
-        event.target.files = [];
+        event.target.files = new FileList();
     }
+}
+
+function getFileExtension(fileType) {
+    if (fileType == "image/jpeg" || fileType == "image/jpg") {
+        return "jpg";
+    }
+    if (fileType == "image/apng" || fileType == "image/png") {
+        return "png";
+    }
+    
+    let validTypes = Array.from(imageFileTypes).concat(videoFileTypes);
+    for (let validType of validTypes) {
+        if (fileType == validType) {
+            if (fileType == "image/jpeg" || fileType == "image/pjpeg") {
+                return "jpg";
+            }
+            if (fileType == "image/apng") {
+                return "png";
+            }
+
+            return fileType.replace("image/", "");
+        }
+    }
+
+    return null;
 }
 
 function mediaDragDropped(event, mediaKey) {
-    let input = event.target.querySelector(".drag-input");
-    let file = validateAndGetFile(event.dataTransfer.files, event.target.parentElement, mediaKey);
-    if (file == null) {
+    event.preventDefault();
+
+    let wrapper = getSpecificParent(event.target, "media-drag-target");
+
+    let input = wrapper.querySelector(".drag-input");
+    let file = validateAndGetFile(event.dataTransfer.files, wrapper, mediaKey);
+    if (file != null) {
+        // If we dragged a file, set it directly and return
+        input.files = event.dataTransfer.files;
         return;
     }
 
-    input.files = [file];
+    // Otherwise, check to see if we dragged an image/video from a URL
+    for (const item of event.dataTransfer.items) {
+        if (item.kind === "string" && item.type.match(/^text\/uri-list/)) {
+            item.getAsString((urlToFetch) => {
+                const client = new XMLHttpRequest();
+                
+                let url = `${getBaseURL()}/jeoparty/pack/fetch?url=${encodeURI(urlToFetch)}`
+
+                client.open("GET", url, true);
+                client.responseType = "blob";
+                client.send();
+
+                // Download the image/video and see if the content type is appropriate
+                client.onreadystatechange = function() {
+                    if(this.readyState == this.DONE && this.status == 200) {
+                        let filename = "";
+                        for (let i = 0; i < 32; i++) {
+                            let index = Math.floor(Math.random() * letters.length);
+                            filename += letters[index];
+                        }
+
+                        const contentType = client.getResponseHeader("Content-Type");
+                        const fileExt = getFileExtension(contentType);
+
+                        if (fileExt == null) {
+                            console.warn("File extension is null for", contentType);
+                            return;
+                        }
+
+                        filename = filename + "." + fileExt;
+                        let file = new File([this.response], filename, {type: contentType});
+
+                        dataTransfer = new DataTransfer();
+
+                        dataTransfer.items.add(file);
+                        const fileList = dataTransfer.files;
+
+                        let validatedFile = validateAndGetFile(fileList, wrapper, mediaKey, URL.createObjectURL(this.response));
+                        if (validatedFile != null) {
+                            input.files = fileList;
+                        }
+                    }
+                }
+            }
+        )}
+    }
 }
 
 function mediaDragEnter(event) {
-    let header = event.target.querySelector(".drag-target-tooltip");
+    let wrapper = getSpecificParent(event.target, "media-drag-target");
+
+    let header = wrapper.querySelector(".drag-target-tooltip");
     header.classList.add("d-none");
+
+    wrapper.classList.add("media-drag-hover");
 }
 
 function mediaDragLeave(event) {
-    let header = event.target.querySelector(".drag-target-tooltip");
-    let preview = event.target.querySelector(".drag-target-preview-wrapper");
+    let wrapper = getSpecificParent(event.target, "media-drag-target");
+
+    let header = wrapper.querySelector(".drag-target-tooltip");
+    let preview = wrapper.querySelector(".drag-target-preview-wrapper");
     if (preview.classList.contains("d-none")) {
         header.classList.remove("d-none");
     }
+
+    wrapper.classList.remove("media-drag-hover");
 }
 
 function getMedia(wrapper) {
@@ -957,13 +1119,27 @@ function deleteMedia(event) {
     let mediaInput = wrapper.querySelector(".drag-input");
     mediaInput.value = "";
 
-    let maximizeBtn = wrapper.querySelector(".media-maximize-btn");
-    maximizeBtn.classList.add("d-none");
-    event.target.classList.add("d-none");
+    let mediaButtons = wrapper.querySelectorAll(".media-control-btn");
+    mediaButtons.forEach((elem) => {
+        elem.classList.add("d-none");
+    });
+}
+
+function setMediaBorderColor(event) {
+    event.stopPropagation();
+
+    let wrapper = getSpecificParent(event.target, "media-drag-target");
+    let media = getMedia(wrapper);
+
+    media.style.borderColor = event.target.value;
 }
 
 function showQuestionView(roundId, categoryId, questionId, show=true) {
     let frame = questionId == null ? null : getQuestionViewWrapper(roundId, categoryId, questionId);
+
+    if (frame == null) {
+        return;
+    }
 
     if (show) {
         frame.classList.remove("d-none");
@@ -988,6 +1164,24 @@ function showQuestionView(roundId, categoryId, questionId, show=true) {
     }
 }
 
+function orderQuestions(roundId, categoryId) {
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
+    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
+
+    let sortedElements = Array.from(categoryWrapper.children).sort(
+        function(a, b) {
+            let va = a.querySelector(".question-pack-question-name").value;
+            let vb = b.querySelector(".question-pack-question-name").value;
+
+            return va < vb ? -1 : va > vb ? 1 : 0;
+        }
+    )
+
+    sortedElements.forEach((elem) => {
+        categoryWrapper.appendChild(elem);
+    })
+}
+
 function saveQuestion(roundId, categoryId, questionId) {
     const newQuestion = questionId == questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
     let wrapper = getQuestionViewWrapper(roundId, categoryId, questionId);
@@ -996,6 +1190,8 @@ function saveQuestion(roundId, categoryId, questionId) {
     if (newQuestion) {
         addQuestion(valueInput.value, roundId, categoryId);
     }
+
+    orderQuestions(roundId, categoryId);
 
     // Sync data and close view
     syncQuestionData(roundId, categoryId, questionId);
@@ -1071,6 +1267,9 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     showRoundView(0);
+
+    resizeRoundWrappers();
+
     if (window.location.hash) {
         if (!window.location.hash.startsWith("#question_")) {
             return;

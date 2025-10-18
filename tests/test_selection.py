@@ -1,10 +1,8 @@
 import asyncio
 import pytest
 
-from jeoparty.api.config import get_avatar_path
 from jeoparty.api.enums import PowerUpType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
-from tests.config import PRESENTER_USER_ID
 
 @pytest.mark.asyncio
 async def test_first_turn(database):
@@ -20,6 +18,14 @@ async def test_first_turn(database):
         "#1155EE",
         "#BD1D1D",
         "#CA12AF",
+    ]
+    expected_category_headers = [
+        "Category Uno",
+        "Category Dos",
+    ]
+    expected_question_values = [
+        ["100"],
+        ["100", "200"]
     ]
 
     async with ContextHandler(database) as context:
@@ -70,3 +76,14 @@ async def test_first_turn(database):
 
             active_elem = await context.presenter_page.query_selector(".active-contestant-entry")
             assert await active_elem.evaluate(f"(e) => e.classList.contains('footer-contestant-{contestant_with_turn.id}')")
+
+            # Assert that categories and question values are correct
+            category_entries = await context.presenter_page.query_selector_all(".selection-category-entry")
+            for entry, expected_header, expected_values in zip(category_entries, expected_category_headers, expected_question_values):
+                header = await entry.query_selector(".selection-category-header")
+
+                assert (await header.text_content()).strip() == expected_header
+
+                question_entries = await entry.query_selector_all(".selection-question-box")
+                for entry, expected_value in zip(question_entries, expected_values):
+                    assert (await entry.text_content()).strip() == expected_value

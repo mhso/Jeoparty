@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy import text
 
 from jeoparty.api.enums import Language
-from jeoparty.api.config import get_data_path_for_question_pack
+from jeoparty.api.config import get_question_pack_data_path
 
 from tests.browser_context import ContextHandler
 from tests.config import PRESENTER_USER_ID
@@ -68,4 +68,4 @@ async def test_create_pack_defaults(database):
         assert pack_data.include_finale is expected_finale
         assert pack_data.language is expected_language
 
-        assert os.path.exists(get_data_path_for_question_pack(pack_data.id))
+        assert os.path.exists(get_question_pack_data_path(pack_data.id))

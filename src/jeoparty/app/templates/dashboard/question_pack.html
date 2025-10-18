@@ -75,21 +75,22 @@
             
                                 <div class="question-pack-category-body">
                                     {% for question_data in category["questions"] %}
-                                    <div class="question-pack-question-wrapper" onclick="showQuestionView({{ round_num }}, {{ category_num }}, {{ loop.index0 }})">
-                                        <button class="question-pack-delete-question-btn delete-button" onclick="deleteQuestion(event, {{ round_num }}, {{ category_num }}, {{ loop.index0 }}); event.stopPropagation();">&times;</button>
-                                        <input class="question-pack-question-name question-pack-question-name-{{ loop.index0 }}" value="{{ question_data['value'] }}" readonly>
+                                    <div>
+                                        <div class="question-pack-question-wrapper question-pack-question-wrapper-{{ loop.index0 }}" onclick="showQuestionView({{ round_num }}, {{ category_num }}, {{ loop.index0 }})">
+                                            <button class="question-pack-delete-question-btn delete-button" onclick="deleteQuestion(event, {{ round_num }}, {{ category_num }}, {{ loop.index0 }}); event.stopPropagation();">&times;</button>
+                                            <input class="question-pack-question-name question-pack-question-name-{{ loop.index0 }}" value="{{ question_data['value'] }}" readonly>
+                                        </div>
+    
+                                        {% set question = question_data["question"] %}
+                                        {% set answer = question_data["answer"] %}
+                                        {% set value = question_data["value"] %}
+                                        {% set extra = question_data["extra"] %}
+    
+                                        <div class="question-pack-question-view question-pack-question-view-{{ loop.index0 }} d-none">
+                                            <button class="question-pack-question-view-exit" onclick="saveQuestion({{ round_num }}, {{ category_num }}, {{ loop.index0 }});">&times;</button>
+                                            {% include 'question_view.html' %}
+                                        </div>
                                     </div>
-
-                                    {% set question = question_data["question"] %}
-                                    {% set answer = question_data["answer"] %}
-                                    {% set value = question_data["value"] %}
-                                    {% set extra = question_data["extra"] %}
-
-                                    <div class="question-pack-question-view question-pack-question-view-{{ loop.index0 }} d-none">
-                                        <button class="question-pack-question-view-exit" onclick="saveQuestion({{ round_num }}, {{ category_num }}, {{ loop.index0 }});">&times;</button>
-                                        {% include 'question_view.html' %}
-                                    </div>
-
                                     {% endfor %}
                                 </div>
                                 <button class="question-pack-add-question-btn" onclick="createQuestionView({{ round_num }}, {{ category_num }})">+</button>
@@ -125,8 +126,8 @@
 
     <!-- Question View Placeholder -->
     {% set category = {'name': 'Category Name', 'buzz_time': 10} %}
-    {% set question = 'Question Goes Here' %}
-    {% set answer = 'Answer Goes Here' %}
+    {% set question = '' %}
+    {% set answer = '' %}
     {% set value = 100 %}
     {% set extra = {} %}
     <div class="question-pack-question-view question-pack-question-view-placeholder d-none">
