@@ -205,38 +205,77 @@ function syncQuestionData(round, category, question) {
     }
 }
 
-function resizeRoundWrappers() {
+function resizeRoundWrappers(round, orientation) {
+    let wrapper = round == null ? null : document.querySelector(`.question-pack-round-wrapper-${round}`);
     let roundWrappers = document.querySelectorAll(".question-pack-round-wrapper");
 
-    roundWrappers.forEach((elem) => {
-        elem.style.height = "auto";
-        elem.style.width = "auto";
-    });
-
-    let maxWidth = 0;
-    let maxHeight = 0;
-    roundWrappers.forEach((elem) => {
-        let rect = elem.getBoundingClientRect();
-        if (rect.height > maxHeight) {
-            maxHeight = rect.height;
+    if (orientation == "width" || orientation == "both") {
+        let resize = true;
+        if (wrapper != null) {
+            wrapper.style.width = "auto";
+            if (wrapper.dataset["width"] < wrapperWidth - 15 || wrapper.dataset["width"] > wrapperWidth + 15) {
+                wrapper.dataset["width"] = wrapper.getBoundingClientRect().width;
+                wrapper.style.width = wrapperWidth + "px";
+                resize = false;
+            }
         }
-        if (rect.width > maxWidth) {
-            maxWidth = rect.width;
+        if (resize) {
+            roundWrappers.forEach((elem) => {
+                elem.style.width = "auto";
+                elem.dataset["width"] = elem.getBoundingClientRect().width;
+            });
+
+            let maxWidth = 0;
+            roundWrappers.forEach((elem) => {
+                let rect = elem.getBoundingClientRect();
+                if (rect.width > maxWidth) {
+                    maxWidth = rect.width;
+                }
+            });
+
+            wrapperWidth = maxWidth + 10;
+
+            roundWrappers.forEach((elem) => {
+                elem.style.width = maxWidth + "px";
+            });
         }
-    });
+    }
+    if (orientation == "height" || orientation == "both") {
+        let resize = true;
+        if (wrapper != null) {
+            wrapper.style.height = "auto";
+            if (wrapper.dataset["height"] != wrapperHeight) {
+                wrapper.dataset["height"] = wrapper.getBoundingClientRect().height;
+                wrapper.style.height = wrapperHeight + "px";
+                resize = false;
+            }
+        }
+        if (resize) {
+            roundWrappers.forEach((elem) => {
+                elem.style.height = "auto";
+                elem.dataset["height"] = elem.getBoundingClientRect().height;
+            });
 
-    wrapperWidth = maxWidth;
-    wrapperHeight = maxHeight;
+            let maxHeight = 0;
+            roundWrappers.forEach((elem) => {
+                let rect = elem.getBoundingClientRect();
+                if (rect.height > maxHeight) {
+                    maxHeight = rect.height;
+                }
+            });
 
-    roundWrappers.forEach((elem) => {
-        elem.style.height = (maxHeight + 10) + "px";
-        elem.style.width = (maxWidth + 10) + "px";
-    });
+            wrapperHeight = maxHeight + 10;
+
+            roundWrappers.forEach((elem) => {
+                elem.style.height = maxHeight + "px";
+            });
+        }
+    }
 }
 
 function addQuestion(value, round, category) {
-    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
-    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
 
     let question = getNextId(round, category);
     if (question == 0) {
@@ -271,7 +310,7 @@ function addQuestion(value, round, category) {
     outerWrapper.appendChild(questionWrapper);
     categoryWrapper.appendChild(outerWrapper);
 
-    resizeRoundWrappers();
+    resizeRoundWrappers(round, "height");
 }
 
 function deleteQuestion(event, round, category, question) {
@@ -281,8 +320,8 @@ function deleteQuestion(event, round, category, question) {
         return;
     }
 
-    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
-    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
     let questionElem = categoryWrapper.querySelector(`div > .question-pack-question-wrapper-${question}`);
 
     if (questionElem != null) {
@@ -303,7 +342,7 @@ function deleteQuestion(event, round, category, question) {
     }
 
     dataChanged();
-    resizeRoundWrappers();
+    resizeRoundWrappers(round, "height");
 }
 
 function syncCategoryData(round, category) {
@@ -386,7 +425,7 @@ function addCategory(round) {
     syncCategoryData(round, category)
     dataChanged();
 
-    resizeRoundWrappers();
+    resizeRoundWrappers(round, "width");
 }
 
 function deleteCategory(event, round, category) {
@@ -412,7 +451,7 @@ function deleteCategory(event, round, category) {
     }
 
     dataChanged();
-    resizeRoundWrappers();
+    resizeRoundWrappers(round, "width");
 }
 
 function syncRoundData(round) {
@@ -443,6 +482,8 @@ function addRound() {
     let roundElem = document.createElement("div");
     roundElem.classList.add("question-pack-round-wrapper");
     roundElem.classList.add(`question-pack-round-wrapper-${round}`);
+    roundElem.dataset["height"] = "0";
+    roundElem.dataset["width"] = "0";
 
     let headerDiv = document.createElement("div");
     headerDiv.className = "input-field";
@@ -505,7 +546,7 @@ function addRound() {
     showRoundView(round);
     dataChanged();
 
-    resizeRoundWrappers();
+    resizeRoundWrappers(round, "both");
 }
 
 function deleteRound(event, round) {
@@ -553,6 +594,8 @@ function deleteRound(event, round) {
         }
 
         dataChanged();
+
+        resizeRoundWrappers(null, "both");
     }
 }
 
@@ -942,6 +985,22 @@ function getFileExtension(fileType) {
     return null;
 }
 
+function getRandomFilename(contentType) {
+    let filename = "";
+    for (let i = 0; i < 16; i++) {
+        let index = Math.floor(Math.random() * letters.length);
+        filename += letters[index];
+    }
+    const fileExt = getFileExtension(contentType);
+
+    if (fileExt == null) {
+        console.warn("File extension is null for", contentType);
+        return null;
+    }
+
+    return filename + "." + fileExt;
+}
+
 function mediaDragDropped(event, mediaKey) {
     event.preventDefault();
 
@@ -970,21 +1029,14 @@ function mediaDragDropped(event, mediaKey) {
                 // Download the image/video and see if the content type is appropriate
                 client.onreadystatechange = function() {
                     if(this.readyState == this.DONE && this.status == 200) {
-                        let filename = "";
-                        for (let i = 0; i < 32; i++) {
-                            let index = Math.floor(Math.random() * letters.length);
-                            filename += letters[index];
-                        }
-
                         const contentType = client.getResponseHeader("Content-Type");
-                        const fileExt = getFileExtension(contentType);
+                        const filename = getRandomFilename(contentType);
 
-                        if (fileExt == null) {
+                        if (filename == null) {
                             console.warn("File extension is null for", contentType);
                             return;
                         }
 
-                        filename = filename + "." + fileExt;
                         let file = new File([this.response], filename, {type: contentType});
 
                         dataTransfer = new DataTransfer();
@@ -1266,9 +1318,15 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
+    let roundWrappers = document.querySelectorAll(".question-pack-round-wrapper");
+    roundWrappers.forEach((elem) => {
+        let rect = elem.getBoundingClientRect();
+        elem.dataset["width"] = rect.width;
+        elem.dataset["height"] = rect.height;
+    });
     showRoundView(0);
 
-    resizeRoundWrappers();
+    resizeRoundWrappers(null, "both");
 
     if (window.location.hash) {
         if (!window.location.hash.startsWith("#question_")) {

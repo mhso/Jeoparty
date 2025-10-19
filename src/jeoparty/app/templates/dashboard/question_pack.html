@@ -58,7 +58,7 @@
                 <div id="question-pack-data-body">
                     {% for round_data in rounds %}
                     {% set round_num = loop.index0 %}
-                    <div class="question-pack-round-wrapper question-pack-round-wrapper-{{ round_num }} d-none">
+                    <div class="question-pack-round-wrapper question-pack-round-wrapper-{{ round_num }} d-none" data-height="0" data-width="0">
                         <div class="input-field">
                             <label for="round-name-{{ round_num }}">Round Name</label>
                             <input class="question-pack-round-name" name="round-name-{{ round_num }}" value="{{ round_data['name'] }}" onchange="syncRoundData({{ round_num }}); dataChanged();">
