@@ -46,10 +46,7 @@
             <div id="question-pack-data-wrapper">
                 <div id="question-pack-data-header">
                     <div>
-                        {% for round_data in rounds -%}
-                        {% if loop.last %}{% set round_name = "Finale" %}{% else %}{% set round_name = "Round " + loop.index | string %}{% endif %}
-                        <button onclick="showRoundView({{ loop.index0 }});" class="question-pack-round-select-button question-pack-round-select-button-{{ loop.index0 }}{% if loop.last %} question-pack-round-select-finale{% if not include_finale %} d-none{% endif %}{% endif %}{% if loop.index == 1 %} question-pack-round-selected{% endif %}"><span>{{ round_name }}</span>{% if not loop.last %} <div onclick="deleteRound(event, {{ loop.index0 }})">&times;</div>{% endif %}</button>
-                        {%- endfor -%}
+                        {%- for round_data in rounds -%}{% if loop.last %}{% set round_name = "Finale" %}{% else %}{% set round_name = "Round " + loop.index | string %}{% endif %}<button onclick="showRoundView({{ loop.index0 }});" class="question-pack-round-select-button question-pack-round-select-button-{{ loop.index0 }}{% if loop.last %} question-pack-round-select-finale{% if not include_finale %} d-none{% endif %}{% endif %}{% if loop.index == 1 %} question-pack-round-selected{% endif %}"><span>{{ round_name }}</span>{% if not loop.last %} <div onclick="deleteRound(event, {{ loop.index0 }})">&times;</div>{% endif %}</button>{%- endfor -%}
                     </div>
 
                     <button class="question-pack-add-round-btn" onclick="addRound();">+</button>
@@ -60,7 +57,7 @@
                     {% set round_num = loop.index0 %}
                     <div class="question-pack-round-wrapper question-pack-round-wrapper-{{ round_num }} d-none" data-height="0" data-width="0">
                         <div class="input-field">
-                            <label for="round-name-{{ round_num }}">Round Name</label>
+                            <label for="round-name-{{ round_num }}" class="question-pack-round-name-label">Round Name</label>
                             <input class="question-pack-round-name" name="round-name-{{ round_num }}" value="{{ round_data['name'] }}" onchange="syncRoundData({{ round_num }}); dataChanged();">
                         </div>
 

@@ -319,13 +319,15 @@ class Database(SQLAlchemyDatabase):
                 round_data["pack_id"] = pack_model.id
 
                 if round_data.get("deleted", False):
-                    data_to_delete.append((QuestionRound, round_data["id"]))
+                    if (round_id := round_data.get("id")):
+                        data_to_delete.append((QuestionRound, round_id))
                     continue
 
                 category_models = []
                 for category_data in round_data["categories"]:
                     if category_data.get("deleted", False):
-                        data_to_delete.append((QuestionCategory, category_data["id"]))
+                        if (category_id := category_data.get("id")):
+                            data_to_delete.append((QuestionCategory, category_id))
                     else:
                         category_models.append(category_data)
 
@@ -351,7 +353,8 @@ class Database(SQLAlchemyDatabase):
                     question_models = []
                     for question_data in category_data["questions"]:
                         if question_data.get("deleted", False):
-                            data_to_delete.append((Question, question_data["id"]))
+                            if (question_id := question_data.get("id")):
+                                data_to_delete.append((Question, question_id))
                         else:
                             question_models.append(question_data)
 

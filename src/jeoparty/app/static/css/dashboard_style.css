@@ -340,13 +340,16 @@
 }
 
 .question-pack-round-select-button, .question-pack-add-round-btn {
-    border: 1px solid black;
+    cursor: pointer;
+    background-color: #353535;
+    color: #ddd;
+    border: 1px solid white;
     font-size: 16px;
     padding: 4px 8px;
 }
 
 .question-pack-round-selected {
-    filter: brightness(0.8);
+    filter: brightness(1.2);
     font-weight: 800;
 }
 
@@ -371,7 +374,7 @@
 }
 
 .question-pack-round-select-finale {
-    border-left: 3px solid black;
+    border-left: 3px solid white;
 }
 
 #question-pack-data-body {
@@ -386,6 +389,10 @@
     margin: 0 auto;
     margin-bottom: 10px;
     background-color: rgba(40, 40, 40, 0.75);
+}
+
+.question-pack-round-name-label {
+    font-weight: 800;
 }
 
 .question-pack-round-wrapper {
@@ -430,17 +437,13 @@
 
 .delete-button {
     position: absolute;
-    right: 8px;
+    right: 10px;
     top: 0;
     background-color: transparent;
     color: white;
     cursor: pointer;
     border: none;
     font-size: 18px;
-}
-
-.question-pack-delete-question-btn {
-    right: 20px;
 }
 
 .question-pack-category-name, .question-pack-question-name {
@@ -723,59 +726,6 @@
 /*
     QUESTION PACK MODAL
 */
-
-#question-pack-modal-wrapper {
-    top: 0;
-    width: 100%;
-    height: 100%;
-    text-align: center;
-    position: fixed;
-    backdrop-filter: blur(5px);
-    z-index: 99;
-}
-
-#question-pack-modal {
-    position: relative;
-    width: 30vw;
-    min-width: 350px;
-    margin: 0 auto;
-    top: 5vh;
-    padding: 10px;
-    border-radius: 10px;
-    color: white;
-    border: 2px solid white;
-    background-color: #0c0c98;
-}
-
-#question-pack-modal-header {
-    position: relative;
-}
-
-#question-pack-modal-header > h2 {
-    margin-top: 0;
-}
-
-#question-pack-modal-category {
-    font-style: italic;
-}
-
-#question-pack-modal-header > button {
-    position: absolute;
-    right: 5px;
-    top: 0;
-    font-weight: bold;
-    font-size: 18px;
-    background-color: white;
-    border-radius: 5px;
-    border: 2px solid black;
-    cursor: pointer;
-}
-
-#question-pack-modal-body > .input-field > input[type="text"] {
-    padding: 8px;
-    font-size: 16px;
-}
-
 #question-pack-modal-question-media-wrapper {
     text-align: left;
     font-size: 20px;
@@ -866,17 +816,19 @@
     max-height: 100%;
 }
 
-#question-pack-modal-footer > button {
-    color: white;
-    padding: 10px;
-    margin: 0 5px;
-    border: 2px solid black;
+.drag-target-loading {
+    min-height: 200px;
+    height: 100%;
+    width: auto;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-#question-pack-modal-save-btn {
-    background-color: rgb(2, 154, 2);
-}
-
-#question-pack-modal-delete-btn {
-    background-color: rgb(203, 10, 10);
+.drag-target-loading > .loading-icon {
+    width: auto;
+    height: 65%;
+    aspect-ratio: 1;
+    border-width: 6px;
 }

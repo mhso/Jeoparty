@@ -171,18 +171,24 @@ def fetch_resource():
     if url is None:
         return make_text_response("URL not specified, nothing to fetch", 404)
 
+    # First try to do an 'options' request to just get content-type header
     response = requests.options(url)
-    content_type = response.headers.get("Content-Type")
+    content_type = None
 
-    if content_type not in _VALID_IMAGE_FILETYPES and content_type not in _VALID_VIDEO_FILETYPES:
-        return make_text_response("Invalid file type to fetch", 400)
+    if response.status_code == 200:
+        content_type = response.headers.get("Content-Type")
+        if content_type not in _VALID_IMAGE_FILETYPES and content_type not in _VALID_VIDEO_FILETYPES:
+            return make_text_response("Invalid file type to fetch", 400)
 
+    # If content-type was valid or 'options' request failed, get the full file
     response = requests.get(url)
     if response.status_code != 200:
         return make_text_response("Could not fetch resources", response.status_code)
 
-    with open("test.png", "wb") as fp:
-        fp.write(response.content)
+    if content_type is None:
+        content_type = response.headers.get("Content-Type")
+        if content_type not in _VALID_IMAGE_FILETYPES and content_type not in _VALID_VIDEO_FILETYPES:
+            return make_text_response("Invalid file type to fetch", 400)
 
     return flask.Response(response.content, 200, headers={"Content-Type": content_type}, mimetype=content_type)
 

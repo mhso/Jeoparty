@@ -49,11 +49,65 @@ function showRoundView(round) {
     });
 
     document.querySelector(`.question-pack-round-wrapper-${round}`).classList.remove("d-none");
+
+    setURLHash("round", round);
 }
 
 function dataChanged() {
     let saveBtn = document.getElementById("question-pack-save-btn");
     saveBtn.disabled = JSON.stringify(questionData) == lastSaveState
+}
+
+function parseURLHash() {
+    let questionView = null;
+    let roundView = null;
+
+    if (window.location.hash) {
+        const params = window.location.hash.replace("#", "").split(";");
+        for (let param of params) {
+            if (param.startsWith("question_")) {
+                let split = param.replace("question_", "").split("-");
+                if (split.length == 3) {
+                    questionView = split;
+                }
+            }
+            else if (param.startsWith("round_")) {
+                roundView = Number.parseInt(param.replace("round_", ""));
+            }
+        }
+    }
+
+    return [questionView, roundView];
+}
+
+function setURLHash(key, value) {
+    let [questionView, roundView] = parseURLHash();
+    let hash = "#";
+    if (key == "question") {
+        if (value != null)  {
+            hash = `${key}_${value}`;
+        }
+        if (roundView != null) {
+            if (value != null) {
+                hash += ";";
+            }
+            hash += `round_${roundView}`;
+        }
+    }
+    else if (key == "round") {
+        if (questionView) {
+            hash = `question_${questionView}`;
+            if (value != null) {
+                hash += ";";
+            }
+        }
+        
+        if (value != null) {
+            hash += `${key}_${value}`;
+        }
+    }
+
+    window.location.hash = hash;
 }
 
 function getNextId(round=null, category=null) {
@@ -233,7 +287,7 @@ function resizeRoundWrappers(round, orientation) {
                 }
             });
 
-            wrapperWidth = maxWidth + 10;
+            wrapperWidth = maxWidth;
 
             roundWrappers.forEach((elem) => {
                 elem.style.width = maxWidth + "px";
@@ -264,7 +318,7 @@ function resizeRoundWrappers(round, orientation) {
                 }
             });
 
-            wrapperHeight = maxHeight + 10;
+            wrapperHeight = maxHeight;
 
             roundWrappers.forEach((elem) => {
                 elem.style.height = maxHeight + "px";
@@ -399,7 +453,6 @@ function addCategory(round) {
         syncCategoryData(round, category);
         dataChanged();
     };
-    input.value = "New Category";
 
     header.appendChild(deleteBtn);
     header.appendChild(input);
@@ -489,6 +542,7 @@ function addRound() {
     headerDiv.className = "input-field";
 
     let label = document.createElement("label");
+    label.className = "question-pack-round-name-label";
     label.for = `round-name-${round}`;
     label.textContent = "Round Name"
 
@@ -594,8 +648,6 @@ function deleteRound(event, round) {
         }
 
         dataChanged();
-
-        resizeRoundWrappers(null, "both");
     }
 }
 
@@ -1006,11 +1058,17 @@ function mediaDragDropped(event, mediaKey) {
 
     let wrapper = getSpecificParent(event.target, "media-drag-target");
 
+    let preview = wrapper.querySelector(".drag-target-preview-wrapper");
+    let header = wrapper.querySelector(".drag-target-tooltip");
+    let loadingWrapper = wrapper.querySelector(".drag-target-loading");
+    loadingWrapper.classList.remove("d-none");
+
     let input = wrapper.querySelector(".drag-input");
     let file = validateAndGetFile(event.dataTransfer.files, wrapper, mediaKey);
     if (file != null) {
         // If we dragged a file, set it directly and return
         input.files = event.dataTransfer.files;
+        loadingWrapper.classList.add("d-none");
         return;
     }
 
@@ -1028,7 +1086,17 @@ function mediaDragDropped(event, mediaKey) {
 
                 // Download the image/video and see if the content type is appropriate
                 client.onreadystatechange = function() {
-                    if(this.readyState == this.DONE && this.status == 200) {
+                    if(this.readyState == this.DONE) {
+                        loadingWrapper.classList.add("d-none");
+
+                        if (this.status != 200) {
+                            if (preview.classList.contains("d-none")) {
+                                header.classList.remove("d-none");
+                            }
+                            alert("Invalid file type.")
+                            return;
+                        }
+
                         const contentType = client.getResponseHeader("Content-Type");
                         const filename = getRandomFilename(contentType);
 
@@ -1196,7 +1264,7 @@ function showQuestionView(roundId, categoryId, questionId, show=true) {
     if (show) {
         frame.classList.remove("d-none");
 
-        window.location.hash = `#question_${roundId}-${categoryId}-${questionId}`;
+        setURLHash("question", `${roundId}-${categoryId}-${questionId}`);
 
         frame.querySelectorAll(".input-resizer").forEach((e) => {
             let jqElem = $(e);
@@ -1212,7 +1280,7 @@ function showQuestionView(roundId, categoryId, questionId, show=true) {
     }
     else {
         frame.classList.add("d-none");
-        window.location.hash = "";
+        setURLHash("question", null);
     }
 }
 
@@ -1324,18 +1392,16 @@ document.addEventListener("DOMContentLoaded", function() {
         elem.dataset["width"] = rect.width;
         elem.dataset["height"] = rect.height;
     });
-    showRoundView(0);
 
-    resizeRoundWrappers(null, "both");
+    let [questionView, roundView] = parseURLHash();
 
-    if (window.location.hash) {
-        if (!window.location.hash.startsWith("#question_")) {
-            return;
-        }
+    roundWrappers.forEach((_, i) => {
+        showRoundView(i);
+        resizeRoundWrappers(i, "both");
+    });
 
-        let split = window.location.hash.replace("#question_", "").split("-");
-        if (split.length == 3) {
-            showQuestionView(split[0], split[1], split[2], true);
-        }
+    showRoundView(roundView || 0);
+    if (questionView != null) {
+        showQuestionView(questionView[0], questionView[1], questionView[2], true);
     }
 });
