@@ -54,6 +54,7 @@
             socket.on("presenter_joined", function() {
                 socket.on("contestant_joined", addContestantDiv);
             });
+
             socket.emit("presenter_join", "{{ created_by }}");
         });
 

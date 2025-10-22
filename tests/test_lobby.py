@@ -77,7 +77,7 @@ async def test_rejoin_lobby(database):
     contestant_color_1 = "#1155EE"
     contestant_color_2 = "#009E18"
     contestant_avatar_1 = "/static/img/avatars/questionmark.png"
-    contestant_avatar_2 = "D:/mhooge/jeoparty/src/jeoparty/app/static/img/avatars/f909a1fc-d673-469d-ad82-b51ed7672e7f.png"
+    contestant_avatar_2 = "/mnt/d/mhooge/jeoparty/src/jeoparty/app/static/img/avatars/f909a1fc-d673-469d-ad82-b51ed7672e7f.png"
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name))[1]

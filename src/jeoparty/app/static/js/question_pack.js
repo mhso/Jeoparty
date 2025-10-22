@@ -1331,7 +1331,7 @@ function createQuestionView(roundId, categoryId) {
 
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
     let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId}`);
-    let questionIndex = categoryWrapper.querySelectorAll(".question-pack-question-wrapper").length;
+    let questionWrappers = categoryWrapper.querySelectorAll(".question-pack-question-wrapper");
     let roundIndex = getElementIndex("question-pack-round-wrapper", roundId);
 
     // Set category name
@@ -1340,7 +1340,18 @@ function createQuestionView(roundId, categoryId) {
 
     // Set value of question
     let valueInput = wrapper.querySelector(".question-reward-span");
-    valueInput.value = 100 * (questionIndex + 1) * (roundIndex + 1);
+    let baseValue = 100 * (roundIndex + 1);
+    let questionValue = baseValue;
+    questionWrappers.forEach((elem, index) => {
+        let value = elem.querySelector(".question-pack-question-name").value;
+        if (value != baseValue * (index + 1)) {
+            return;
+        }
+
+        questionValue += baseValue;
+    });
+
+    valueInput.value = questionValue;
 
     // Set buzz time
     let countdownText = wrapper.querySelector(".question-countdown-text");

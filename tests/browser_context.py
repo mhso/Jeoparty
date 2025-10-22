@@ -182,7 +182,7 @@ class ContextHandler:
         async with page.expect_navigation(wait_until="domcontentloaded"):
             await submit_btn.click()
 
-        pack_id = page.url.split("/")[-1]
+        pack_id = page.url.split("/")[-1].split("#")[0]
         self.pack_folders.append(pack_id)
 
         return page, pack_id
@@ -531,8 +531,6 @@ class ContextHandler:
         return self
 
     async def __aexit__(self, *args):
-        await self.playwright_contexts[0].stop()
-
         while any(not task.done() for task in self._browser_tasks):
             await asyncio.sleep(0.1)
 
@@ -541,6 +539,9 @@ class ContextHandler:
             await asyncio.sleep(0.1)
 
         self.flask_process.close()
+
+        await self.presenter_context.browser.close()
+        await self.playwright_contexts[0].stop()
 
         for pack_folder in self.pack_folders:
             shutil.rmtree(get_question_pack_data_path(pack_folder), True)

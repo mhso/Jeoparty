@@ -26,7 +26,8 @@ pythonpath = [
 ]
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
-asyncio_default_fixture_loop_scope = "function"
+asyncio_default_fixture_loop_scope = "module"
+asyncio_default_test_loop_scope = "module"
 
 [tool.pdm]
 distribution = false
