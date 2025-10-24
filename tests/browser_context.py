@@ -398,7 +398,7 @@ class ContextHandler:
 
             assert await element.text_content() == value
 
-    async def open_presenter_selection_page(
+    async def open_selection_page(
         self,
         round_num: int,
         question_num: int,
@@ -408,17 +408,9 @@ class ContextHandler:
         query_str = _get_players_query_string(turn_id, question_num, player_data)
         await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/{round_num}?{query_str}")
 
-    async def open_presenter_question_page(
-        self,
-        round_num: int,
-        category: str,
-        difficulty: int,
-        question_num: int,
-        turn_id: int,
-        player_data: list[tuple[int, int, str, str]]
-    ):
-        query_str = _get_players_query_string(turn_id, question_num, player_data)
-        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/{round_num}/{category}/{difficulty}?{query_str}")
+    async def open_question_page(self, game_id: str):
+        url = f"{self.PRESENTER_URL}/{game_id}/question"
+        await self.presenter_page.goto(url)
 
     async def show_question(self, is_daily_double=False):
         if not is_daily_double:

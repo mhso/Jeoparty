@@ -4,6 +4,7 @@ from typing import Any, Dict
 import requests
 
 import flask
+from werkzeug.datastructures import FileStorage
 
 from mhooge_flask.auth import get_user_details
 from mhooge_flask.routing import make_template_context, make_text_response
@@ -192,37 +193,45 @@ def fetch_resource():
 
     return flask.Response(response.content, 200, headers={"Content-Type": content_type}, mimetype=content_type)
 
-def _save_pack_file(pack_id, file, allowed_types):
-    success, error_or_name = validate_file(file, allowed_types)
-    print(error_or_name)
-    if not success:
-        return False, f"Could not save question image '{file.filename}': {error_or_name}"
+def _save_pack_media_file(pack_id: str, data: Dict[str, Any], file_key: str, files: Dict[str, FileStorage]) -> str | None:
+    file_name = data.get(file_key)
+    if file_name is None:
+        return None
 
-    path = os.path.join(get_question_pack_data_path(pack_id), error_or_name)
-    file.save(path)
+    if (file := files.get(file_name)):
+        allowed_types = ["webm", "mp4"] if file_key == "video" else ["png", "jpg", "jpeg", "webp"]
+        success, error_or_name = validate_file(file, allowed_types)
+        if not success:
+            return f"Could not save question image '{file.filename}': {error_or_name}"
 
-    return True, error_or_name
+        path = os.path.join(get_question_pack_data_path(pack_id), error_or_name)
+        file.save(path)
 
-def _save_pack_files(pack_data, files):
+        data[file_key] = error_or_name
+
+        return None
+
+    # Update filename by removing leading directory path
+    data[file_key] = os.path.basename(file_name)
+
+    return None
+
+def _save_pack_files(pack_data:  Dict[str, Any], files: Dict[str, FileStorage]):
     file_keys = ["question_image", "video", "answer_image"]
 
     for round_data in pack_data["rounds"]:
         for category_data in round_data["categories"]:
+            # Upload/update category background image
+            error_or_name = _save_pack_media_file(pack_data["id"], category_data, "bg_image", files)
+            if error_or_name:
+                return error_or_name
+
+            # Upload/update question images
             for question_data in category_data["questions"]:
                 for file_key in file_keys:
-                    file_name = question_data["extra"].get(file_key)
-                    if file_name is None:
-                        continue
-
-                    if file_name in files:
-                        allowed_types = ["webm", "mp4"] if file_key == "video" else ["png", "jpg", "jpeg", "webp"]
-                        success, error_or_name = _save_pack_file(pack_data["id"], files[file_name], allowed_types)
-                        if not success:
-                            return error_or_name
-
-                        question_data["extra"][file_key] = error_or_name
-                    else:
-                        question_data["extra"][file_key] = os.path.basename(file_name)
+                    error_or_name = _save_pack_media_file(pack_data["id"], question_data.get("extra", {}), file_key, files)
+                    if error_or_name:
+                        return error_or_name
 
     return None
 

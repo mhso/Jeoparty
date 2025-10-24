@@ -108,7 +108,7 @@ class QuestionCategory(Base):
     @property
     def extra_fields(self):
         return {
-            "bg_image": None if not self.bg_image else f"{get_bg_image_path(False)}/{self.bg_image}",
+            "bg_image": None if not self.bg_image else f"{get_question_pack_data_path(self.round.pack_id, False)}/{self.bg_image}",
         }
 
 class Question(Base):

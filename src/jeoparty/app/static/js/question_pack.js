@@ -153,6 +153,17 @@ function getQuestionViewWrapper(roundId, categoryId, questionId) {
     return document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-view-${questionId}`);
 }
 
+function getUniqueFilename(filename) {
+    let uniqueName = filename;
+    let num = 1;
+    while (Object.hasOwn(questionMedia, uniqueName)) {
+        uniqueName = filename + num.toString();
+        num += 1;
+    }
+
+    return uniqueName
+}
+
 function syncQuestionData(round, category, question) {
     let wrapper = getQuestionViewWrapper(round, category, question);
 
@@ -216,7 +227,7 @@ function syncQuestionData(round, category, question) {
         }
     
         if (key != null) {
-            data["extra"][key] = questionMediaFile.name.split(".")[0];
+            data["extra"][key] = getUniqueFilename(questionMediaFile.name.split(".")[0]);
             questionMedia[data["extra"][key]] = questionMediaFile;
 
             let name = key == "question_image" ? ".question-question-image" : ".question-question-video";
@@ -232,6 +243,7 @@ function syncQuestionData(round, category, question) {
         }
     }
     else {
+        // Save height of existing image/video
         if (Object.hasOwn(data, "extra") && (Object.hasOwn(data["extra"], "question_image") || Object.hasOwn(data["extra"], "video"))) {
             let name = Object.hasOwn(data["extra"], "question_image") ? ".question-question-image" : ".question-question-video";
             let questionMediaPreview = wrapper.querySelector(name);
@@ -246,7 +258,7 @@ function syncQuestionData(round, category, question) {
     if (answerMediaInput.files.length == 1) {
         let answerMediaFile = answerMediaInput.files[0];
         if (imageFileTypes.includes(answerMediaFile.type)) {
-            data["extra"]["answer_image"] = answerMediaFile.name.split(".")[0];
+            data["extra"]["answer_image"] = getUniqueFilename(answerMediaFile.name.split(".")[0]);
             questionMedia[data["extra"]["answer_image"]] = answerMediaFile;
         }
     }
@@ -327,13 +339,13 @@ function resizeRoundWrappers(round, orientation) {
     }
 }
 
-function addQuestion(value, round, category) {
-    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
-    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
+function addQuestion(value, roundId, categoryId) {
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
 
-    let question = getNextId(round, category);
+    let question = getNextId(roundId, categoryId);
     if (question == 0) {
-        questionData["rounds"][round]["categories"][category]["questions"] = [];
+        questionData["rounds"][roundId]["categories"][categoryId]["questions"] = [];
     }
 
     let outerWrapper = document.createElement("div");
@@ -342,14 +354,14 @@ function addQuestion(value, round, category) {
     questionWrapper.classList.add("question-pack-question-wrapper");
     questionWrapper.classList.add(`question-pack-question-wrapper-${question}`);
     questionWrapper.onclick = function() {
-        showQuestionView(round, category, question);
+        showQuestionView(roundId, categoryId, question);
     }
 
     let deleteBtn = document.createElement("button");
     deleteBtn.className = "question-pack-delete-question-btn delete-button";
     deleteBtn.innerHTML = "&times;";
     deleteBtn.onclick = function(event) {
-        deleteQuestion(event, round, category, question);
+        deleteQuestion(event, roundId, categoryId, question);
         event.stopPropagation();
     };
 
@@ -364,23 +376,23 @@ function addQuestion(value, round, category) {
     outerWrapper.appendChild(questionWrapper);
     categoryWrapper.appendChild(outerWrapper);
 
-    resizeRoundWrappers(round, "height");
+    resizeRoundWrappers(roundId, "height");
 }
 
-function deleteQuestion(event, round, category, question) {
+function deleteQuestion(event, roundId, categoryId, questionId) {
     event.stopPropagation();
 
     if (!confirm("Are you sure you want to delete this question?")) {
         return;
     }
 
-    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
-    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${category} > .question-pack-category-body`);
-    let questionElem = categoryWrapper.querySelector(`div > .question-pack-question-wrapper-${question}`);
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
+    let questionElem = categoryWrapper.querySelector(`div > .question-pack-question-wrapper-${questionId}`);
 
     if (questionElem != null) {
         categoryWrapper.removeChild(questionElem.parentElement);
-        let dataForQuestion = questionData["rounds"][round]["categories"][category]["questions"][question];
+        let dataForQuestion = questionData["rounds"][roundId]["categories"][categoryId]["questions"][questionId];
         if (Object.hasOwn(dataForQuestion, "question_image") && Object.hasOwn(questionMedia, dataForQuestion["question_image"])) {
             questionMedia[dataForQuestion["question_image"]] = null;
         }
@@ -396,36 +408,59 @@ function deleteQuestion(event, round, category, question) {
     }
 
     dataChanged();
-    resizeRoundWrappers(round, "height");
+    resizeRoundWrappers(roundId, "height");
 }
 
-function syncCategoryData(round, category) {
-    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
-    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${category}`);
+function syncCategoryData(roundId, categoryId) {
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId}`);
     let name = categoryWrapper.querySelector(".question-pack-category-name").value;
     let includeFinale = document.getElementById("question-pack-finale").checked;
+    let bgImageInput = categoryWrapper.querySelector(".question-bg-image-input");
 
-    let buzzTime = includeFinale && round == questionData["rounds"].length - 1 ? 60 : 10;
+    let questionDataCategories = questionData["rounds"][roundId]["categories"];
 
-    let questionDataCategories = questionData["rounds"][round]["categories"];
-    if (questionDataCategories.length == category) {
-        questionDataCategories.push({"name": name, "order": category, "buzz_time": buzzTime, "questions": []});
+    let data;
+    if (categoryId < questionDataCategories.length) {
+        data = questionDataCategories[categoryId];
     }
     else {
-        questionDataCategories[category]["name"] = name;
-        questionDataCategories[category]["order"] = category;
+        data = {
+            "name": name,
+            "order": categoryId,
+            "buzz_time": defaultBuzzTime,
+            "questions": [],
+        }
+    }
+
+    // Save background image
+    if (bgImageInput.files.length == 1) {
+        let bgMediaFile = bgImageInput.files[0];
+        if (imageFileTypes.includes(bgMediaFile.type)) {
+            data["bg_image"] = getUniqueFilename(bgMediaFile.name.split(".")[0]);
+            questionMedia[data["bg_image"]] = bgMediaFile;
+        }
+    }
+
+    let defaultBuzzTime = includeFinale && roundId == questionData["rounds"].length - 1 ? 60 : 10;
+
+    if (questionDataCategories.length == categoryId) {
+        questionDataCategories.push(data);
+    }
+    else {
+        questionDataCategories[categoryId] = data;
     }
 }
 
-function addCategory(round) {
+function addCategory(roundId) {
     // Add new category for given round
-    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
     let roundBody = roundWrapper.querySelector(".question-pack-round-body");
 
-    let category = getNextId(round);
+    let category = getNextId(roundId);
     let categoryNum = roundWrapper.querySelectorAll(".question-pack-category-wrapper").length;
     if (categoryNum == 0) {
-        questionData["rounds"][round]["categories"] = [];
+        questionData["rounds"][roundId]["categories"] = [];
         let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
         placeholder.classList.add("d-none");
 
@@ -444,13 +479,13 @@ function addCategory(round) {
     deleteBtn.className = "question-pack-delete-category-btn delete-button";
     deleteBtn.innerHTML = "&times;";
     deleteBtn.onclick = function(event) {
-        deleteCategory(event, round, category);
+        deleteCategory(event, roundId, category);
     }
 
     let input = document.createElement("input");
     input.classList.add("question-pack-category-name");
     input.onchange = function() {
-        syncCategoryData(round, category);
+        syncCategoryData(roundId, category);
         dataChanged();
     };
 
@@ -464,7 +499,7 @@ function addCategory(round) {
     addQuestionBtn.textContent = "+";
     addQuestionBtn.classList.add("question-pack-add-question-btn");
     addQuestionBtn.onclick = function() {
-        createQuestionView(round, category);
+        createQuestionView(roundId, category);
     };
 
     categoryElem.appendChild(header);
@@ -475,26 +510,34 @@ function addCategory(round) {
 
     input.focus();
 
-    syncCategoryData(round, category)
+    syncCategoryData(roundId, category)
     dataChanged();
 
-    resizeRoundWrappers(round, "width");
+    resizeRoundWrappers(roundId, "width");
 }
 
-function deleteCategory(event, round, category) {
+function deleteCategory(event, roundId, categoryId) {
     event.stopPropagation();
 
     if (!confirm("Are you sure you want to delete this category and all its data?")) {
         return;
     }
 
-    let roundElem = document.querySelector(`.question-pack-round-wrapper-${round} > .question-pack-round-body`);
-    let categoryElem = roundElem.querySelector(`.question-pack-category-wrapper-${category}`);
+    let roundElem = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
+    let categoryElem = roundElem.querySelector(`.question-pack-category-wrapper-${categoryId}`);
 
     if (categoryElem != null) {
         roundElem.removeChild(categoryElem);
-        questionData["rounds"][round]["categories"][category]["deleted"] = true;
-        if (questionData["rounds"][round]["categories"].length == 0) {
+
+        let dataForCategory = questionData["rounds"][roundId]["categories"][categoryId];
+        
+        if (Object.hasOwn(dataForCategory, "bg_image")) {
+            questionMedia[dataForCategory["bg_image"]] = null;
+        }
+
+        dataForCategory["deleted"] = true;
+
+        if (roundElem.children.length == 0) {
             let placeholder = roundWrapper.querySelector(".question-pack-categories-placeholder");
             placeholder.classList.remove("d-none");
 
@@ -504,20 +547,20 @@ function deleteCategory(event, round, category) {
     }
 
     dataChanged();
-    resizeRoundWrappers(round, "width");
+    resizeRoundWrappers(roundId, "width");
 }
 
-function syncRoundData(round) {
-    let wrapper = document.querySelector(`.question-pack-round-wrapper-${round}`);
+function syncRoundData(roundId) {
+    let wrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
     let name = wrapper.querySelector(".question-pack-round-name").value;
 
     let questionDataRounds = questionData["rounds"];
-    if (questionDataRounds.length == round) {
-        questionDataRounds.push({"name": name, "round": round, "categories": []});
+    if (questionDataRounds.length == roundId) {
+        questionDataRounds.push({"name": name, "round": roundId, "categories": []});
     }
     else {
-        questionDataRounds[round]["name"] = name;
-        questionDataRounds[round]["round"] = round;
+        questionDataRounds[roundId]["name"] = name;
+        questionDataRounds[roundId]["round"] = roundId;
     }
 }
 
@@ -887,6 +930,38 @@ function deleteAnswerChoice(event) {
     }
 }
 
+function validateAndGetMediaFile(files) {
+    if (files.length != 1) {
+        return null;
+    }
+
+    let file = files[0];
+    if (!imageFileTypes.includes(file.type) && !videoFileTypes.includes(file.type)) {
+        alert("Invalid file type.");
+        return null;
+    }
+
+    return file;
+}
+
+function setBackgroundImage(event, roundId, categoryId) {
+    let wrapper = getSpecificParent(event.target, "question-pack-question-view");
+    let bgImage = wrapper.querySelector(".bg-image");
+
+    let file = validateAndGetMediaFile(event.target.files);
+    if (file != null) {
+        const fileSrc = URL.createObjectURL(file);
+        bgImage.style.backgroundImage = `url(${fileSrc})`;
+    }
+
+    syncCategoryData(roundId, categoryId);
+}
+
+function openBackgroundImageInput(event) {
+    let wrapper = getSpecificParent(event.target, "question-pack-question-view");
+    wrapper.querySelector('.question-bg-image-input').click();
+}
+
 function getDefaultMediaHeight(wrapper) {
     let isMultipleChoice = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
     if (isMultipleChoice) {
@@ -938,14 +1013,14 @@ function setMultipleChoice(event) {
     resizeMedia(wrapper);
 }
 
-function showMediaPreview(wrapper, fileSrc, fileType, mediaKey) {
+function showMediaPreview(wrapper, file, mediaKey) {
     let previewWrapper = wrapper.querySelector(".drag-target-preview-wrapper");
     let header = wrapper.querySelector(".drag-target-tooltip");
 
     previewWrapper.innerHTML = "";
  
     let mediaElem;
-    if (imageFileTypes.includes(fileType)) {
+    if (imageFileTypes.includes(file.type)) {
         mediaElem = document.createElement("img");
         mediaElem.className = `question-${mediaKey}-image question-editable`;
     }
@@ -954,9 +1029,10 @@ function showMediaPreview(wrapper, fileSrc, fileType, mediaKey) {
         mediaElem = document.createElement("source");
 
         video.className = "question-question-video question-editable";
-        mediaElem.type = fileType;
+        mediaElem.type = file.type;
     }
 
+    const fileSrc = URL.createObjectURL(file);
     mediaElem.src = fileSrc;
     let outerWrapper = getSpecificParent(wrapper, "question-view-wrapper");
     mediaElem.style.height = getDefaultMediaHeight(outerWrapper) + "px";
@@ -984,30 +1060,13 @@ function openMediaInput(event) {
     input.click();
 }
 
-function validateAndGetFile(files, wrapper, mediaKey, blob_url=null) {
-    if (files.length != 1) {
-        return null;
-    }
-
-    let file = files[0];
-    if (!imageFileTypes.includes(file.type) && !videoFileTypes.includes(file.type)) {
-        alert("Invalid file type.");
-        return null;
-    }
-
-    if (blob_url == null) {
-        blob_url = URL.createObjectURL(file)
-    }
-
-    showMediaPreview(wrapper, blob_url, file.type, mediaKey);
-
-    return file;
-}
-
 function mediaFileSelected(event, mediaKey) {
-    let file = validateAndGetFile(event.target.files, event.target.parentElement, mediaKey);
+    let file = validateAndGetMediaFile(event.target.files);
 
-    if (file == null) {
+    if (file != null) {
+        showMediaPreview(event.target.parentElement, file, mediaKey);
+    }
+    else {
         event.target.files = new FileList();
     }
 }
@@ -1064,11 +1123,12 @@ function mediaDragDropped(event, mediaKey) {
     loadingWrapper.classList.remove("d-none");
 
     let input = wrapper.querySelector(".drag-input");
-    let file = validateAndGetFile(event.dataTransfer.files, wrapper, mediaKey);
+    let file = validateAndGetMediaFile(event.dataTransfer.files);
     if (file != null) {
         // If we dragged a file, set it directly and return
         input.files = event.dataTransfer.files;
         loadingWrapper.classList.add("d-none");
+        showMediaPreview(wrapper, file, mediaKey);
         return;
     }
 
@@ -1112,9 +1172,10 @@ function mediaDragDropped(event, mediaKey) {
                         dataTransfer.items.add(file);
                         const fileList = dataTransfer.files;
 
-                        let validatedFile = validateAndGetFile(fileList, wrapper, mediaKey, URL.createObjectURL(this.response));
+                        let validatedFile = validateAndGetMediaFile(fileList);
                         if (validatedFile != null) {
                             input.files = fileList;
+                            showMediaPreview(wrapper, validatedFile, mediaKey);
                         }
                     }
                 }
@@ -1361,6 +1422,12 @@ function createQuestionView(roundId, categoryId) {
     let exitBtn = wrapper.querySelector(".question-pack-question-view-exit");
     exitBtn.onclick = function() {
         saveQuestion(roundId, categoryId, questionId);
+    }
+
+    // Add onchange event to background image input
+    let bgImageInput = wrapper.querySelector(".question-bg-image-input");
+    bgImageInput.onclick = function(event) {
+        setBackgroundImage(event, roundId, categoryId);
     }
 
     categoryWrapper.appendChild(wrapper);

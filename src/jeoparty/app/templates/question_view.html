@@ -6,7 +6,15 @@
 {% endif %}
 {%- endmacro %}
 
-<div {% if category['bg_image'] %}id="bg-image" style="background-image: url({{ url_for('static', _external=True, filename=category['bg_image']) }});"{% else %}id="bg-image"{% endif %}></div>
+<div class="bg-image"{% if category['bg_image'] %} style="background-image: url({{ url_for('static', _external=True, filename=category['bg_image']) }});"{% endif %}></div>
+{% if editable %}
+<button class="question-bg-image-btn" onclick="openBackgroundImageInput(event);">
+    <img src="{{ url_for('static', filename='img/bg_image_icon.png') }}">
+</button>
+
+<!-- Background image picker -->
+<input class="question-bg-image-input" type="file" hidden onchange="setBackgroundImage(event, {{ round_num }}, {{ category_num }})">
+{% endif %}
 
 <div class="question-view-wrapper">
     <!-- Category header -->

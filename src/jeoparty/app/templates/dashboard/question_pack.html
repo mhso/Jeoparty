@@ -69,7 +69,7 @@
                                     <button class="question-pack-delete-category-btn delete-button" onclick="deleteCategory(event, {{ round_num }}, {{ category_num }})">&times;</button>
                                     <input class="question-pack-category-name" value="{{ category['name'] }}" onchange="syncCategoryData({{ round_num }}, {{ category_num }}); dataChanged();">
                                 </div>
-            
+
                                 <div class="question-pack-category-body">
                                     {% for question_data in category["questions"] %}
                                     <div>
