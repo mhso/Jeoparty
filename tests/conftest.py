@@ -51,7 +51,7 @@ def _create_question_packs(database: Database):
             question="What is the meaning of life, the universe, and everything?",
             answer="42",
             value=100,
-            extra={"choices": ["42", "No idea", "Alcohol", "Eggs"]}
+            extra={"choices": ["42", "No idea", "Alcohol", "Eggs"], "explanation": "we all knew it"},
         )
 
         question_model_1_2_1 = Question(

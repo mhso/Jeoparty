@@ -278,7 +278,7 @@ class Game(Base):
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     pack = relationship("QuestionPack", back_populates="games")
-    game_questions = relationship("GameQuestion", back_populates="game", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
+    game_questions = relationship("GameQuestion", back_populates="game", cascade="all, delete-orphan", order_by="GameQuestion.question_id.asc()")
     game_contestants = relationship("GameContestant", back_populates="game", cascade="all, delete-orphan", order_by="GameContestant.joined_at.asc()")
 
     __serialize_relationships__ = [pack, game_questions, game_contestants]

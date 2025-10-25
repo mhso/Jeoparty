@@ -19,9 +19,9 @@
 <div class="question-view-wrapper">
     <!-- Category header -->
     {% if editable %}
-    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}"> <span class="question-reward-span">{{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
+    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'question' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}"> <span class="question-reward-span">{{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
     {% else %}
-    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'QUESTION' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
+    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'question' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
     {% endif %}
 
     {% if daily_double %}
@@ -109,9 +109,9 @@
 
         {% else %}
         {% if "question_image" in extra %}
-        <img class="question-question-image{% if 'border' in extra %} image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-question-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% if "answer_image" in extra %}
-        <img class="question-answer-image{% if 'border' in extra %} image-border"{% endif %} src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-answer-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% endif %}
         {% else %}
         <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" style="height: {{ extra['height'] }}px;">

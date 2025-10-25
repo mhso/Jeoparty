@@ -1,10 +1,11 @@
 import asyncio
 import os
+import shutil
 from io import BytesIO
 from multiprocessing import Process
-import shutil
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 from argparse import Namespace
+from contextlib import AsyncExitStack
 
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
 from PIL import Image
@@ -12,6 +13,7 @@ from sqlalchemy import Enum
 
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
+from jeoparty.api.orm.models import GameQuestion
 from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
 from jeoparty.app.routes.contestant import COOKIE_ID
 from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
@@ -280,9 +282,12 @@ class ContextHandler:
         buzzes: int | None = None,
         hits: int | None = None,
         misses: int | None = None,
+        used_power_ups: Dict[str, bool] | None = None,
+        enabled_power_ups: Dict[str, bool] | None = None,
     ):
         page = self.contestant_pages[contestant_id]
 
+        # Assert that contestant color is correct
         if color is not None:
             header_elem = await page.query_selector("#contestant-game-header")
             header_style = await header_elem.get_property("style")
@@ -290,6 +295,7 @@ class ContextHandler:
 
             assert rgb_to_hex(await border_color.json_value()) == color
 
+        # Assert that contestant avatar is correct
         if avatar is not None:
             avatar_elem = await page.query_selector("#contestant-game-avatar")
 
@@ -301,6 +307,19 @@ class ContextHandler:
             else:
                 assert src_path == avatar
 
+        # Assert that used power-ups are correct
+        if used_power_ups is not None:
+            for power_up in used_power_ups:
+                used_icon = await page.query_selector(f"#contestant-power-btn-{power_up} > .contestant-power-used")
+                assert await used_icon.is_visible() is used_power_ups[power_up]
+
+        # Assert that enabled power-ups are correct
+        if enabled_power_ups is not None:
+            for power_up in enabled_power_ups:
+                wrapper_element = await page.query_selector(f"#contestant-power-btn-{power_up}")
+                assert await wrapper_element.is_enabled() is enabled_power_ups[power_up]
+
+        # Validate remaining fields
         header_data = [
             ("name", name),
             ("score", f"{score} points" if score else None),
@@ -335,6 +354,7 @@ class ContextHandler:
                 game_active = True
                 break
 
+        # Assert that contestant color is correct
         if color is not None:
             if game_active:
                 wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
@@ -352,6 +372,7 @@ class ContextHandler:
 
             assert rgb_to_hex(await element_color.json_value()) == color
 
+        # Assert that contestant avatar is correct
         if avatar is not None:
             if game_active:
                 wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
@@ -368,16 +389,19 @@ class ContextHandler:
             else:
                 assert src_path == avatar
 
+        # Assert that contestant having turn is correct
         if has_turn is not None:
             wrapper_element = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
             assert (await wrapper_element.evaluate("(e) => e.classList.contains('active-contestant-entry')")) is has_turn
 
+        # Assert that used power-ups are correct
         if used_power_ups is not None:
             for power_up in used_power_ups:
                 wrapper_element = await self.presenter_page.query_selector(f".footer-contestant-power-{power_up}")
                 used_icon = await wrapper_element.query_selector(".footer-contestant-entry-power-used")
                 assert (used_icon is not None) is used_power_ups[power_up]
 
+        # Validate remaining fields
         header_data = [
             ("name", name),
             ("score", f"{score} points" if score else None),
@@ -398,6 +422,98 @@ class ContextHandler:
 
             assert await element.text_content() == value
 
+    async def assert_question_values(
+        self,
+        question: GameQuestion,
+        question_visible: bool | None = True,
+        answer_visible: bool | None = None,
+        correct_answer: bool | None = None,
+        buzz_feed: List[str] | None = None,
+    ):
+        # Assert that category header is correct
+        expected_category_text = f"{question.question.category.name}for {question.question.value} points"
+        category_header = await self.presenter_page.query_selector(".question-category-header")
+        assert (await category_header.text_content()).strip() == expected_category_text
+        assert await category_header.is_visible()
+
+        # Assert that the question header is correct
+        expected_question_text = question.question.question
+        question_header = await self.presenter_page.query_selector(".question-question-header")
+        assert (await question_header.text_content()).strip() == expected_question_text
+
+        elem_opacity = await question_header.evaluate("(el) => window.getComputedStyle(el).getPropertyValue('opacity')")
+        if question_visible is not None:
+            assert int(elem_opacity) == int(question_visible)
+    
+        # Assert that question image is correct if it exists
+        if (question_image := question.question.extra.get("question_image")):
+            image_elem = await self.presenter_page.query_selector(".question-question-image")
+
+            assert image_elem is not None
+            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/{question_image}")
+
+        # Assert that answer image is correct if it exists
+        if (answer_image := question.question.extra.get("answer_image")):
+            image_elem = await self.presenter_page.query_selector(".question-answer-image")
+
+            assert image_elem is not None
+            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/{answer_image}")
+
+        # Assert that question video is correct if it exists
+        if (video := question.question.extra.get("video")):
+            video_elem = await self.presenter_page.query_selector(".question-question-video")
+
+            assert video_elem is not None
+            assert (await video_elem.get_attribute("src")).endswith(f"/static/data/{video}")
+
+        # Assert that question choices are correct if they exist
+        if (choices := question.question.extra.get("choices")):
+            choice_elems = await self.presenter_page.query_selector_all(".question-choice-entry")
+            seen_choices = set()
+            for elem in choice_elems:
+                choice_text = await elem.text_content()
+                seen_choices.add(choice_text.strip().split("\n")[1])
+
+            assert (set(choices).difference(seen_choices)) == set()
+
+        # Assert that tips are correct if they exist
+        if (tips := question.question.extra.get("tips")):
+            tip_elems = await self.presenter_page.query_selector_all(".question-tip-content")
+            seen_tips = set()
+            for elem in tip_elems:
+                tip_text = await elem.text_content()
+                seen_tips.add(tip_text.strip().split("\n")[1])
+
+            assert (set(tips).difference(seen_tips)) == set()
+
+        # Assert that the buzz feed contain correct entries
+        if buzz_feed is not None:
+            buzz_feed_elem = self.presenter_page.query_selector_all(".question-buzz-feed > ul")
+            assert len(buzz_feed_elem) == len(buzz_feed)
+            for entry, expected in zip(buzz_feed_elem, buzz_feed):
+                assert await entry.text_content() == expected
+
+        # Assert that the answer and explanation is correct
+        answer_elem = await self.presenter_page.query_selector("#question-actual-answer > .question-emph")
+        answer = await answer_elem.text_content()
+        if (explanation := question.question.extra.get("explanation")):
+            split = answer.split("(")
+            answer = split[0].strip()
+            explanation_text = split[1].removesuffix(")").strip()
+            assert explanation_text == explanation
+
+        assert answer == f"'{question.question.answer}'"
+        if answer_visible is not None:
+            assert await answer_elem.is_visible() is answer_visible
+
+        if correct_answer is not None:
+            if correct_answer:
+                correct_elem = await self.presenter_page.query_selector("#question-answer-correct")
+                assert await correct_elem.is_visible()
+            else:
+                wrong_elem = await self.presenter_page.query_selector("#question-answer-correct")
+                assert await wrong_elem.is_visible()
+
     async def open_selection_page(
         self,
         round_num: int,
@@ -410,7 +526,12 @@ class ContextHandler:
 
     async def open_question_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/question"
-        await self.presenter_page.goto(url)
+
+        async with AsyncExitStack() as stack:
+            for page in self.contestant_pages.values():
+                await stack.enter_async_context(page.expect_navigation())
+
+            await self.presenter_page.goto(url)
 
     async def show_question(self, is_daily_double=False):
         if not is_daily_double:
@@ -431,6 +552,12 @@ class ContextHandler:
                 await asyncio.sleep(0.5)
         else:
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+    async def buzz_in(self, contestant_id: str):
+        await self.contestant_pages[contestant_id].click("#buzzer-wrapper")
+
+    async def use_power_up(self, contestant_id: str, power_id: str):
+        await self.contestant_pages[contestant_id].click(f"#contestant-power-btn-{power_id}")
 
     async def get_player_scores(self):
         point_elems = await self.presenter_page.query_selector_all(".footer-contestant-entry-score")
@@ -498,7 +625,7 @@ class ContextHandler:
                 combined_image.paste(contestant_image, (x, y))
                 x += contestant_image.width
 
-        combined_image.save(f"jeopardy_test_{index}.png")
+        combined_image.save(f"jeoparty_test_{index}.png")
 
     async def __aenter__(self):
         self.playwright_contexts = [await async_playwright().__aenter__()]
