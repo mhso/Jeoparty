@@ -4,7 +4,7 @@ from jeoparty.api.enums import StageType
 from tests.browser_context import ContextHandler
 
 @pytest.mark.asyncio
-async def test_question_view_first_round(database):
+async def test_question_view_first_round(database, locales):
     pack_name = "Test Pack"
     contestant_names = [
         "Contesto Uno",
@@ -24,6 +24,7 @@ async def test_question_view_first_round(database):
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
 
             # Add contestants to the game
             for name, color in zip(contestant_names, contestant_colors):
@@ -89,4 +90,36 @@ async def test_question_view_first_round(database):
                 answer_visible=False,
             )
 
-            await context.buzz_in(active_player.contestant_id)
+            # Let a player buzz in
+            buzz_player = next(filter(lambda c: c.contestant.name == contestant_names[2], game_data.game_contestants))
+            await context.hit_buzzer(buzz_player.contestant_id)
+
+            await context.assert_contestant_values(
+                buzz_player.contestant_id,
+                contestant_names[2],
+                contestant_colors[2],
+                score=0,
+                buzzes=0, # Buzzes only update on page refresh, so here it's still 0
+                hits=0,
+                misses=0,
+                used_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                enabled_power_ups={"hijack": True, "freeze": True, "rewind": False},
+            )
+
+            await context.assert_presenter_values(
+                buzz_player.id,
+                buzz_player.contestant.name,
+                buzz_player.contestant.color,
+                score=0,
+                hits=0,
+                misses=0,
+                has_turn=True,
+                used_power_ups={"hijack": False, "freeze": False, "rewind": False}
+            )
+
+            await context.assert_question_values(
+                active_question,
+                True,
+                False,
+                game_feed=[f"{contestant_names[2]} {locale['game_feed_buzz_1']} " + r"\d{1,3}\.\d{2} " + locale['game_feed_buzz_2']]
+            )

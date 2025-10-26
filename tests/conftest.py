@@ -6,7 +6,7 @@ pytest.register_assert_rewrite("tests.browser_context")
 
 from mhooge_flask.auth import get_hashed_password
 
-from jeoparty.api.config import Config, get_question_pack_data_path
+from jeoparty.api.config import Config, get_question_pack_data_path, get_locale_data
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question
@@ -79,6 +79,10 @@ def _create_question_packs(database: Database):
 
         # )
 
+@pytest.fixture(scope="session")
+def locales():
+    # Load locale data
+    return get_locale_data()
 
 @pytest.fixture(scope="function")
 def database():

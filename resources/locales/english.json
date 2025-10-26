@@ -13,6 +13,10 @@
         "presenter/question": {
             "daily_double_wager_1": "How many points dares",
             "daily_double_wager_2": "wager?",
+            "game_feed_buzz_1": "buzzed in after",
+            "game_feed_buzz_2": "seconds",
+            "game_feed_power_1": "used their",
+            "game_feed_power_2": "power-up",
             "correct_answer": "Correct!",
             "correct_answer_was": "Correct answer was",
             "wrong_answer_time": "Time ran out",

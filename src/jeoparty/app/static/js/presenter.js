@@ -148,7 +148,7 @@ function afterAnswer() {
     answeringPlayer = null;
     setPlayerTurn(null, false);
 
-    let buzzFeed = document.getElementById("question-buzz-feed");
+    let buzzFeed = document.getElementById("question-game-feed");
     buzzFeed.classList.add("d-none");
     buzzFeed.getElementsByTagName("ul").item(0).innerHTML = "";
 
@@ -473,7 +473,7 @@ function startAnswerCountdown(duration) {
 }
 
 function addToGameFeed(text) {
-    let wrapper = document.getElementById("question-buzz-feed");
+    let wrapper = document.getElementById("question-game-feed");
     wrapper.classList.remove("d-none");
 
     let listParent = wrapper.getElementsByTagName("ul").item(0);
@@ -489,15 +489,21 @@ function addBuzzToFeed(playerId, timeTaken) {
         return;
     }
 
+    const buzzStr1 = localeStrings["game_feed_buzz_1"];
+    const buzzStr2 = localeStrings["game_feed_buzz_2"];
+
     let name = playerNames[playerId];
     let color = playerColors[playerId];
-    addToGameFeed(`<span style="color: ${color}; font-weight: 800">${name}</span> buzzede ind efter ${timeTaken} sekunder`);
+    addToGameFeed(`<span style="color: ${color}; font-weight: 800">${name}</span> ${buzzStr1} ${timeTaken} ${buzzStr2}`);
 }
 
 function addPowerUseToFeed(playerId, powerId) {
+    const powerStr1 = localeStrings["game_feed_power_1"];
+    const powerStr2 = localeStrings["game_feed_power_2"];
+
     let name = playerNames[playerId];
     let color = playerColors[playerId];
-    addToGameFeed(`<span color='${color}'>${name}</span> brugte sin <strong>${powerId}</strong> power-up!`);
+    addToGameFeed(`<span color='${color}'>${name}</span> ${powerStr1} <strong>${powerId}</strong> ${powerStr2}!`);
 }
 
 function afterBuzzIn(playerId) {

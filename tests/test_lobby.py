@@ -6,7 +6,7 @@ from jeoparty.api.config import get_avatar_path
 from tests.browser_context import ContextHandler, rgb_to_hex
 
 @pytest.mark.asyncio
-async def test_join_lobby_defaults(database):
+async def test_join_lobby_defaults(database, locales):
     pack_name = "Test Pack"
     contestant_names = [
         "Contesto Uno",
@@ -30,11 +30,12 @@ async def test_join_lobby_defaults(database):
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/lobby"]
 
             assert game_data.game_contestants == []
 
             contestants_placeholder = await context.presenter_page.query_selector("#menu-no-contestants-placeholder")
-            assert await contestants_placeholder.text_content() == "None yet..."
+            assert await contestants_placeholder.text_content() == locale["none_joined"]
 
             for index, (name, color) in enumerate(zip(contestant_names, contestant_colors)):
                 # Add a contestant to the game

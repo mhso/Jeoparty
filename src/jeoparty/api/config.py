@@ -1,3 +1,5 @@
+from glob import glob
+import json
 import os
 import re
 
@@ -49,3 +51,11 @@ def get_bg_image_path(full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""
     return f"{prefix}img/backgrounds"
 
+def get_locale_data():
+    locale_data = {}
+    for filename in glob(f"{Config.RESOURCES_FOLDER}/locales/*.json"):
+        lang = os.path.basename(filename).split(".")[0]
+        with open(filename, "r", encoding="utf-8") as fp:
+           locale_data[lang] = json.load(fp)
+
+    return locale_data

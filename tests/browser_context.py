@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import shutil
 from io import BytesIO
 from multiprocessing import Process
@@ -293,7 +294,7 @@ class ContextHandler:
             header_style = await header_elem.get_property("style")
             border_color = await header_style.get_property("borderColor")
 
-            assert rgb_to_hex(await border_color.json_value()) == color
+            assert rgb_to_hex(await border_color.json_value()) == color.upper()
 
         # Assert that contestant avatar is correct
         if avatar is not None:
@@ -370,7 +371,7 @@ class ContextHandler:
                 wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
                 element_color = await header_style.get_property("borderColor")
 
-            assert rgb_to_hex(await element_color.json_value()) == color
+            assert rgb_to_hex(await element_color.json_value()) == color.upper()
 
         # Assert that contestant avatar is correct
         if avatar is not None:
@@ -428,7 +429,7 @@ class ContextHandler:
         question_visible: bool | None = True,
         answer_visible: bool | None = None,
         correct_answer: bool | None = None,
-        buzz_feed: List[str] | None = None,
+        game_feed: List[str] | None = None,
     ):
         # Assert that category header is correct
         expected_category_text = f"{question.question.category.name}for {question.question.value} points"
@@ -487,11 +488,12 @@ class ContextHandler:
             assert (set(tips).difference(seen_tips)) == set()
 
         # Assert that the buzz feed contain correct entries
-        if buzz_feed is not None:
-            buzz_feed_elem = self.presenter_page.query_selector_all(".question-buzz-feed > ul")
-            assert len(buzz_feed_elem) == len(buzz_feed)
-            for entry, expected in zip(buzz_feed_elem, buzz_feed):
-                assert await entry.text_content() == expected
+        if game_feed is not None:
+            buzz_feed_elem = await self.presenter_page.query_selector_all("#question-game-feed > ul > li")
+            assert len(buzz_feed_elem) == len(game_feed)
+            for entry, expected in zip(buzz_feed_elem, game_feed):
+                print(expected, await entry.text_content())
+                assert re.match(expected, await entry.text_content()) is not None
 
         # Assert that the answer and explanation is correct
         answer_elem = await self.presenter_page.query_selector("#question-actual-answer > .question-emph")
@@ -527,11 +529,17 @@ class ContextHandler:
     async def open_question_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/question"
 
+        # Create an stack of context manager to wait for each contestant to
+        # be redirected to the question page
         async with AsyncExitStack() as stack:
             for page in self.contestant_pages.values():
                 await stack.enter_async_context(page.expect_navigation())
 
             await self.presenter_page.goto(url)
+
+    async def open_endscreen_page(self, player_data: list[tuple[str, int, int, str]]):
+        query_str = _get_players_query_string("null", 1, player_data)
+        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/endscreen?{query_str}")
 
     async def show_question(self, is_daily_double=False):
         if not is_daily_double:
@@ -553,8 +561,12 @@ class ContextHandler:
         else:
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-    async def buzz_in(self, contestant_id: str):
+    async def hit_buzzer(self, contestant_id: str):
         await self.contestant_pages[contestant_id].click("#buzzer-wrapper")
+
+        # Wait for buzz to register on presenter page
+        await self.presenter_page.wait_for_selector(".active-contestant-entry")
+        await asyncio.sleep(1)
 
     async def use_power_up(self, contestant_id: str, power_id: str):
         await self.contestant_pages[contestant_id].click(f"#contestant-power-btn-{power_id}")
@@ -588,10 +600,6 @@ class ContextHandler:
         # Click the submit button
         submit_button = await page.query_selector("#contestant-wager-btn")
         await submit_button.tap()
-
-    async def open_endscreen_page(self, player_data: list[tuple[str, int, int, str]]):
-        query_str = _get_players_query_string("null", 1, player_data)
-        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/endscreen?{query_str}")
 
     async def wait_for_event(self, event_func, condition=None, timeout=30):
         time_slept = 0

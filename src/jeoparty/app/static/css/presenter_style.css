@@ -657,11 +657,11 @@ h3 {
     text-align: center;
 }
 
-#question-buzz-feed {
+#question-game-feed {
     font-size: 18px;
 }
 
-#question-buzz-feed > ul {
+#question-game-feed > ul {
     display: inline-block;
     text-align: left;
 }
