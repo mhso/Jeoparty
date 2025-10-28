@@ -204,6 +204,19 @@ class ContextHandler:
 
         return browser_context, page
 
+    async def wait_for_event(self, event_func, condition=None, timeout=30):
+        time_slept = 0
+        sleep_interval = 1
+        while time_slept < timeout:
+            result = await event_func()
+            if (condition is None and result) or (condition is not None and result == condition):
+                return
+
+            await asyncio.sleep(sleep_interval)
+            time_slept += sleep_interval
+
+        raise TimeoutError("Event never happened!")
+
     async def join_lobby(
         self,
         join_code: str,
@@ -272,6 +285,116 @@ class ContextHandler:
         # Starts the game
         async with self.presenter_page.expect_navigation():
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+    async def open_selection_page(
+        self,
+        round_num: int,
+        question_num: int,
+        turn_id: int,
+        player_data: list[tuple[int, int, int, str]]
+    ):
+        query_str = _get_players_query_string(turn_id, question_num, player_data)
+        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/{round_num}?{query_str}")
+
+    async def open_question_page(self, game_id: str):
+        url = f"{self.PRESENTER_URL}/{game_id}/question"
+
+        # Create an stack of context manager to wait for each contestant to
+        # be redirected to the question page
+        async with AsyncExitStack() as stack:
+            for page in self.contestant_pages.values():
+                await stack.enter_async_context(page.expect_navigation())
+
+            await self.presenter_page.goto(url)
+
+    async def open_endscreen_page(self, player_data: list[tuple[str, int, int, str]]):
+        query_str = _get_players_query_string("null", 1, player_data)
+        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/endscreen?{query_str}")
+
+    async def show_question(self, is_daily_double=False):
+        if not is_daily_double:
+            # Show the question
+            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+        await asyncio.sleep(1)
+
+        await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+        await asyncio.sleep(0.5)
+
+        # Check if question is multiple choice
+        is_multiple_choice = await self.presenter_page.evaluate("() => document.getElementsByClassName('question-choice-entry').length > 0")
+        if is_multiple_choice:
+            for _ in range(4):
+                await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+                await asyncio.sleep(0.5)
+        else:
+            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+    async def answer_question(self, index: int | None = None, choice: str | None = None):
+        await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+        await asyncio.sleep(0.2)
+    
+        answer_choices = await self.presenter_page.query_selector_all(".question-choices-wrapper > .question-choice-entry")
+        if answer_choices != []:
+            for i, c in enumerate(answer_choices):
+                text = await c.text_content()
+                if text.split(":")[1].strip() == choice:
+                    await self.presenter_page.press("body", str(i))
+                    break
+        else:
+            await self.presenter_page.press("body", str(index))
+
+        answer_correct = await self.presenter_page.query_selector("#question-answer-correct")
+        answer_wrong = await self.presenter_page.query_selector("#question-answer-wrong")
+
+        async def wait_for_answer():
+            return (
+                await answer_correct.is_visible()
+                or await answer_wrong.is_visible()
+            )
+
+        await self.wait_for_event(wait_for_answer)
+
+    async def hit_buzzer(self, contestant_id: str):
+        await self.contestant_pages[contestant_id].click("#buzzer-wrapper")
+
+        # Wait for buzz to register on presenter page
+        await self.presenter_page.wait_for_selector(".active-contestant-entry")
+        await asyncio.sleep(1)
+
+    async def use_power_up(self, contestant_id: str, power_id: str):
+        await self.contestant_pages[contestant_id].click(f"#contestant-power-btn-{power_id}")
+
+    async def get_player_scores(self):
+        point_elems = await self.presenter_page.query_selector_all(".footer-contestant-entry-score")
+        points_text = [await elem.text_content() for elem in point_elems]
+        points_values = await self.presenter_page.evaluate("playerScores")
+
+        points_contestants = []
+        for page in self.contestant_pages:
+            elem = await page.query_selector("#contestant-game-score")
+            points_contestants.append(await elem.text_content())
+
+        return points_text, points_values, points_contestants
+
+    async def make_daily_double_wager(self, page: Page, amount: int, dialog_callback=None):
+        # Input the amount to wager
+        wager_input = await page.query_selector("#question-wager-input")
+        await wager_input.fill(str(amount))
+
+        async def fail(dialog):
+            assert False
+
+        # Handle alert
+        if dialog_callback is not None:
+            page.on("dialog", dialog_callback)
+        else:
+            page.on("dialog", fail)
+
+        # Click the submit button
+        submit_button = await page.query_selector("#contestant-wager-btn")
+        await submit_button.tap()
 
     async def assert_contestant_values(
         self,
@@ -516,103 +639,6 @@ class ContextHandler:
                 wrong_elem = await self.presenter_page.query_selector("#question-answer-correct")
                 assert await wrong_elem.is_visible()
 
-    async def open_selection_page(
-        self,
-        round_num: int,
-        question_num: int,
-        turn_id: int,
-        player_data: list[tuple[int, int, int, str]]
-    ):
-        query_str = _get_players_query_string(turn_id, question_num, player_data)
-        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/{round_num}?{query_str}")
-
-    async def open_question_page(self, game_id: str):
-        url = f"{self.PRESENTER_URL}/{game_id}/question"
-
-        # Create an stack of context manager to wait for each contestant to
-        # be redirected to the question page
-        async with AsyncExitStack() as stack:
-            for page in self.contestant_pages.values():
-                await stack.enter_async_context(page.expect_navigation())
-
-            await self.presenter_page.goto(url)
-
-    async def open_endscreen_page(self, player_data: list[tuple[str, int, int, str]]):
-        query_str = _get_players_query_string("null", 1, player_data)
-        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/endscreen?{query_str}")
-
-    async def show_question(self, is_daily_double=False):
-        if not is_daily_double:
-            # Show the question
-            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-
-        await asyncio.sleep(1)
-
-        await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-
-        await asyncio.sleep(0.5)
-
-        # Check if question is multiple choice
-        is_multiple_choice = await self.presenter_page.evaluate("() => document.getElementsByClassName('question-choice-entry').length > 0")
-        if is_multiple_choice:
-            for _ in range(4):
-                await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-                await asyncio.sleep(0.5)
-        else:
-            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-
-    async def hit_buzzer(self, contestant_id: str):
-        await self.contestant_pages[contestant_id].click("#buzzer-wrapper")
-
-        # Wait for buzz to register on presenter page
-        await self.presenter_page.wait_for_selector(".active-contestant-entry")
-        await asyncio.sleep(1)
-
-    async def use_power_up(self, contestant_id: str, power_id: str):
-        await self.contestant_pages[contestant_id].click(f"#contestant-power-btn-{power_id}")
-
-    async def get_player_scores(self):
-        point_elems = await self.presenter_page.query_selector_all(".footer-contestant-entry-score")
-        points_text = [await elem.text_content() for elem in point_elems]
-        points_values = await self.presenter_page.evaluate("playerScores")
-
-        points_contestants = []
-        for page in self.contestant_pages:
-            elem = await page.query_selector("#contestant-game-score")
-            points_contestants.append(await elem.text_content())
-
-        return points_text, points_values, points_contestants
-
-    async def make_daily_double_wager(self, page: Page, amount: int, dialog_callback=None):
-        # Input the amount to wager
-        wager_input = await page.query_selector("#question-wager-input")
-        await wager_input.fill(str(amount))
-
-        async def fail(dialog):
-            assert False
-
-        # Handle alert
-        if dialog_callback is not None:
-            page.on("dialog", dialog_callback)
-        else:
-            page.on("dialog", fail)
-
-        # Click the submit button
-        submit_button = await page.query_selector("#contestant-wager-btn")
-        await submit_button.tap()
-
-    async def wait_for_event(self, event_func, condition=None, timeout=30):
-        time_slept = 0
-        sleep_interval = 1
-        while time_slept < timeout:
-            result = await event_func()
-            if (condition is None and result) or (condition is not None and result == condition):
-                return
-
-            await asyncio.sleep(sleep_interval)
-            time_slept += sleep_interval
-
-        raise TimeoutError("Event never happened!")
 
     async def screenshot_views(self, index: int = 0):
         width = PRESENTER_VIEWPORT["width"]

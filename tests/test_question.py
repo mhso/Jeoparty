@@ -123,3 +123,8 @@ async def test_question_view_first_round(database, locales):
                 False,
                 game_feed=[f"{contestant_names[2]} {locale['game_feed_buzz_1']} " + r"\d{1,3}\.\d{2} " + locale['game_feed_buzz_2']]
             )
+
+            # Have the player answer the question wrong
+            await context.answer_question(choice="Eggs")
+
+            await context.screenshot_views()

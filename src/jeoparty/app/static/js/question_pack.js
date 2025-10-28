@@ -186,6 +186,9 @@ function syncQuestionData(round, category, question) {
     let data;
     if (question < questionDataQuestions.length) {
         data = questionDataQuestions[question];
+        data["question"] = questionText;
+        data["answer"] = answerText;
+        data["value"] = value;
     }
     else {
         data = {
@@ -343,8 +346,8 @@ function addQuestion(value, roundId, categoryId) {
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
     let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
 
-    let question = getNextId(roundId, categoryId);
-    if (question == 0) {
+    let questionId = getNextId(roundId, categoryId);
+    if (questionId == 0) {
         questionData["rounds"][roundId]["categories"][categoryId]["questions"] = [];
     }
 
@@ -352,22 +355,23 @@ function addQuestion(value, roundId, categoryId) {
 
     let questionWrapper = document.createElement("div");
     questionWrapper.classList.add("question-pack-question-wrapper");
-    questionWrapper.classList.add(`question-pack-question-wrapper-${question}`);
+    questionWrapper.classList.add(`question-pack-question-wrapper-${questionId}`);
     questionWrapper.onclick = function() {
-        showQuestionView(roundId, categoryId, question);
+        showQuestionView(roundId, categoryId, questionId);
     }
 
     let deleteBtn = document.createElement("button");
     deleteBtn.className = "question-pack-delete-question-btn delete-button";
     deleteBtn.innerHTML = "&times;";
     deleteBtn.onclick = function(event) {
-        deleteQuestion(event, roundId, categoryId, question);
+        deleteQuestion(event, roundId, categoryId, questionId);
         event.stopPropagation();
     };
 
     let questionElem = document.createElement("input");
     questionElem.value = value;
     questionElem.classList.add("question-pack-question-name");
+    questionElem.classList.add(`question-pack-question-name-${questionId}`);
     questionElem.readonly = true;
 
     questionWrapper.appendChild(deleteBtn);
@@ -423,6 +427,7 @@ function syncCategoryData(roundId, categoryId) {
     let data;
     if (categoryId < questionDataCategories.length) {
         data = questionDataCategories[categoryId];
+        data["name"] = name;
     }
     else {
         data = {
@@ -899,7 +904,7 @@ function addAnswerChoice(event) {
 
     let choiceText = document.createElement("input");
     choiceText.className = "question-choice-text question-editable";
-    choiceText.value = "Choice Text Here";
+    choiceText.placeholder = "Choice Text Here";
 
     paragraph.appendChild(choiceNum);
     paragraph.appendChild(choiceText);
@@ -1346,8 +1351,8 @@ function showQuestionView(roundId, categoryId, questionId, show=true) {
 }
 
 function orderQuestions(roundId, categoryId) {
-    let roundElem = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
-    let categoryWrapper = roundElem.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
 
     let sortedElements = Array.from(categoryWrapper.children).sort(
         function(a, b) {
@@ -1371,6 +1376,13 @@ function saveQuestion(roundId, categoryId, questionId) {
     if (newQuestion) {
         addQuestion(valueInput.value, roundId, categoryId);
     }
+    else {
+        let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
+        let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
+        let questionElem = categoryWrapper.querySelector(`.question-pack-question-name-${questionId}`);
+
+        questionElem.value = valueInput.value;
+    }
 
     orderQuestions(roundId, categoryId);
 
@@ -1389,6 +1401,12 @@ function createQuestionView(roundId, categoryId) {
     // Set question ID on the outer wrapper
     wrapper.classList.remove("question-pack-question-view-placeholder");
     wrapper.classList.add(`question-pack-question-view-${questionId}`);
+
+    let bgImageElem = wrapper.querySelector(".bg-image");
+    let categoryData = questionData["rounds"][roundId]["categories"][categoryId];
+    if (Object.hasOwn(categoryData, "bg_image")) {
+        bgImageElem.style.backgroundImage = `url(/static/${categoryData["bg_image"]})`;
+    }
 
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
     let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId}`);
@@ -1435,20 +1453,22 @@ function createQuestionView(roundId, categoryId) {
     showQuestionView(roundId, categoryId, questionId);
 }
 
-$(function() {
-    let resizers = $(".input-resizer");
-
-    resizers.each((e) => $(e).text($(e.parentElement).find('.resize-target').val()));
-    resizers.each((e) => $(e.parentElement).find('.resize-target').width($(e).width() * 1.25 + 10));
-}).on("input", function(event) {
-    if (!event.target.classList.contains("input-resizer")) {
-        return;
-    }
-
-    let e = $(event.target);
-    let resizeTarget = $(event.target.nextElementSibling);
-    e.text(resizeTarget.val());
-    resizeTarget.width(e.width() * 1.25 + 10);
+$.ready(function() {
+    $(function() {
+        let resizers = $(".input-resizer");
+    
+        resizers.each((e) => $(e).text($(e.parentElement).find('.resize-target').val()));
+        resizers.each((e) => $(e.parentElement).find('.resize-target').width($(e).width() * 1.25 + 10));
+    }).on("input", function(event) {
+        if (!event.target.classList.contains("input-resizer")) {
+            return;
+        }
+    
+        let e = $(event.target);
+        let resizeTarget = $(event.target.nextElementSibling);
+        e.text(resizeTarget.val());
+        resizeTarget.width(e.width() * 1.25 + 10);
+    });
 });
 
 document.addEventListener("DOMContentLoaded", function() {

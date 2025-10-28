@@ -1,6 +1,6 @@
 {% macro element(className, content, regular_type='span', editable_type='input') -%}
 {% if editable %}
-<{{ editable_type | safe }} class="{{ className }} question-editable" {% for attr, val in kwargs | items %}{{ attr }} = {{ val }}{% endfor %}{% if editable_type == 'input' %} value="{{ content }}"{% endif %}>{% if editable_type != 'input' %}{{ content }}</{{ editable_type | safe }}>{% endif %} 
+<{{ editable_type | safe }} class="{{ className }} question-editable"{% for attr, val in kwargs | items %} {{ attr }} = {{ val }}{% endfor %}{% if editable_type == 'input' %} value="{{ content }}"{% endif %}>{% if editable_type != 'input' %}{{ content }}</{{ editable_type | safe }}>{% endif %} 
 {% else %}
 <{{ regular_type | safe }} class="{{ className }}">{{ content }}</{{ regular_type | safe }}>
 {% endif %}
@@ -19,7 +19,7 @@
 <div class="question-view-wrapper">
     <!-- Category header -->
     {% if editable %}
-    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'question' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}"> <span class="question-reward-span">{{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
+    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span><br>{{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}"> <span class="question-reward-span">{{ _locale["points"] }}</span> <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}"></h2>
     {% else %}
     <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'question' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
     {% endif %}

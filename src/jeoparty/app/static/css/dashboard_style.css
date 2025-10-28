@@ -499,27 +499,30 @@
 
 .question-pack-question-view-exit {
     position: absolute;
-    padding: 0 5px;
-    right: 0;
-    top: 0;
+    padding: 3px 9px;
+    right: 4px;
+    top: 4px;
     font-weight: bold;
-    font-size: 20px;
-    background-color: white;
+    font-size: 22px;
+    background-color: #333;
     border-radius: 5px;
-    border: 2px solid black;
+    border: 2px solid #dbdbdb;
     cursor: pointer;
+    color: #dbdbdb;
+    line-height: 1;
 }
 
 .question-bg-image-btn {
     position: absolute;
-    right: 25px;
-    width: 35px;
+    right: 44px;
+    width: 40px;
     aspect-ratio: 1.25;
     height: auto;
-    background-color: white;
+    background-color: #333;
     border-radius: 5px;
-    border: 2px solid black;
+    border: 2px solid #dbdbdb;
     cursor: pointer;
+    top: 4px;
 }
 
 .question-bg-image-btn > img {
@@ -531,7 +534,7 @@
 .question-reward-span.question-editable {
     min-width: 30px;
     font-size: 3rem;
-    padding: 0;
+    padding-left: 10px;
 }
 
 .question-question-header.question-editable {
@@ -603,7 +606,13 @@
     position: absolute;
     top: 5px;
     right: 5px;
-    background-color: white;
+    background-color: #333;
+    color: #dbdbdb;
+    font-size: 20px;
+    line-height: 1;
+    border: 1px solid #dbdbdb;
+    cursor: pointer;
+    font-weight: 800;
 }
 
 .question-choice-entry.question-editable > p {
@@ -612,9 +621,10 @@
 }
 
 .question-choice-text.question-editable {
-    width: 80%;
     color: inherit;
     font-size: inherit;
+    width: 78%;
+    margin-left: 5px;
 }
 
 .question-view-wrapper .input-field {
@@ -782,25 +792,26 @@
     right: 5px;
     top: 4px;
     font-size: 30px;
-    background-color: #ffffffb8;
+    background-color: #333;
     padding: 0 8px;
+    padding-bottom: 0px;
     border-radius: 10px;
     line-height: 1;
     padding-bottom: 5px;
-    color: black;
-    border: 1px solid black;
+    border: 1px solid #dbdbdb;
+    color: #dbdbdb;
 }
 
 .media-maximize-btn {
     cursor: pointer;
     width: 37px;
     height: 37px;
-    background-color: #ffffffcf;
+    background-color: #333;
     position: absolute;
     top: 4px;
-    right: 50px;
+    right: 45px;
     border-radius: 10px;
-    border: 1px solid black;
+    border: 1px solid #dbdbdb;
 }
 
 .media-color-btn {
@@ -810,7 +821,7 @@
     height: 44px;
     position: absolute;
     top: 1px;
-    right: 91px;
+    right: 84px;
     border: none;
 }
 

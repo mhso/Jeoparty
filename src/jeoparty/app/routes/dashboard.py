@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Any, Dict
+from pydantic import ValidationError
 import requests
 
 import flask
@@ -17,6 +18,7 @@ from jeoparty.api.enums import StageType
 from jeoparty.app.routes.shared import (
     redirect_to_login,
     validate_file,
+    get_validation_error_msg,
     create_and_validate_model,
     render_locale_template,
 )
@@ -240,7 +242,7 @@ def _validate_pack_data(data: Dict[str, Any]) -> str | None:
 
     if not success:
         return error_or_model
-    
+
     for round_data in data["rounds"]:
         for category_data in round_data["categories"]:
             for question_data in category_data["questions"]:
@@ -248,11 +250,24 @@ def _validate_pack_data(data: Dict[str, Any]) -> str | None:
 
                 # Validate that the multiple choice questions should contain
                 # the answer to the question as one of the choices
-                if "choices" in extra and question_data["answer"] not in extra["choices"]:
-                    return "Error when saving question pack: One of the choices must be equal to the correct answer"
+                round_name = round_data["name"]
+                category_name = category_data["name"]
+                value = question_data["value"]
+                base_error = f"Error at question for {value} points in {round_name}, {category_name}"
+
+                if "choices" in extra:
+                    if question_data["answer"] not in extra["choices"]:
+                        return f"{base_error}: One of the choices must be equal to the correct answer"
+
+                    for choice in extra["choices"]:
+                        if choice == "":
+                            return f"{base_error}: Answer choices must not be empty"
+
+                        if len(choice) > 32:
+                            return f"{base_error}: Answer choices must be less than 32 characters"
 
                 if ("question_image" in extra or "video" in extra) and "height" not in extra:
-                    return "Error when saving question pack: The height of an image or video must be specified"
+                    return f"{base_error}: The height of an image or video must be specified"
 
     return None
 
@@ -293,6 +308,11 @@ def save_pack(pack_id: str):
             return make_text_response(error, 400)
 
         database.update_question_pack(data)
+
+    except ValidationError as exc:
+        details = ", ".join([get_validation_error_msg(detail) for detail in exc.errors(include_url=False)])
+        return make_text_response(f"Error when saving question pack: {details}", 400)
+
     except Exception:
         logger.exception("Error when saving question pack")
         return make_text_response("Unknown error when saving question pack", 500)
