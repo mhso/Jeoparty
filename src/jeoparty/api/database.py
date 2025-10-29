@@ -229,13 +229,6 @@ class Database(SQLAlchemyDatabase):
             session.commit()
             session.refresh(game_model)
 
-    def save_game_question(self, game_question_model: GameQuestion):
-        with self as session:
-            session.add(game_question_model)
-
-            session.commit()
-            session.refresh(game_question_model)
-
     def save_contenstant(self, contestant_model: Contestant):
         with self as session:
             session.add(contestant_model)

@@ -161,7 +161,7 @@ def selection(game_data: Game):
     if previous_question:
         previous_question.used = True
         previous_question.active = False
-        database.save_game_question(previous_question)
+        database.save_models(previous_question)
 
     # Set game stage to 'selection'
     game_data.stage = StageType.SELECTION
@@ -184,18 +184,25 @@ def selection(game_data: Game):
         else:
             # The player with the lowest score at the start of a new regular round gets the turn
             lowest_score = 0
-            lowers_score_id = game_data.game_contestants[0].contestant_id
+            lowest_score_id = game_data.game_contestants[0].contestant_id
             for contestant in game_data.game_contestants:
                 if contestant.score < lowest_score:
-                    lowers_score_id = contestant.contestant_id
+                    lowest_score_id = contestant.contestant_id
                     lowest_score = contestant.score
 
-            game_data.set_contestant_turn(lowers_score_id)
+            game_data.set_contestant_turn(lowest_score_id)
 
         if is_finale:
             game_data.stage = StageType.FINALE_WAGER
 
     if is_finale:
+        if game_data.round < len(game_data.pack.rounds):
+            # If the game has less rounds than the question pack
+            # and this round is the finale, set the round to equal
+            # the last round of the pack
+            game_data.round = len(game_data.pack.rounds)
+            questions = game_data.get_questions_for_round()
+
         # Set the single finale question as the active question
         questions[0].active = True
 

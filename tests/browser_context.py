@@ -298,15 +298,10 @@ class ContextHandler:
         async with await self.wait_for_contestants():
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-    async def open_selection_page(
-        self,
-        round_num: int,
-        question_num: int,
-        turn_id: int,
-        player_data: list[tuple[int, int, int, str]]
-    ):
-        query_str = _get_players_query_string(turn_id, question_num, player_data)
-        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/{round_num}?{query_str}")
+    async def open_selection_page(self, game_id: str):
+        url = f"{self.PRESENTER_URL}/{game_id}/selection"
+        async with await self.wait_for_contestants():
+            await self.presenter_page.goto(url)
 
     async def open_question_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/question"
@@ -343,7 +338,7 @@ class ContextHandler:
     
         answer_choices = await self.presenter_page.query_selector_all(".question-choices-wrapper > .question-choice-entry")
         if answer_choices != []:
-            for i, c in enumerate(answer_choices):
+            for i, c in enumerate(answer_choices, start=1):
                 text = await c.text_content()
                 if text.split(":")[1].strip() == choice:
                     await self.presenter_page.press("body", str(i))
@@ -441,13 +436,13 @@ class ContextHandler:
         if used_power_ups is not None:
             for power_up in used_power_ups:
                 used_icon = await page.query_selector(f"#contestant-power-btn-{power_up} > .contestant-power-used")
-                assert await used_icon.is_visible() is used_power_ups[power_up]
+                assert await used_icon.is_visible() is used_power_ups[power_up], f"Correct used {power_up}"
 
         # Assert that enabled power-ups are correct
         if enabled_power_ups is not None:
             for power_up in enabled_power_ups:
                 wrapper_element = await page.query_selector(f"#contestant-power-btn-{power_up}")
-                assert await wrapper_element.is_enabled() is enabled_power_ups[power_up]
+                assert await wrapper_element.is_enabled() is enabled_power_ups[power_up], f"Correct enabled {power_up}"
 
         # Validate remaining fields
         header_data = [
@@ -529,7 +524,7 @@ class ContextHandler:
             for power_up in used_power_ups:
                 wrapper_element = await self.presenter_page.query_selector(f".footer-contestant-power-{power_up}")
                 used_icon = await wrapper_element.query_selector(".footer-contestant-entry-power-used")
-                assert (used_icon is not None) is used_power_ups[power_up]
+                assert (used_icon is not None) is used_power_ups[power_up], f"Correct used {power_up}"
 
         # Validate remaining fields
         header_data = [
@@ -641,7 +636,7 @@ class ContextHandler:
                 correct_elem = await self.presenter_page.query_selector("#question-answer-correct")
                 assert await correct_elem.is_visible()
             else:
-                wrong_elem = await self.presenter_page.query_selector("#question-answer-correct")
+                wrong_elem = await self.presenter_page.query_selector("#question-answer-wrong")
                 assert await wrong_elem.is_visible()
 
     async def screenshot_views(self, index: int = 0):

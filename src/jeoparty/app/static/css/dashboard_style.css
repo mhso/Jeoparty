@@ -408,6 +408,11 @@
     justify-content: left;
 }
 
+.question-pack-finale-wrapper > div {
+    display: flex;
+    justify-content: center;
+}
+
 .question-pack-category-wrapper {
     text-align: center;
     flex-shrink: 1;

@@ -12,7 +12,7 @@ from mhooge_flask.routing import make_template_context, make_text_response
 from mhooge_flask.logging import logger
 
 from jeoparty.api.database import Database
-from jeoparty.api.config import get_question_pack_data_path
+from jeoparty.api.config import Config, get_question_pack_data_path
 from jeoparty.api.orm.models import *
 from jeoparty.api.enums import StageType
 from jeoparty.app.routes.shared import (
@@ -244,6 +244,7 @@ def _validate_pack_data(data: Dict[str, Any]) -> str | None:
         return error_or_model
 
     for round_data in data["rounds"]:
+        questions_for_round = 0
         for category_data in round_data["categories"]:
             for question_data in category_data["questions"]:
                 extra = question_data.get("extra", {})
@@ -268,6 +269,15 @@ def _validate_pack_data(data: Dict[str, Any]) -> str | None:
 
                 if ("question_image" in extra or "video" in extra) and "height" not in extra:
                     return f"{base_error}: The height of an image or video must be specified"
+
+                questions_for_round += 1
+
+        if error_or_model.include_finale and round_data["round"] == len(data["rounds"]):
+            if len(round_data["categories"]) > 1:
+                return f"Error: The finale round must have exactly one category, but has {len(round_data["categories"])}"
+
+            if questions_for_round > 1:
+                return f"Error: The finale round must have exactly one question, but has {questions_for_round}"
 
     return None
 
@@ -334,6 +344,18 @@ def question_pack(pack_id: str):
             return flask.abort(404)
 
         pack_json = pack_data.dump(included_relations=[QuestionPack.rounds])
+        if len(pack_data.rounds) == 1 and not pack_data.include_finale:
+            # If finale is not included, provide a placeholder round
+            # to make UI handling easier
+            pack_json["rounds"].append(
+                {
+                    "pack_id": pack_data.id,
+                    "name": Config.ROUND_NAMES[-1],
+                    "round": 2,
+                    "categories": [],
+                }
+            )
+
         base_entries = {k: v for k, v in pack_json.items() if not isinstance(v, list)}
 
     return render_locale_template(

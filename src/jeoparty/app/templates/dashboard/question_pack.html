@@ -55,11 +55,14 @@
                 <div id="question-pack-data-body">
                     {% for round_data in rounds %}
                     {% set round_num = loop.index0 %}
-                    <div class="question-pack-round-wrapper question-pack-round-wrapper-{{ round_num }} d-none" data-height="0" data-width="0">
+                    {% set is_finale = loop.last and include_finale %}
+
+                    <div class="question-pack-round-wrapper question-pack-round-wrapper-{{ round_num }}{% if is_finale %} question-pack-finale-wrapper{% endif %} d-none" data-height="0" data-width="0">
                         <div class="input-field">
                             <label for="round-name-{{ round_num }}" class="question-pack-round-name-label">Round Name</label>
                             <input class="question-pack-round-name" name="round-name-{{ round_num }}" value="{{ round_data['name'] }}" onchange="syncRoundData({{ round_num }}); dataChanged();">
                         </div>
+
 
                         <div class="question-pack-round-body">
                             {% for category in round_data["categories"] %}
@@ -95,9 +98,11 @@
                             {% endfor -%}
                         </div>
 
-                        <button class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}" onclick="addCategory({{ round_num }});">Click here to add a category</button>
+                        <button class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}" onclick="addCategory({{ round_num }}, {{ is_finale | tojson }});">
+                            {% if is_finale %}Click here to add the finale question!{% else %}Click here to add a category{% endif %}
+                        </button>
 
-                        <button class="question-pack-add-category-btn{% if not round_data['categories'] %} d-none{% endif %}" onclick="addCategory({{ round_num }});">+</button>
+                        <button class="question-pack-add-category-btn{% if not round_data['categories'] or is_finale %} d-none{% endif %}" onclick="addCategory({{ round_num }});">+</button>
                     </div>
                     {% endfor %}
                 </div>

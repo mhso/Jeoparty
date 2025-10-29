@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 
-from jeoparty.api.enums import PowerUpType
+from jeoparty.api.enums import PowerUpType, StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 
 @pytest.mark.asyncio
@@ -44,7 +44,10 @@ async def test_first_turn(database):
             await context.start_game()
 
             session.refresh(game_data)
+            
             assert game_data.get_contestant_with_turn() is None
+            assert game_data.round == 1
+            assert game_data.stage == StageType.SELECTION
 
             # Assert initial conditions
             for contestant_id, name, color in zip(context.contestant_pages, contestant_names, contestant_colors):
@@ -87,3 +90,84 @@ async def test_first_turn(database):
                 question_entries = await entry.query_selector_all(".selection-question-box")
                 for entry, expected_value in zip(question_entries, expected_values):
                     assert (await entry.text_content()).strip() == expected_value
+
+@pytest.mark.asyncio
+async def test_new_round(database):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            session.refresh(game_data)
+            assert len(game_data.game_contestants) == len(contestant_names)
+            assert game_data.round == 1
+
+            # Mark all but one question as used
+            for question in game_data.game_questions:
+                question.active = False
+                question.used = True
+
+            game_data.game_questions[0].active = True
+            game_data.game_questions[0].used = False
+
+            database.save_models(*game_data.game_questions)
+
+            # Go to selection page
+            await context.open_selection_page(game_id)
+
+            await context.screenshot_views()
+
+            session.refresh(game_data)
+
+            assert game_data.round == 2
+            assert game_data.stage == StageType.SELECTION
+            assert not any(q.question.used for q in game_data.game_questions)
+
+@pytest.mark.asyncio
+async def test_finale_wager(database):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            session.refresh(game_data)
+            assert len(game_data.game_contestants) == len(contestant_names)
+            assert game_data.round == 1
