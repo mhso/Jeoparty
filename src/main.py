@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 import json
 from os.path import basename
 from glob import glob
+import gevent
 
 from mhooge_flask.logging import logger
 from mhooge_flask import init
@@ -49,6 +50,7 @@ def run_app(args):
 
 @restartable
 def main():
+    gevent.get_hub().NOT_ERROR += (KeyboardInterrupt,)
     run_app(args)
 
 if __name__ == "__main__":

@@ -276,6 +276,18 @@ class ContextHandler:
 
         return contestant_page, contestant_id
 
+    async def wait_for_contestants(self):
+        """
+        Create a stack of context managers so we can wait wait for the presenter
+        and each contestant to be redirected after presented jumps to new page.
+        """
+        stack = AsyncExitStack()
+        await stack.enter_async_context(self.presenter_page.expect_navigation())
+        for page in self.contestant_pages.values():
+            await stack.enter_async_context(page.expect_navigation())
+
+        return stack
+
     async def start_game(self):
         if await self.presenter_page.query_selector("#menu-lobby-music") is not None:
             # Plays intro music
@@ -283,7 +295,7 @@ class ContextHandler:
             await asyncio.sleep(1.5)
 
         # Starts the game
-        async with self.presenter_page.expect_navigation():
+        async with await self.wait_for_contestants():
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def open_selection_page(
@@ -298,13 +310,7 @@ class ContextHandler:
 
     async def open_question_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/question"
-
-        # Create an stack of context manager to wait for each contestant to
-        # be redirected to the question page
-        async with AsyncExitStack() as stack:
-            for page in self.contestant_pages.values():
-                await stack.enter_async_context(page.expect_navigation())
-
+        async with await self.wait_for_contestants():
             await self.presenter_page.goto(url)
 
     async def open_endscreen_page(self, player_data: list[tuple[str, int, int, str]]):
@@ -615,7 +621,6 @@ class ContextHandler:
             buzz_feed_elem = await self.presenter_page.query_selector_all("#question-game-feed > ul > li")
             assert len(buzz_feed_elem) == len(game_feed)
             for entry, expected in zip(buzz_feed_elem, game_feed):
-                print(expected, await entry.text_content())
                 assert re.match(expected, await entry.text_content()) is not None
 
         # Assert that the answer and explanation is correct
@@ -638,7 +643,6 @@ class ContextHandler:
             else:
                 wrong_elem = await self.presenter_page.query_selector("#question-answer-correct")
                 assert await wrong_elem.is_visible()
-
 
     async def screenshot_views(self, index: int = 0):
         width = PRESENTER_VIEWPORT["width"]

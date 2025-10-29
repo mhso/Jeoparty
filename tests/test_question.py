@@ -127,4 +127,25 @@ async def test_question_view_first_round(database, locales):
             # Have the player answer the question wrong
             await context.answer_question(choice="Eggs")
 
-            await context.screenshot_views()
+            await context.assert_contestant_values(
+                buzz_player.contestant_id,
+                contestant_names[2],
+                contestant_colors[2],
+                score=0,
+                buzzes=0,
+                hits=0,
+                misses=0, # Misses only update on page refresh, so here it's still 0
+                used_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                enabled_power_ups={"hijack": False, "freeze": False, "rewind": True},
+            )
+
+            await context.assert_presenter_values(
+                buzz_player.id,
+                buzz_player.contestant.name,
+                buzz_player.contestant.color,
+                score=-active_question.question.value,
+                hits=0,
+                misses=0, # Misses only update on page refresh, so here it's still 0
+                has_turn=False,
+                used_power_ups={"hijack": False, "freeze": False, "rewind": False}
+            )

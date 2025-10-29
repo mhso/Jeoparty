@@ -33,7 +33,8 @@
 
     <!-- Question header -->
     {% if question or editable %}
-    {{ element("question-question-header", question, 'h3', 'textarea', rows="3", placeholder="Question Goes Here") }}
+    {% set placeholder = '"Question Goes Here"' %}
+    {{ element("question-question-header", question, 'h3', 'textarea', rows="3", placeholder=placeholder | safe) }}
     {% endif %}
 
     {% if editable %}
@@ -75,35 +76,45 @@
             <div class="drag-target-preview-wrapper{% if not has_media%} d-none{% endif %}">
                 {% if has_media %}
                     {% if "question_image" in extra %}
-                    <img class="question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                    <img class="question-media question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                     {% else %}
-                    <video class="question-question-video question-editable{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" controls style="height: {{ extra['height'] }}px;">
+                    <video class="question-media question-question-video question-editable{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" controls style="height: {{ extra['height'] }}px;">
                         <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
                     </video>
                     {% endif %}
                 {% endif %}
             </div>
+
             <div class="drag-target-tooltip{% if has_media%} d-none{% endif %}">
                 <h3>Question Image/Video</h3>
                 Drop file or click here to upload
             </div>
+
             <div class="drag-target-loading d-none">
                 <div class="loading-icon"></div>
             </div>
+
             <input class="question-question-media-input drag-input" name="question-media" type="file" accept=".png, .jpeg, .jpg, .webp, .webm, .mp4" hidden onchange="mediaFileSelected(event, 'question')">
         </div>
 
-        <div class="media-drag-target{% if 'answer_image' not in extra %} target-empty{% endif %}" onclick="openMediaInput(event);" ondragenter="mediaDragEnter(event);" ondragleave="mediaDragLeave(event);" ondragend="mediaDragLeave(event);" ondrop="mediaDragDropped(event, 'answer');">
+        <div class="media-drag-target{% if 'answer_image' not in extra %} target-empty{% endif %}" onclick="openMediaInput(event);" ondragover="event.preventDefault();" ondragenter="mediaDragEnter(event);" ondragleave="mediaDragLeave(event);" ondragend="mediaDragLeave(event);" ondrop="mediaDragDropped(event, 'answer');">
             <button class="media-delete-btn delete-button{% if 'answer_image' not in extra %} d-none{% endif %}" onclick="deleteMedia(event)">&times;</button>
+
             <div class="drag-target-preview-wrapper{% if 'answer_image' not in extra %} d-none{% endif %}">
                 {% if "answer_image" in extra %}
-                <img class="question-answer-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                <img class="question-media question-answer-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                 {% endif %}
             </div>
+
             <div class="drag-target-tooltip{% if 'answer_image' in extra %} d-none{% endif %}">
                 <h3>Answer Image</h3>
                 Drop file or click here to upload
             </div>
+
+            <div class="drag-target-loading d-none">
+                <div class="loading-icon"></div>
+            </div>
+
             <input class="question-answer-media-input drag-input" name="answer-media" type="file" accept=".png, .jpeg, .jpg, .webp" hidden onchange="mediaFileSelected(event, 'answer')">
         </div>
 

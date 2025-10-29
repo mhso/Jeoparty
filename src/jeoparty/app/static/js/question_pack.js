@@ -342,16 +342,10 @@ function resizeRoundWrappers(round, orientation) {
     }
 }
 
-function addQuestion(value, roundId, categoryId) {
-    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
-    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
-
-    let questionId = getNextId(roundId, categoryId);
+function addQuestion(value, roundId, categoryId, questionId, wrapper) {
     if (questionId == 0) {
         questionData["rounds"][roundId]["categories"][categoryId]["questions"] = [];
     }
-
-    let outerWrapper = document.createElement("div");
 
     let questionWrapper = document.createElement("div");
     questionWrapper.classList.add("question-pack-question-wrapper");
@@ -377,8 +371,7 @@ function addQuestion(value, roundId, categoryId) {
     questionWrapper.appendChild(deleteBtn);
     questionWrapper.appendChild(questionElem);
 
-    outerWrapper.appendChild(questionWrapper);
-    categoryWrapper.appendChild(outerWrapper);
+    wrapper.appendChild(questionWrapper);
 
     resizeRoundWrappers(roundId, "height");
 }
@@ -765,23 +758,27 @@ function fade(elem, out, duration) {
 function showPopup(text, error) {
     let popup = document.getElementById("question-pack-popup");
     popup.classList.remove("d-none");
+    let duration;
     if (error) {
         popup.classList.add("popup-error");
         popup.classList.remove("popup-success");
+        duration = 10;
     }
     else {
         popup.classList.add("popup-success");
         popup.classList.remove("popup-error");
+        duration = 6;
     }
 
     popup.textContent = text;
     popup.style.animationName = null;
     popup.offsetHeight;
+    popup.style.animationDuration = `${duration}s`;
     popup.style.animationName = "popup-animate";
 
     setTimeout(function() {
         popup.classList.add("d-none");
-    }, 7000);
+    }, duration * 1000);
 }
 
 function saveData(packId) {
@@ -950,13 +947,15 @@ function validateAndGetMediaFile(files) {
 }
 
 function setBackgroundImage(event, roundId, categoryId) {
-    let wrapper = getSpecificParent(event.target, "question-pack-question-view");
-    let bgImage = wrapper.querySelector(".bg-image");
-
     let file = validateAndGetMediaFile(event.target.files);
     if (file != null) {
         const fileSrc = URL.createObjectURL(file);
-        bgImage.style.backgroundImage = `url(${fileSrc})`;
+        let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
+        let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
+        let bgImageElements = categoryWrapper.querySelectorAll(".bg-image");
+        bgImageElements.forEach(elem => {
+            elem.style.backgroundImage = `url(${fileSrc})`;
+        });
     }
 
     syncCategoryData(roundId, categoryId);
@@ -1117,13 +1116,105 @@ function getRandomFilename(contentType) {
     return filename + "." + fileExt;
 }
 
+function handleURLDataTransfers(event) {
+    return new Promise((resolve, reject) => {
+        let processedItems = 0;
+
+        function rejectIfDone() {
+            processedItems += 1;
+            if (processedItems == event.dataTransfer.items.length) {
+                reject();
+            }
+        }
+
+        function processURL(dataURL) {
+            return new Promise((resolve, reject) => {
+                const client = new XMLHttpRequest();
+    
+                let url = `${getBaseURL()}/jeoparty/pack/fetch?url=${encodeURI(dataURL)}`
+    
+                client.open("GET", url, true);
+                client.responseType = "blob";
+                client.send();
+    
+                // Download the image/video and see if the content type is appropriate
+                client.onreadystatechange = function() {
+                    if(this.readyState == this.DONE) {    
+                        if (this.status != 200) {
+                            reject();
+                            return;
+                        }
+    
+                        const contentType = client.getResponseHeader("Content-Type");
+                        const filename = getRandomFilename(contentType);
+    
+                        if (filename == null) {
+                            console.warn("File extension is null for", contentType);
+                            reject();
+                            return;
+                        }
+    
+                        let file = new File([this.response], filename, {type: contentType});
+    
+                        dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        const fileList = dataTransfer.files;
+    
+                        let validatedFile = validateAndGetMediaFile(fileList);
+                        if (validatedFile != null) {
+                            resolve(fileList);
+                        }
+                    }
+                }
+            });
+        }
+
+        for (const item of event.dataTransfer.items) {
+            item.getAsString((s) => console.log(item.kind, item.type, s));
+    
+            if (item.kind != "string") {
+                rejectIfDone();
+                continue;
+            }
+    
+            const isHtml = item.type.match(/^text\/html/);
+            const isURL = item.type.match(/^text\/uri-list/);
+
+            if (isHtml || isURL) {
+                item.getAsString((data) => {
+                    let dataURL = null;
+                    if (isHtml) {
+                        let div = document.createElement("div");
+                        div.innerHTML = data;
+                        let imgElem = div.querySelector("a > img");
+                        if (imgElem != null) {
+                            dataURL = imgElem.src;
+                        }
+                    }
+                    else {
+                        dataURL = data;
+                    }
+
+                    if (dataURL == null) {
+                        rejectIfDone();
+                        return;
+                    }
+
+                    processURL(dataURL).then((result) => {
+                        resolve(result);
+                    }, rejectIfDone);
+                });
+            }
+        }
+    });
+}
+
 function mediaDragDropped(event, mediaKey) {
     event.preventDefault();
-
+    
     let wrapper = getSpecificParent(event.target, "media-drag-target");
+    wrapper.classList.remove("media-drag-hover");
 
-    let preview = wrapper.querySelector(".drag-target-preview-wrapper");
-    let header = wrapper.querySelector(".drag-target-tooltip");
     let loadingWrapper = wrapper.querySelector(".drag-target-loading");
     loadingWrapper.classList.remove("d-none");
 
@@ -1138,55 +1229,17 @@ function mediaDragDropped(event, mediaKey) {
     }
 
     // Otherwise, check to see if we dragged an image/video from a URL
-    for (const item of event.dataTransfer.items) {
-        if (item.kind === "string" && item.type.match(/^text\/uri-list/)) {
-            item.getAsString((urlToFetch) => {
-                const client = new XMLHttpRequest();
-                
-                let url = `${getBaseURL()}/jeoparty/pack/fetch?url=${encodeURI(urlToFetch)}`
-
-                client.open("GET", url, true);
-                client.responseType = "blob";
-                client.send();
-
-                // Download the image/video and see if the content type is appropriate
-                client.onreadystatechange = function() {
-                    if(this.readyState == this.DONE) {
-                        loadingWrapper.classList.add("d-none");
-
-                        if (this.status != 200) {
-                            if (preview.classList.contains("d-none")) {
-                                header.classList.remove("d-none");
-                            }
-                            alert("Invalid file type.")
-                            return;
-                        }
-
-                        const contentType = client.getResponseHeader("Content-Type");
-                        const filename = getRandomFilename(contentType);
-
-                        if (filename == null) {
-                            console.warn("File extension is null for", contentType);
-                            return;
-                        }
-
-                        let file = new File([this.response], filename, {type: contentType});
-
-                        dataTransfer = new DataTransfer();
-
-                        dataTransfer.items.add(file);
-                        const fileList = dataTransfer.files;
-
-                        let validatedFile = validateAndGetMediaFile(fileList);
-                        if (validatedFile != null) {
-                            input.files = fileList;
-                            showMediaPreview(wrapper, validatedFile, mediaKey);
-                        }
-                    }
-                }
-            }
-        )}
-    }
+    handleURLDataTransfers(event, wrapper, mediaKey).then((fileList) => {
+        input.files = fileList;
+        loadingWrapper.classList.add("d-none");
+        showMediaPreview(wrapper, fileList[0], mediaKey);
+    }, () => {
+        loadingWrapper.classList.add("d-none");
+        if (preview.classList.contains("d-none")) {
+            header.classList.remove("d-none");
+        }
+        alert("Invalid file type.");
+    });
 }
 
 function mediaDragEnter(event) {
@@ -1211,13 +1264,7 @@ function mediaDragLeave(event) {
 }
 
 function getMedia(wrapper) {
-    let media = wrapper.querySelector(".question-question-video");
-
-    if (media == null) {
-        media = wrapper.querySelector(".question-question-image");
-    }
-
-    return media;
+    return wrapper.querySelector(".question-media");
 }
 
 function _maximizeMedia(wrapper, media, maximize=true) {
@@ -1256,14 +1303,15 @@ function maximizeMedia(event) {
 
     let target = event.target;
 
-    let wrapper = getSpecificParent(target, "question-view-wrapper");
+    let outerWrapper = getSpecificParent(event.target, "question-view-wrapper");
+    let wrapper = getSpecificParent(target, "media-drag-target");
     let media = getMedia(wrapper);
 
     if (media == null) {
         return;
     }
 
-    _maximizeMedia(wrapper, media, !media.classList.contains("media-maximized"));
+    _maximizeMedia(outerWrapper, media, !media.classList.contains("media-maximized"));
 
     if (!target.classList.contains("media-maximize-btn")) {
         target = target.parentElement;
@@ -1286,11 +1334,10 @@ function deleteMedia(event) {
     event.stopPropagation();
 
     let outerWrapper = getSpecificParent(event.target, "question-view-wrapper");
-
-    let wrapper = outerWrapper.querySelector(".media-drag-target");
+    let wrapper = getSpecificParent(event.target, "media-drag-target");
     wrapper.classList.add("target-empty");
 
-    let media = getMedia(outerWrapper);
+    let media = getMedia(wrapper);
     if (media != null && media.classList.contains("media-maximized")) { 
         _maximizeMedia(outerWrapper, media, false);
     }
@@ -1316,6 +1363,7 @@ function setMediaBorderColor(event) {
 
     let wrapper = getSpecificParent(event.target, "media-drag-target");
     let media = getMedia(wrapper);
+    media.classList.add("image-border");
 
     media.style.borderColor = event.target.value;
 }
@@ -1370,11 +1418,11 @@ function orderQuestions(roundId, categoryId) {
 
 function saveQuestion(roundId, categoryId, questionId) {
     const newQuestion = questionId == questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
-    let wrapper = getQuestionViewWrapper(roundId, categoryId, questionId);
-    let valueInput = wrapper.querySelector(".question-reward-span");
+    let viewWrapper = getQuestionViewWrapper(roundId, categoryId, questionId);
+    let valueInput = viewWrapper.querySelector(".question-reward-span");
 
     if (newQuestion) {
-        addQuestion(valueInput.value, roundId, categoryId);
+        addQuestion(valueInput.value, roundId, categoryId, questionId, viewWrapper.parentElement);
     }
     else {
         let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
@@ -1393,7 +1441,9 @@ function saveQuestion(roundId, categoryId, questionId) {
 }
 
 function createQuestionView(roundId, categoryId) {
-    let questionId = questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
+    let questionId = getNextId(roundId, categoryId);
+
+    let outerWrapper = document.createElement("div");
 
     let placeholder = document.querySelector(".question-pack-question-view-placeholder");
     let wrapper = placeholder.cloneNode(true);
@@ -1409,7 +1459,7 @@ function createQuestionView(roundId, categoryId) {
     }
 
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
-    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId}`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
     let questionWrappers = categoryWrapper.querySelectorAll(".question-pack-question-wrapper");
     let roundIndex = getElementIndex("question-pack-round-wrapper", roundId);
 
@@ -1444,11 +1494,12 @@ function createQuestionView(roundId, categoryId) {
 
     // Add onchange event to background image input
     let bgImageInput = wrapper.querySelector(".question-bg-image-input");
-    bgImageInput.onclick = function(event) {
+    bgImageInput.onchange = function(event) {
         setBackgroundImage(event, roundId, categoryId);
     }
 
-    categoryWrapper.appendChild(wrapper);
+    outerWrapper.appendChild(wrapper);
+    categoryWrapper.appendChild(outerWrapper);
 
     showQuestionView(roundId, categoryId, questionId);
 }
