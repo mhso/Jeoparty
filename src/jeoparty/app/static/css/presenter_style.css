@@ -640,10 +640,10 @@ h3 {
 .footer-contestant-entry-ready {
     display: none;
     position: absolute;
-    width: 60px;
-    top: -30px;
-    left: calc(50% - 30px);
-    border-radius: 30px;
+    width: 64px;
+    top: -32px;
+    left: calc(50% - 32px);
+    border-radius: 32px;
     background: #00000075;
 }
 

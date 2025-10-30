@@ -1,6 +1,8 @@
 import asyncio
 import pytest
 
+from playwright.async_api import Dialog
+
 from jeoparty.api.enums import PowerUpType, StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 
@@ -167,7 +169,8 @@ async def test_finale_wager(database, locales):
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
-            locale = locales[game_data.pack.language.value]["pages"]["presenter/selection"]
+            locale_selection = locales[game_data.pack.language.value]["pages"]["presenter/selection"]
+            locale_game = locales[game_data.pack.language.value]["pages"]["contestant/game"]
 
             # Add contestants to the game
             for name, color in zip(contestant_names, contestant_colors):
@@ -211,34 +214,78 @@ async def test_finale_wager(database, locales):
             category_name = questions[0].question.category.name
 
             await context.assert_finale_wager_values(
-                locale,
+                locale_selection,
                 round_name,
             )
 
             # Show finale category
             await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-            await context.screenshot_views()
-
             await context.assert_finale_wager_values(
-                locale,
+                locale_selection,
                 round_name,
                 category_name,
                 False,
             )
 
             await asyncio.sleep(4)
-            await context.screenshot_views(1)
 
             await context.assert_finale_wager_values(
-                locale,
+                locale_selection,
                 round_name,
                 category_name,
                 True,
             )
 
-            # Make wagers for each contestant
-            wagers = [100, 0, 100, 100]
+            for contestant in game_data.game_contestants:
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    contestant.contestant.name,
+                    contestant.contestant.color,
+                    score=contestant.score,
+                    buzzes=contestant.buzzes,
+                    hits=contestant.hits,
+                    misses=contestant.misses,
+                )
+    
+                await context.assert_presenter_values(
+                    contestant.id,
+                    contestant.contestant.name,
+                    contestant.contestant.color,
+                    score=contestant.score,
+                    hits=contestant.hits,
+                    misses=contestant.misses,
+                    has_turn=False,
+                    ready=False,
+                )
 
-            for contestant, wager in zip(game_data.game_contestants, contestant_scores):
-                await context.make_wager(contestant.id, wager)
+            # Make an invalid wager
+            async def on_dialog(dialog: Dialog):
+                assert dialog.message == f"{locale_game["invalid_wager"]} 1000"
+                await dialog.dismiss()
+
+                # Make valid wagers for each contestant
+                wagers = [1000, 300, 400, 0]
+
+                await asyncio.wait(
+                    [
+                        asyncio.create_task(context.make_wager(contestant.contestant_id, wager))
+                        for contestant, wager in zip(game_data.game_contestants, wagers)
+                    ]
+                )
+
+                for contestant in game_data.game_contestants:
+                    await context.assert_presenter_values(
+                        contestant.id,
+                        contestant.contestant.name,
+                        contestant.contestant.color,
+                        score=contestant.score,
+                        hits=contestant.hits,
+                        misses=contestant.misses,
+                        has_turn=False,
+                        ready=True,
+                    )
+
+                await context.screenshot_views()
+
+            await context.make_wager(game_data.game_contestants[0].contestant_id, 1100, on_dialog)

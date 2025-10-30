@@ -450,7 +450,7 @@
     font-size: 18px;
 }
 
-.question-pack-category-name, .question-pack-question-name {
+.question-pack-category-name, .question-pack-question-value {
     color: white;
     background-color: rgb(15, 12, 118);
     text-align: center;
@@ -474,7 +474,7 @@
     filter: brightness(1.4);
 }
 
-.question-pack-question-name {
+.question-pack-question-value {
     cursor: pointer;
 }
 

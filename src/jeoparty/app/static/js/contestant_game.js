@@ -13,7 +13,7 @@ function makeDailyDoubleWager(playerId) {
     btn.disabled = true;
     let value = document.getElementById("daily-wager-input").value;
     socket.once("daily_wager_made", function(amount) {
-        btn.style.backgroundColor = "#00b000";
+        btn.classList.add("wager-made");
     });
     socket.emit("make_daily_wager", playerId, value);
 }
@@ -23,7 +23,7 @@ function makeFinalJeopardyWager(playerId) {
 
     let value = document.getElementById("finale-wager-input").value;
     socket.once("finale_wager_made", function() {
-        btn.style.backgroundColor = "#00b000";
+        btn.classList.add("wager-made");
     });
     socket.emit("make_finale_wager", playerId, value);
 }
@@ -33,7 +33,7 @@ function giveFinalJeopardyAnswer(playerId) {
 
     let answer = document.getElementById("finale-answer").value;
     socket.once("finale_answer_given", function() {
-        btn.style.backgroundColor = "#00b000";
+        btn.classList.add("wager-made");
     });
     socket.emit("give_finale_answer", playerId, answer);
 }

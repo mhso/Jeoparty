@@ -399,6 +399,11 @@ class ContextHandler:
         submit_button = await page.query_selector("#contestant-wager-btn")
         await submit_button.tap()
 
+        async def wager_accepted():
+            return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
+
+        await self.wait_for_event(wager_accepted)
+
     async def assert_contestant_values(
         self,
         contestant_id: str,
@@ -474,6 +479,7 @@ class ContextHandler:
         misses: int | None = None,
         has_turn: bool | None = None,
         used_power_ups: Dict[str, bool] | None = None,
+        ready: bool | None = None,
     ):
         game_active = False
         for endpoint in ("question", "selection", "finale"):
@@ -491,10 +497,8 @@ class ContextHandler:
             header_style = await wrapper_elem.get_property("style")
 
             if game_active:
-                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
                 element_color = await header_style.get_property("backgroundColor")
             else:
-                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
                 element_color = await header_style.get_property("borderColor")
 
             assert rgb_to_hex(await element_color.json_value()) == color.upper()
@@ -502,11 +506,9 @@ class ContextHandler:
         # Assert that contestant avatar is correct
         if avatar is not None:
             if game_active:
-                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
-                avatar_elem = await wrapper_elem.query_selector(".footer-contestant-entry-avatar")
+                avatar_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id} > .footer-contestant-entry-avatar")
             else:
-                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
-                avatar_elem = await wrapper_elem.query_selector(".menu-contestant-avatar")
+                avatar_elem = await self.presenter_page.query_selector(f"#player_{contestant_id} > .menu-contestant-avatar")
 
             src_path = await avatar_elem.get_attribute("src")
             if len(src_path) > len(avatar):
@@ -518,8 +520,8 @@ class ContextHandler:
 
         # Assert that contestant having turn is correct
         if has_turn is not None:
-            wrapper_element = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
-            assert (await wrapper_element.evaluate("(e) => e.classList.contains('active-contestant-entry')")) is has_turn
+            player_turn = await self.presenter_page.eval_on_selector(f".footer-contestant-{contestant_id}", "(e) => e.classList.contains('active-contestant-entry')")
+            assert player_turn is has_turn
 
         # Assert that used power-ups are correct
         if used_power_ups is not None:
@@ -527,6 +529,11 @@ class ContextHandler:
                 wrapper_element = await self.presenter_page.query_selector(f".footer-contestant-power-{power_up}")
                 used_icon = await wrapper_element.query_selector(".footer-contestant-entry-power-used")
                 assert (used_icon is not None) is used_power_ups[power_up], f"Correct used {power_up}"
+
+        # Assert that ready-state are correct
+        if ready is not None:
+            ready_icon = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id} > .footer-contestant-entry-ready")
+            assert await ready_icon.is_visible() is ready
 
         # Validate remaining fields
         header_data = [

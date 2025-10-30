@@ -131,7 +131,7 @@ h1 {
 #contestant-lobby-avatar-img {
     display: block;
     width: 64px;
-    border-radius: 34px;
+    border-radius: 32px;
     border: 2px solid white;
 }
 
@@ -327,6 +327,10 @@ h1 {
 #contestant-wager-btn:disabled {
     background-color: gray;
     cursor: auto;
+}
+
+#contestant-wager-btn.wager-made {
+    background-color: #00b000;
 }
 
 #finale-question-header {

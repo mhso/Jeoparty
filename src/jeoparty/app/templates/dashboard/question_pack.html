@@ -76,7 +76,7 @@
                                     <div>
                                         <div class="question-pack-question-wrapper question-pack-question-wrapper-{{ loop.index0 }}" onclick="showQuestionView({{ round_num }}, {{ category_num }}, {{ loop.index0 }})">
                                             <button class="question-pack-delete-question-btn delete-button" onclick="deleteQuestion(event, {{ round_num }}, {{ category_num }}, {{ loop.index0 }}); event.stopPropagation();">&times;</button>
-                                            <input class="question-pack-question-name question-pack-question-name-{{ loop.index0 }}" value="{{ question_data['value'] }}" readonly>
+                                            <input class="question-pack-question-value question-pack-question-value-{{ loop.index0 }}" value="{{ question_data['value'] }}" readonly>
                                         </div>
     
                                         {% set question = question_data["question"] %}

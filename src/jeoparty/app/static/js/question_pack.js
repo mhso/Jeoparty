@@ -364,8 +364,8 @@ function addQuestion(value, roundId, categoryId, questionId, wrapper) {
 
     let questionElem = document.createElement("input");
     questionElem.value = value;
-    questionElem.classList.add("question-pack-question-name");
-    questionElem.classList.add(`question-pack-question-name-${questionId}`);
+    questionElem.classList.add("question-pack-question-value");
+    questionElem.classList.add(`question-pack-question-value-${questionId}`);
     questionElem.readonly = true;
 
     questionWrapper.appendChild(deleteBtn);
@@ -1440,8 +1440,8 @@ function orderQuestions(roundId, categoryId) {
 
     let sortedElements = Array.from(categoryWrapper.children).sort(
         function(a, b) {
-            let valA = a.querySelector(".question-pack-question-name").value;
-            let valB = b.querySelector(".question-pack-question-name").value;
+            let valA = a.querySelector(".question-pack-question-value").value;
+            let valB = b.querySelector(".question-pack-question-value").value;
 
             return valA < valB ? -1 : valA > valB ? 1 : 0;
         }
@@ -1463,7 +1463,7 @@ function saveQuestion(roundId, categoryId, questionId) {
     else {
         let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
         let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
-        let questionElem = categoryWrapper.querySelector(`.question-pack-question-name-${questionId}`);
+        let questionElem = categoryWrapper.querySelector(`.question-pack-question-value-${questionId}`);
 
         questionElem.value = valueInput.value;
     }
@@ -1476,7 +1476,7 @@ function saveQuestion(roundId, categoryId, questionId) {
     showQuestionView(roundId, categoryId, questionId, false);
 }
 
-function createQuestionView(roundId, categoryId, show=true) {
+function createQuestionView(roundId, categoryId, isFinale=false) {
     let questionId = getNextId(roundId, categoryId);
 
     let outerWrapper = document.createElement("div");
@@ -1505,18 +1505,40 @@ function createQuestionView(roundId, categoryId, show=true) {
 
     // Set value of question
     let valueInput = wrapper.querySelector(".question-reward-span");
-    let baseValue = 100 * (roundIndex + 1);
-    let questionValue = baseValue;
-    questionWrappers.forEach((elem, index) => {
-        let value = elem.querySelector(".question-pack-question-name").value;
-        if (value != baseValue * (index + 1)) {
-            return;
+
+    if (!isFinale) {
+        let baseValue = 100 * (roundIndex + 1);
+        let questionValue = baseValue;
+        questionWrappers.forEach((elem, index) => {
+            let value = elem.querySelector(".question-pack-question-value").value;
+            if (value != baseValue * (index + 1)) {
+                return;
+            }
+    
+            questionValue += baseValue;
+        });
+
+        valueInput.value = questionValue;
+
+        // If the question value for this new question is larger
+        // than the value for the finale question, update it accordingly
+        let finaleValueElem = document.querySelector(".question-pack-finale-wrapper .question-pack-question-value");
+        if (finaleValueElem != null && questionValue > finaleValueElem.value) {
+            finaleValueElem.value = questionValue;
         }
+    }
+    else {
+        let allQuestionElems = document.querySelectorAll(".question-pack-question-value");
+        let maxQuestionValue = 0;
+        allQuestionElems.forEach((elem) => {
+            if (elem.value > maxQuestionValue) {
+                maxQuestionValue = elem.value;
+            }
+        });
 
-        questionValue += baseValue;
-    });
-
-    valueInput.value = questionValue;
+        valueInput.value = maxQuestionValue;
+        valueInput.readonly = true;
+    }
 
     // Set buzz time
     let countdownText = wrapper.querySelector(".question-countdown-text");
@@ -1537,11 +1559,11 @@ function createQuestionView(roundId, categoryId, show=true) {
     outerWrapper.appendChild(wrapper);
     categoryWrapper.appendChild(outerWrapper);
 
-    if (show) {
-        showQuestionView(roundId, categoryId, questionId);
+    if (isFinale) {
+        saveQuestion(roundId, categoryId, questionId, isFinale);
     }
     else {
-        saveQuestion(roundId, categoryId, questionId);
+        showQuestionView(roundId, categoryId, questionId);
     }
 }
 
