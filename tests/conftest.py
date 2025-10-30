@@ -9,17 +9,26 @@ from mhooge_flask.auth import get_hashed_password
 from jeoparty.api.config import Config, get_question_pack_data_path, get_locale_data
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
-from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question
+from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question, QuestionRound
 from tests.config import PRESENTER_USER_ID, PRESENTER_USERNAME, PRESENTER_PASSWORD
 
 def _create_question_packs(database: Database):
-    with database:
+    with database as session:
         pack_model_1 = QuestionPack(
             name="Test Pack",
             created_by=PRESENTER_USER_ID,
         )
         pack_model_1 = database.create_question_pack(pack_model_1)
         os.mkdir(get_question_pack_data_path(pack_model_1.id))
+
+        pack_model_1.rounds[1].round = 3
+        extra_round = QuestionRound(
+            pack_id=pack_model_1.id,
+            name="Double Jeoparty!",
+            round=2
+        )
+        database.save_models(extra_round, pack_model_1.rounds[1])
+        session.refresh(pack_model_1)
 
         pack_model_2 = QuestionPack(
             name="Other Pack",
@@ -32,6 +41,7 @@ def _create_question_packs(database: Database):
         os.mkdir(get_question_pack_data_path(pack_model_2.id))
 
         shutil.copy(f"{Config.STATIC_FOLDER}/img/clock.png", f"{get_question_pack_data_path(pack_model_1.id)}/clock.png")
+        shutil.copy(f"{Config.STATIC_FOLDER}/img/avatars/questionmark.png", f"{get_question_pack_data_path(pack_model_1.id)}/questionmark.png")
 
         category_model_1_1 = QuestionCategory(
             round_id=pack_model_1.rounds[0].id,
@@ -44,7 +54,20 @@ def _create_question_packs(database: Database):
             name="Category Dos",
             order=1,
         )
-        database.save_models(category_model_1_1, category_model_1_2)
+
+        category_model_2_1 = QuestionCategory(
+            round_id=pack_model_1.rounds[1].id,
+            name="Category Tres",
+            order=0,
+        )
+
+        category_model_3_1 = QuestionCategory(
+            round_id=pack_model_1.rounds[2].id,
+            name="Finale Category",
+            order=0,
+        )
+
+        database.save_models(category_model_1_1, category_model_1_2, category_model_2_1, category_model_3_1)
 
         question_model_1_1_1 = Question(
             category_id=category_model_1_1.id,
@@ -67,10 +90,25 @@ def _create_question_packs(database: Database):
             question="What is time?",
             answer="An emergent property of entropy, maybe? Who knows, man",
             value=200,
-            extra={"image": "clock.png", "height": 256}
+            extra={"image": "clock.png", "height": 420}
         )
 
-        database.save_models(question_model_1_1_1, question_model_1_2_1, question_model_1_2_2)
+        question_model_2_1_1 = Question(
+            category_id=category_model_2_1.id,
+            question="Dude, where is my car?",
+            answer="Idk, haven't seen the movie",
+            value=200,
+        )
+
+        question_model_3_1_1 = Question(
+            category_id=category_model_3_1.id,
+            question="How many choices are in this question?",
+            answer="4",
+            value=300,
+            extra={"image": "questionmark.png", "choices": ["1", "2", "3", "4"], "height": 256}
+        )
+
+        database.save_models(question_model_1_1_1, question_model_1_2_1, question_model_1_2_2, question_model_2_1_1, question_model_3_1_1)
 
         return [pack_model_1.id, pack_model_2.id]
 

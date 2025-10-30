@@ -291,6 +291,7 @@ class Database(SQLAlchemyDatabase):
 
     def update_question_pack(self, data: Dict[str, Any]):
         data_to_delete = []
+        new_ids = []
 
         with self as session:
             pack_model = session.execute(select(QuestionPack).where(QuestionPack.id == data["id"])).scalar_one()
@@ -307,8 +308,8 @@ class Database(SQLAlchemyDatabase):
             session.execute(update_stmt)
 
             # Unpack rounds, categories, and questions into separate models
-            round_index = 1
-            for round_data in data["rounds"]:
+            round_num = 1
+            for round_index, round_data in enumerate(data["rounds"]):
                 round_data["pack_id"] = pack_model.id
 
                 if round_data.get("deleted", False):
@@ -324,7 +325,7 @@ class Database(SQLAlchemyDatabase):
                     else:
                         category_models.append(category_data)
 
-                round_data["round"] = round_index
+                round_data["round"] = round_num
                 del round_data["categories"]
                 new_round_model = QuestionRound(**round_data)
 
@@ -339,8 +340,10 @@ class Database(SQLAlchemyDatabase):
                     session.add(round_model)
                     session.flush()
 
+                    new_ids.append({"round": round_index, "id": round_model.id})
+
                 category_index = 0
-                for category_data in category_models:
+                for category_index, category_data in enumerate(category_models):
                     category_data["round_id"] = round_model.id
 
                     question_models = []
@@ -366,7 +369,16 @@ class Database(SQLAlchemyDatabase):
                         session.add(category_model)
                         session.flush()
 
-                    for question_data in question_models:
+                        new_ids.append(
+                            {
+                                "round": round_index,
+                                "category": category_index,
+                                "id": category_model.id,
+                                "round_id": round_model.id
+                            }
+                        )
+
+                    for question_index, question_data in enumerate(question_models):
                         question_data["category_id"] = category_model.id
                         if question_data["extra"] == {}:
                             question_data["extra"] = None
@@ -381,13 +393,27 @@ class Database(SQLAlchemyDatabase):
                         else:
                             question_model = new_question_model
                             session.add(question_model)
+                            session.flush()
+
+                            new_ids.append(
+                                {
+                                    "round": round_index,
+                                    "category": category_index,
+                                    "question": question_index,
+                                    "id": question_model.id,
+                                    "round_id": round_model.id,
+                                    "category_id": category_model.id
+                                }
+                            )
 
                     category_index += 1
 
-                round_index += 1
+                round_num += 1
 
             # Perform deletes if there are any
             for model, model_id in data_to_delete:
                 session.execute(delete(model).where(model.id == model_id))
 
             session.commit()
+
+            return new_ids

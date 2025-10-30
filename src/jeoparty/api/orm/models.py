@@ -132,7 +132,7 @@ class Question(Base):
     @property
     def extra_fields(self):
         if self.extra is None:
-            return {}
+            return {"extra": {}}
 
         fields = dict(self.extra)
 

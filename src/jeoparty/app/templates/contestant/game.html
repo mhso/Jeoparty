@@ -75,7 +75,7 @@
                             {% set max_wager = [score, max_value] | max %}
 
                             <h3 class="player-has-turn">{{ _locale["daily_double_wager"] }}<br>(Min. 100, max. {{ max_wager }})</h3>
-                            <input id="question-wager-input" type="number" min="100" max="{{ max_wager }}">
+                            <input id="daily-wager-input" class="question-wager-input" type="number" min="100" max="{{ max_wager }}">
                             <button id="contestant-wager-btn" onclick="makeDailyDoubleWager('{{ user_id }}');">OK</button>
 
                         {% else %}
@@ -119,7 +119,7 @@
                 {% set max_wager = [score, max_value] | max %}
                 <h3>{{ _locale["finale_wager"] }}<br>(Min. 0, max. {{ max_wager }})</h3>
 
-                <input id="finale-wager-amount" type="number" min="0" max="{{ max_wager }}" disabled>
+                <input id="finale-wager-input" class="question-wager-input" type="number" min="0" max="{{ max_wager }}" disabled>
                 <button id="contestant-wager-btn" onclick="makeFinalJeopardyWager('{{ user_id }}');" disabled>OK</button>
 
                 {% else %}
@@ -172,7 +172,7 @@
                             {% else %}
                             socket.on("finale_wager_enabled", function() {
                                 document.getElementById("contestant-wager-btn").disabled = false;
-                                document.getElementById("finale-wager-amount").disabled = false;
+                                document.getElementById("finale-wager-input").disabled = false;
                             });
                             {% endif %}
                         {% endif %}

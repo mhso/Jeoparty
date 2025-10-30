@@ -8,7 +8,7 @@ import flask
 from werkzeug.datastructures import FileStorage
 
 from mhooge_flask.auth import get_user_details
-from mhooge_flask.routing import make_template_context, make_text_response
+from mhooge_flask.routing import make_template_context, make_text_response, make_json_response
 from mhooge_flask.logging import logger
 
 from jeoparty.api.database import Database
@@ -285,13 +285,13 @@ def _validate_pack_data(data: Dict[str, Any]) -> str | None:
 def save_pack(pack_id: str):
     user_details = get_user_details()
     if user_details is None:
-        return make_text_response("You are not logged in!", 401)
+        return make_json_response("You are not logged in!", 401)
 
     database: Database = flask.current_app.config["DATABASE"]
     user_id = user_details[0]
 
     if database.get_question_packs_for_user(user_id, pack_id) is None:
-        return make_text_response("You are not authorized to edit this question package", 401)
+        return make_json_response("You are not authorized to edit this question package", 401)
 
     try:
         data: Dict[str, Any] = json.loads(flask.request.form["data"])
@@ -310,24 +310,24 @@ def save_pack(pack_id: str):
         error = _validate_pack_data(data)
         if error:
             logger.error(error)
-            return make_text_response(error, 400)
+            return make_json_response(error, 400)
 
         error = _save_pack_files(data, flask.request.files)
         if error:
             logger.error(f"Error when saving question media: {error}")
-            return make_text_response(error, 400)
+            return make_json_response(error, 400)
 
-        database.update_question_pack(data)
+        new_ids = database.update_question_pack(data)
 
     except ValidationError as exc:
         details = ", ".join([get_validation_error_msg(detail) for detail in exc.errors(include_url=False)])
-        return make_text_response(f"Error when saving question pack: {details}", 400)
+        return make_json_response(f"Error when saving question pack: {details}", 400)
 
     except Exception:
         logger.exception("Error when saving question pack")
-        return make_text_response("Unknown error when saving question pack", 500)
+        return make_json_response("Unknown error when saving question pack", 500)
 
-    return make_text_response("Question pack saved succesfully.", 200)
+    return make_json_response({"response": "Question pack saved successfully.", "ids": new_ids}, 200)
 
 @dashboard_page.route("/pack/<pack_id>")
 def question_pack(pack_id: str):

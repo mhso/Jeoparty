@@ -11,7 +11,7 @@ function makeDailyDoubleWager(playerId) {
     }
 
     btn.disabled = true;
-    let value = document.getElementById("question-wager-input").value;
+    let value = document.getElementById("daily-wager-input").value;
     socket.once("daily_wager_made", function(amount) {
         btn.style.backgroundColor = "#00b000";
     });
@@ -21,7 +21,7 @@ function makeDailyDoubleWager(playerId) {
 function makeFinalJeopardyWager(playerId) {
     let btn = document.getElementById("contestant-wager-btn");
 
-    let value = document.getElementById("finale-wager-amount").value;
+    let value = document.getElementById("finale-wager-input").value;
     socket.once("finale_wager_made", function() {
         btn.style.backgroundColor = "#00b000";
     });

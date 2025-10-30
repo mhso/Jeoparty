@@ -108,7 +108,7 @@ async def test_new_round(database):
     ]
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name))[1]
+        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
@@ -121,29 +121,30 @@ async def test_new_round(database):
             assert len(game_data.game_contestants) == len(contestant_names)
             assert game_data.round == 1
 
-            # Mark all but one question as used
-            for question in game_data.game_questions:
+            # Mark all but one question in the round as used
+            questions_for_round = game_data.get_questions_for_round()
+            for question in questions_for_round:
                 question.active = False
                 question.used = True
 
-            game_data.game_questions[0].active = True
-            game_data.game_questions[0].used = False
+            questions_for_round[0].active = True
+            questions_for_round[0].used = False
 
-            database.save_models(*game_data.game_questions)
+            database.save_models(*questions_for_round)
 
             # Go to selection page
             await context.open_selection_page(game_id)
 
-            await context.screenshot_views()
-
             session.refresh(game_data)
+            questions = game_data.get_questions_for_round()
 
             assert game_data.round == 2
             assert game_data.stage == StageType.SELECTION
-            assert not any(q.question.used for q in game_data.game_questions)
+            assert all(q.question.category.round.round == 2 for q in questions)
+            assert not any(q.used for q in questions)
 
 @pytest.mark.asyncio
-async def test_finale_wager(database):
+async def test_finale_wager(database, locales):
     pack_name = "Test Pack"
     contestant_names = [
         "Contesto Uno",
@@ -157,17 +158,87 @@ async def test_finale_wager(database):
         "#BD1D1D",
         "#CA12AF",
     ]
+    contestant_scores = [
+        -500, 300, 1200, 0
+    ]
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name))[1]
+        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/selection"]
 
             # Add contestants to the game
             for name, color in zip(contestant_names, contestant_colors):
                 await context.join_lobby(game_data.join_code, name, color)
 
+            game_data.round = 2
+            database.save_models(game_data)
+
             session.refresh(game_data)
             assert len(game_data.game_contestants) == len(contestant_names)
-            assert game_data.round == 1
+
+            for contestant, score in zip(game_data.game_contestants, contestant_scores):
+                contestant.score = score
+
+            # Mark all but one question in the round as used
+            questions_for_round = game_data.get_questions_for_round()
+            for question in questions_for_round:
+                question.active = False
+                question.used = True
+
+            questions_for_round[0].active = True
+            questions_for_round[0].used = False
+
+            database.save_models(*questions_for_round)
+
+            # Go to selection page
+            await context.open_selection_page(game_id)
+
+            session.refresh(game_data)
+            questions = game_data.get_questions_for_round()
+
+            await context.screenshot_views()
+
+            assert game_data.round == 3
+            assert game_data.stage == StageType.FINALE_WAGER
+            assert all(q.question.category.round.round == 3 for q in questions)
+            assert not any(q.used for q in questions)
+            assert len(questions) == 1
+
+            round_name = questions[0].question.category.round.name
+            category_name = questions[0].question.category.name
+
+            await context.assert_finale_wager_values(
+                locale,
+                round_name,
+            )
+
+            # Show finale category
+            await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            await context.screenshot_views()
+
+            await context.assert_finale_wager_values(
+                locale,
+                round_name,
+                category_name,
+                False,
+            )
+
+            await asyncio.sleep(4)
+            await context.screenshot_views(1)
+
+            await context.assert_finale_wager_values(
+                locale,
+                round_name,
+                category_name,
+                True,
+            )
+
+            # Make wagers for each contestant
+            wagers = [100, 0, 100, 100]
+
+            for contestant, wager in zip(game_data.game_contestants, contestant_scores):
+                await context.make_wager(contestant.id, wager)

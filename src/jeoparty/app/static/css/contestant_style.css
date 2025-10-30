@@ -290,7 +290,7 @@ h1 {
     top: 1.5vw;
 }
 
-#question-wager-input, #finale-wager-input {
+.question-wager-input {
     font-size: 20px;
     border: 2px solid black;
     border-radius: 5px;

@@ -1,4 +1,3 @@
-import json
 import os
 import random
 
@@ -181,6 +180,7 @@ def selection(game_data: Game):
                 return flask.redirect(flask.url_for(".endscreen", game_id=game_data.id))
 
             is_finale = True
+            
         else:
             # The player with the lowest score at the start of a new regular round gets the turn
             lowest_score = 0
@@ -194,15 +194,15 @@ def selection(game_data: Game):
 
         if is_finale:
             game_data.stage = StageType.FINALE_WAGER
+            if game_data.round < len(game_data.pack.rounds):
+                # If the game has less rounds than the question pack
+                # and this round is the finale, set the round to equal
+                # the last round of the pack
+                game_data.round = len(game_data.pack.rounds)
+
+        questions = game_data.get_questions_for_round()
 
     if is_finale:
-        if game_data.round < len(game_data.pack.rounds):
-            # If the game has less rounds than the question pack
-            # and this round is the finale, set the round to equal
-            # the last round of the pack
-            game_data.round = len(game_data.pack.rounds)
-            questions = game_data.get_questions_for_round()
-
         # Set the single finale question as the active question
         questions[0].active = True
 
@@ -230,6 +230,7 @@ def selection(game_data: Game):
     round_json = round_data.dump(id="round_id")
     del round_json["round"]
 
+    # Merge data about game questions and actual questions
     for category_json in round_json["categories"]:
         for question_json in category_json["questions"]:
             for game_question in questions:

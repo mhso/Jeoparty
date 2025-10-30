@@ -379,9 +379,11 @@ class ContextHandler:
 
         return points_text, points_values, points_contestants
 
-    async def make_daily_double_wager(self, page: Page, amount: int, dialog_callback=None):
+    async def make_wager(self, contestant_id: str, amount: int, dialog_callback=None):
+        page = self.contestant_pages[contestant_id]
+
         # Input the amount to wager
-        wager_input = await page.query_selector("#question-wager-input")
+        wager_input = await page.query_selector(".question-wager-input")
         await wager_input.fill(str(amount))
 
         async def fail(dialog):
@@ -638,6 +640,31 @@ class ContextHandler:
             else:
                 wrong_elem = await self.presenter_page.query_selector("#question-answer-wrong")
                 assert await wrong_elem.is_visible()
+
+    async def assert_finale_wager_values(
+        self,
+        locale: Dict[str, str],
+        round_name: str = "Final Jeoparty!",
+        category_name: str | None = None,
+        music_playing: bool = False
+    ):
+        round_header = await self.presenter_page.query_selector("#selection-finale-wrapper > h1")
+        sub_header_1 = await self.presenter_page.query_selector("#selection-finale-header1")
+        sub_header_2 = await self.presenter_page.query_selector("#selection-finale-header2")
+        sub_header_3 = await self.presenter_page.query_selector("#selection-finale-header3")
+
+        assert await round_header.text_content() == round_name
+
+        if category_name is None:
+            assert await sub_header_1.evaluate("(e) => e.style.opacity == 0")
+        else:
+            assert await sub_header_1.evaluate("(e) => e.style.opacity == 1")
+            assert await sub_header_1.text_content() == locale["finale_reveal_1"]
+            assert await sub_header_2.text_content() == category_name
+            assert await sub_header_3.text_content() == locale["finale_reveal_2"]
+
+        music = await self.presenter_page.query_selector("#selection-jeopardy-theme")
+        assert await music.evaluate("(elem) => elem.paused") is not music_playing
 
     async def screenshot_views(self, index: int = 0):
         width = PRESENTER_VIEWPORT["width"]

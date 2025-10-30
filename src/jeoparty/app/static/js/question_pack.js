@@ -793,6 +793,27 @@ function showPopup(text, error) {
     }, duration * 1000);
 }
 
+function syncIds(idList) {
+    for (let entry of idList) {
+        if (Object.hasOwn(entry, "question")) {
+            let container = questionData["rounds"][entry["round"]]["categories"][entry["category"]]["questions"][entry["question"]];
+            container["id"] = entry["id"];
+            container["category_id"] = entry["category_id"];
+        }
+        else if (Object.hasOwn(entry, "category")) {
+            let container = questionData["rounds"][entry["round"]]["categories"][entry["category"]];
+            container["id"] = entry["id"];
+            container["round_id"] = entry["round_id"];
+        }
+        else {
+            let container = questionData["rounds"][entry["round"]];
+            container["id"] = entry["id"];
+        }
+    }
+
+    lastSaveState = questionData;
+}
+
 function saveData(packId) {
     let saveBtn = document.getElementById("question-pack-save-btn");
     saveBtn.disabled = true;
@@ -828,34 +849,34 @@ function saveData(packId) {
         let response;
         if (typeof(a) == "object" && Object.hasOwn(a, "status")) {
             response = a;
+            data = c;
         }
         else {
+            data = a;
             response = c;
         }
 
-        let contentType = response.getResponseHeader("Content-Type");
-
         let error = response.status != 200;
-        if (!error) {
-            showPopup("Question pack saved successfully.", false)
-        }
-        else if (contentType.startsWith("text/plain") || contentType.startsWith("text/raw")) {
-            showPopup(response.responseText, error);
-        }
-        else if (response.status == 404) {
+
+        if (response.status == 404) {
             showPopup("The question pack was not found on the server or you do not have access to it.", true);
         }
         else if (response.status == 500) {
             showPopup("Internal server error", true);
         }
         else {
-            showPopup("An error happened, try again later.", true);
+            if (error) {
+                data = JSON.parse(response["responseText"]);
+            }
+            showPopup(data["response"], error)
+        }
+
+        if (!error) {
+            syncIds(data["ids"]);
         }
 
         fade(btnPendingState, true, 1);
     }).done(function() {
-        lastSaveState = jsonData;
-
         fade(btnSuccessState, false, 1);
         setTimeout(function() {
             fade(btnSuccessState, true, 1);
@@ -1038,13 +1059,13 @@ function showMediaPreview(wrapper, file, mediaKey) {
     let mediaElem;
     if (imageFileTypes.includes(file.type)) {
         mediaElem = document.createElement("img");
-        mediaElem.className = `question-${mediaKey}-image question-editable`;
+        mediaElem.className = `question-${mediaKey}-image question-editable question-media`;
     }
     else {
         let video = document.createElement("video");
         mediaElem = document.createElement("source");
 
-        video.className = "question-question-video question-editable";
+        video.className = "question-question-video question-editable question-media`";
         mediaElem.type = file.type;
     }
 
@@ -1134,6 +1155,7 @@ function handleURLDataTransfers(event) {
 
         function rejectIfDone() {
             processedItems += 1;
+            console.log("Done with", processedItems, "/", event.dataTransfer.items.length);
             if (processedItems == event.dataTransfer.items.length) {
                 reject();
             }
@@ -1196,6 +1218,7 @@ function handleURLDataTransfers(event) {
                 item.getAsString((data) => {
                     let dataURL = null;
                     if (isHtml) {
+                        console.log("Trying HTML");
                         let div = document.createElement("div");
                         div.innerHTML = data;
                         let imgElem = div.querySelector("a > img");
@@ -1204,6 +1227,7 @@ function handleURLDataTransfers(event) {
                         }
                     }
                     else {
+                        console.log("Trying direct URL");
                         dataURL = data;
                     }
 
