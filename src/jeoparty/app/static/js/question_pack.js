@@ -416,7 +416,7 @@ function syncCategoryData(roundId, categoryId) {
     let bgImageInput = categoryWrapper.querySelector(".question-bg-image-input");
 
     let questionDataCategories = questionData["rounds"][roundId]["categories"];
-    let defaultBuzzTime = includeFinale && roundId == questionData["rounds"].length - 1 ? 60 : 10;
+    let defaultBuzzTime = includeFinale && roundId == questionData["rounds"].length - 1 ? 0 : 10;
 
     let data;
     if (categoryId < questionDataCategories.length) {

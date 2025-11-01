@@ -38,15 +38,15 @@
 
             {% else %}
                 <h2 class="contestant-round-header">{{ _locale["round_header"] }} {{ round }}/{{ total_rounds }}</h2>
-                {% if stage == "finale" %}
+                {% if stage == "finale_question" %}
                 <h2 class="contestant-round-header">{{ round_name }}</h2>
                 {% else %}
                 <h2 class="contestant-round-header">{{ _locale["question_header"] }} {{ question_num }}/{{ total_questions }}</h2>
                 {% endif %}
 
-                {% if stage == "question" or stage == "finale_result" %}
+                {% if stage == "question" or stage == "finale_question" %}
 
-                    {% if stage == "finale_result" %}
+                    {% if stage == "finale_question" %}
     
                     <!-- Final Jeopardy answer -->
                     <h2 id="question-category-name">{{ question["category"]["name"] }}</h2>
@@ -166,7 +166,7 @@
                         });
                         {% elif stage == "finale_wager" or stage == "finale_question" %}
                             {% if stage == "finale_question" %}
-                            socket.on("finale_category_revealed", function() {
+                            socket.on("finale_answer_enabled", function() {
                                 document.getElementById("finale-question-wrapper").classList.remove("d-none");
                             });
                             {% else %}

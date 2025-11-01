@@ -312,8 +312,8 @@ class GameSocketHandler(Namespace):
         self.emit("finale_wager_enabled", to="contestants")
 
     @_presenter_event
-    def on_reveal_finale_category(self):
-        self.emit("finale_category_revealed", to="contestants")
+    def on_enable_finale_answer(self):
+        self.emit("finale_answer_enabled", to="contestants")
 
     @_contestants_event
     def on_buzzer_pressed(self, user_id: str):

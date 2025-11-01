@@ -580,7 +580,7 @@ h3 {
     display: flex;
     justify-content: center;
     align-items: baseline;
-    margin-top: 5px;
+    margin-top: 10px;
 }
 
 .footer-contestant-entry-name {
@@ -588,7 +588,6 @@ h3 {
     line-height: 1;
     font-weight: 1000;
     margin-right: 15px;
-    margin-top: 10px;
     max-width: 45%;
     max-height: 22px;
     overflow: hidden;
@@ -610,7 +609,7 @@ h3 {
 .footer-contestant-entry-powers {
     display: flex;
     justify-content: center;
-    margin-top: 4px;
+    margin-top: 6px;
 }
 
 .footer-contestant-entry-powers > div {
@@ -630,10 +629,11 @@ h3 {
 
 .footer-contestant-entry-avatar {
     width: 64px;
+    height: 64px;
     position: absolute;
-    top: -32px;
-    left: calc(50% - 32px);
-    border-radius: 32px;
+    top: -34px;
+    left: calc(50% - 34px);
+    border-radius: 34px;
     border: solid 2px black;
 }
 
@@ -641,6 +641,7 @@ h3 {
     display: none;
     position: absolute;
     width: 64px;
+    height: 64px;
     top: -32px;
     left: calc(50% - 32px);
     border-radius: 32px;

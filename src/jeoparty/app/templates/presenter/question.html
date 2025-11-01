@@ -97,9 +97,9 @@
                 window.onkeydown = function(e) {
                     if (e.code == PRESENTER_ACTION_KEY) {
                         showQuestion();
-                        {% if jeopardy_round == total_rounds %}
+                        {% if stage == 'finale_question' %}
                         setTimeout(function() {
-                            socket.emit("reveal_finale_category");
+                            socket.emit("enable_finale_answer");
                         }, 2000);
                         {% endif %}
                     }

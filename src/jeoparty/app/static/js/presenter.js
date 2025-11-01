@@ -1043,18 +1043,6 @@ function beginJeopardy() {
     window.location.href = getSelectionURL();
 }
 
-function resetUsedQuestions(button) {
-    let baseUrl = getPresenterURL();
-    $.ajax(baseUrl + "/reset_questions", {
-        method: "POST"
-    }).then((data) => {
-        button.style.backgroundColor = "rgb(9, 142, 24)";
-    }, (error) => {
-        console.log("ERROR when resetting questions: " + error);
-        button.style.backgroundColor = "red";
-    });
-}
-
 function addContestantDiv(id, name, avatar, color) {
     let wrapper = document.getElementById("menu-contestants");
     let placeholder = document.getElementById("menu-no-contestants-placeholder");
