@@ -420,8 +420,12 @@ class GameSocketHandler(Namespace):
 
     @_contestants_event
     def on_give_finale_answer(self, user_id: str, answer: str):
-        contestant = self.game_data.get_contestant(game_contestant_id=user_id)
-        contestant.finale_answer = answer
+        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+
+        if not contestant_data.finale_wager:
+            return
+
+        contestant_data.finale_answer = answer
 
         self.database.save_models(contestant_data)
 

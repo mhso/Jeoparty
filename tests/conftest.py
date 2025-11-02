@@ -63,7 +63,7 @@ def _create_question_packs(database: Database):
 
         category_model_3_1 = QuestionCategory(
             round_id=pack_model_1.rounds[2].id,
-            name="Finale Category",
+            name="End of the Road",
             order=0,
         )
 

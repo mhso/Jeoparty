@@ -1,6 +1,6 @@
 // Create socket bound to specific game ID.
 // 'game_id' is defined before this JS file is imported
-const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"]});
+const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true});
 
 var pingActive = true;
 

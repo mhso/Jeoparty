@@ -52,6 +52,7 @@
     <script>
         socket.on("connect", function() {
             socket.on("presenter_joined", function() {
+                hideConnectionStatus();
                 socket.on("contestant_joined", addContestantDiv);
             });
 

@@ -237,7 +237,8 @@ function syncQuestionData(round, category, question) {
             let questionMediaPreview = wrapper.querySelector(name);
 
             // Save height of image/video
-            data["extra"]["height"] = questionMediaPreview.height;
+            let height = window.getComputedStyle(questionMediaPreview).height;
+            data["extra"]["height"] = Number.parseInt(height.replace("px", ""));
 
             // Save border color
             if (questionMediaPreview.style.borderColor) {
@@ -250,7 +251,8 @@ function syncQuestionData(round, category, question) {
         if (Object.hasOwn(data, "extra") && (Object.hasOwn(data["extra"], "question_image") || Object.hasOwn(data["extra"], "video"))) {
             let name = Object.hasOwn(data["extra"], "question_image") ? ".question-question-image" : ".question-question-video";
             let questionMediaPreview = wrapper.querySelector(name);
-            data["extra"]["height"] = questionMediaPreview.height;
+            let height = window.getComputedStyle(questionMediaPreview).height;
+            data["extra"]["height"] = Number.parseInt(height.replace("px", ""));
             if (questionMediaPreview.style.borderColor) {
                 data["extra"]["border"] = questionMediaPreview.style.borderColor;
             }
@@ -1057,26 +1059,31 @@ function showMediaPreview(wrapper, file, mediaKey) {
     previewWrapper.innerHTML = "";
  
     let mediaElem;
+    let wrapperElem;
     if (imageFileTypes.includes(file.type)) {
         mediaElem = document.createElement("img");
         mediaElem.className = `question-${mediaKey}-image question-editable question-media`;
+        wrapperElem = mediaElem;
     }
     else {
-        let video = document.createElement("video");
+        wrapperElem = document.createElement("video");
         mediaElem = document.createElement("source");
 
-        video.className = "question-question-video question-editable question-media`";
+        wrapperElem.className = "question-question-video question-editable question-media`";
+        wrapperElem.controls = true;
         mediaElem.type = file.type;
+
+        wrapperElem.appendChild(mediaElem);
     }
 
     const fileSrc = URL.createObjectURL(file);
     mediaElem.src = fileSrc;
     let outerWrapper = getSpecificParent(wrapper, "question-view-wrapper");
-    mediaElem.style.height = getDefaultMediaHeight(outerWrapper) + "px";
+    wrapperElem.style.height = getDefaultMediaHeight(outerWrapper) + "px";
 
     wrapper.classList.remove("target-empty");
 
-    previewWrapper.appendChild(mediaElem);
+    previewWrapper.appendChild(wrapperElem);
 
     let mediaButtons = wrapper.querySelectorAll(".media-control-btn");
     mediaButtons.forEach((elem) => {
@@ -1440,8 +1447,8 @@ function orderQuestions(roundId, categoryId) {
 
     let sortedElements = Array.from(categoryWrapper.children).sort(
         function(a, b) {
-            let valA = a.querySelector(".question-pack-question-value").value;
-            let valB = b.querySelector(".question-pack-question-value").value;
+            let valA = Number.parseInt(a.querySelector(".question-pack-question-value").value);
+            let valB = Number.parseInt(b.querySelector(".question-pack-question-value").value);
 
             return valA < valB ? -1 : valA > valB ? 1 : 0;
         }
@@ -1456,6 +1463,11 @@ function saveQuestion(roundId, categoryId, questionId) {
     const newQuestion = questionId == questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
     let viewWrapper = getQuestionViewWrapper(roundId, categoryId, questionId);
     let valueInput = viewWrapper.querySelector(".question-reward-span");
+
+    if (valueInput.value == "" || Number.isNaN(Number.parseInt(valueInput.value))) {
+        alert("Invalid value for question. Must be a number between 1-10000");
+        return;
+    }
 
     if (newQuestion) {
         addQuestion(valueInput.value, roundId, categoryId, questionId, viewWrapper.parentElement);

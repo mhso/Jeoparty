@@ -52,7 +52,6 @@
     </audio>
     {% endif %}
     {% endfor %}
-
     <!-- Correct/wrong answers sounds -->
     {% if stage == "question" %}
     <audio id="question-sound-correct">
@@ -81,6 +80,7 @@
         );
 
         socket.on("connect", function() {
+            console.log("Connected...");
             socket.on("presenter_joined", function () {
                 hideConnectionStatus();
                 socket.on("buzz_received", addBuzzToFeed);
@@ -109,13 +109,14 @@
                 {% if not daily_double and stage == "finale_question" %}
                 {% for contestant_data in game_contestants %}
                     {% if contestant_data["finale_wager"] == 0 %}
-                    setPlayerReady({{ contestant_data["contestant_id"] }});
+                    setPlayerReady('{{ contestant_data["contestant_id"] }}');
                     {% endif %}
                 {% endfor %}
                 socket.on("contestant_ready", setPlayerReady);
                 {% endif %}
             });
 
+            console.log("Sending message...");
             socket.emit("presenter_join", "{{ created_by }}");
         });
 

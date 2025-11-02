@@ -1,4 +1,5 @@
 import asyncio
+from glob import glob
 import os
 import re
 import shutil
@@ -6,7 +7,7 @@ from io import BytesIO
 from multiprocessing import Process
 from typing import Dict, List, Tuple
 from argparse import Namespace
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
 from PIL import Image
@@ -92,6 +93,25 @@ class ContextHandler:
 
         return page
 
+    async def wait_for_event(self, event_func, condition=None, timeout=10):
+        time_slept = 0
+        sleep_interval = 1
+        while time_slept < timeout:
+            result = await event_func()
+            if (condition is None and result) or (condition is not None and result == condition):
+                return
+
+            await asyncio.sleep(sleep_interval)
+            time_slept += sleep_interval
+
+        await self.screenshot_views("timeout")
+
+        raise TimeoutError("Event never happened!")
+
+    async def _socket_connected(self):
+        status_elem = await self.presenter_page.query_selector("#connection-status")
+        return await self.presenter_page.evaluate("socket.connected") and (status_elem is None or await status_elem.is_hidden())
+
     async def create_game(
         self,
         pack_name: str | None = None,
@@ -136,11 +156,8 @@ class ContextHandler:
         async with page.expect_navigation():
             await submit_btn.click()
 
-        async def socket_connected():
-            return await page.evaluate("socket.connected")
-
         if not "/create_game" in page.url:
-            await self.wait_for_event(socket_connected)
+            await self.wait_for_event(self._socket_connected)
 
             game_id = page.url.split("/")[-1]
         else:
@@ -191,8 +208,7 @@ class ContextHandler:
         return page, pack_id
 
     async def _print_console_output(self, msg: ConsoleMessage):
-        strings = [str(await arg.json_value()) for arg in msg.args]
-        print("Message from console:", " ".join(strings))
+        print("Message from console:", msg.text)
 
     async def _setup_contestant_browser(self):
         playwright_context = self.playwright_contexts[0]
@@ -203,19 +219,6 @@ class ContextHandler:
         page.on("console", self._print_console_output)
 
         return browser_context, page
-
-    async def wait_for_event(self, event_func, condition=None, timeout=30):
-        time_slept = 0
-        sleep_interval = 1
-        while time_slept < timeout:
-            result = await event_func()
-            if (condition is None and result) or (condition is not None and result == condition):
-                return
-
-            await asyncio.sleep(sleep_interval)
-            time_slept += sleep_interval
-
-        raise TimeoutError("Event never happened!")
 
     async def join_lobby(
         self,
@@ -276,15 +279,27 @@ class ContextHandler:
 
         return contestant_page, contestant_id
 
-    async def wait_for_contestants(self):
+    @asynccontextmanager
+    async def wait_for_event_context_manager(self, event):
+        try:
+            yield
+        finally:
+            await self.wait_for_event(event)
+
+    async def wait_until_ready(self):
         """
         Create a stack of context managers so we can wait wait for the presenter
         and each contestant to be redirected after presented jumps to new page.
+        Also waits for socket to be ready after navigation has completed.
         """
         stack = AsyncExitStack()
-        await stack.enter_async_context(self.presenter_page.expect_navigation())
+
+        await stack.enter_async_context(self.wait_for_event_context_manager(self._socket_connected))
+
         for page in self.contestant_pages.values():
             await stack.enter_async_context(page.expect_navigation())
+
+        await stack.enter_async_context(self.presenter_page.expect_navigation())
 
         return stack
 
@@ -295,17 +310,17 @@ class ContextHandler:
             await asyncio.sleep(1.5)
 
         # Starts the game
-        async with await self.wait_for_contestants():
+        async with await self.wait_until_ready():
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def open_selection_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/selection"
-        async with await self.wait_for_contestants():
+        async with await self.wait_until_ready():
             await self.presenter_page.goto(url)
 
     async def open_question_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/question"
-        async with await self.wait_for_contestants():
+        async with await self.wait_until_ready():
             await self.presenter_page.goto(url)
 
     async def open_endscreen_page(self, player_data: list[tuple[str, int, int, str]]):
@@ -394,6 +409,22 @@ class ContextHandler:
             page.on("dialog", dialog_callback)
         else:
             page.on("dialog", fail)
+
+        # Click the submit button
+        submit_button = await page.query_selector("#contestant-wager-btn")
+        await submit_button.tap()
+
+        async def wager_accepted():
+            return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
+
+        await self.wait_for_event(wager_accepted)
+
+    async def give_finale_answer(self, contestant_id: str, answer: str):
+        page = self.contestant_pages[contestant_id]
+
+        # Input the answer
+        wager_input = await page.query_selector("#finale-answer")
+        await wager_input.fill(answer)
 
         # Click the submit button
         submit_button = await page.query_selector("#contestant-wager-btn")
@@ -563,9 +594,13 @@ class ContextHandler:
         answer_visible: bool | None = None,
         correct_answer: bool | None = None,
         game_feed: List[str] | None = None,
+        is_finale: bool = False,
     ):
         # Assert that category header is correct
-        expected_category_text = f"{question.question.category.name}for {question.question.value} points"
+        expected_category_text = question.question.category.name
+        if not is_finale:
+            expected_category_text = f"{expected_category_text}for {question.question.value} points"
+
         category_header = await self.presenter_page.query_selector(".question-category-header")
         assert (await category_header.text_content()).strip() == expected_category_text
         assert await category_header.is_visible()
@@ -673,7 +708,7 @@ class ContextHandler:
         music = await self.presenter_page.query_selector("#selection-jeopardy-theme")
         assert await music.evaluate("(elem) => elem.paused") is not music_playing
 
-    async def screenshot_views(self, index: int = 0):
+    async def screenshot_views(self, suffix: str | None = None):
         width = PRESENTER_VIEWPORT["width"]
         height = PRESENTER_VIEWPORT["height"] + CONTESTANT_VIEWPORT["height"]
         combined_image = Image.new("RGB", (width, height))
@@ -683,19 +718,27 @@ class ContextHandler:
             presenter_image = Image.open(fp)
             combined_image.paste(presenter_image)
 
-        x = (PRESENTER_VIEWPORT["width"] - CONTESTANT_VIEWPORT["width"] * 4) // 2
+        border_width = 2
+        x = ((PRESENTER_VIEWPORT["width"] - CONTESTANT_VIEWPORT["width"] * 4) // 2) - (border_width * 4)
         y = PRESENTER_VIEWPORT["height"]
         for contestant_page in self.contestant_pages.values():
             contestant_sc = await contestant_page.screenshot(type="png")
             with BytesIO(contestant_sc) as fp:
                 contestant_image = Image.open(fp)
                 combined_image.paste(contestant_image, (x, y))
-                x += contestant_image.width
+                x += contestant_image.width + border_width
 
-        combined_image.save(f"jeoparty_test_{index}.png")
+        if not suffix:
+            suffix = "0"
+
+        combined_image.save(f"jeoparty_test_{suffix}.png")
 
     async def __aenter__(self):
         self.playwright_contexts = [await async_playwright().__aenter__()]
+
+        old_screenshots = glob("jeoparty_test_*.png")
+        for screenshot in old_screenshots:
+            os.remove(screenshot)
 
         cwd = os.getcwd()
         new_cwd = os.path.join(cwd, "src")
@@ -711,6 +754,7 @@ class ContextHandler:
         self.presenter_context = await presenter_browser.new_context(viewport=PRESENTER_VIEWPORT)
 
         self.presenter_page = await self._login_to_dashboard()
+        self.presenter_page.on("console", self._print_console_output)
 
         await asyncio.sleep(1)
 

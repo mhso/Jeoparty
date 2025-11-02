@@ -1,6 +1,10 @@
-// Create socket bound to specific game ID.
+// Create socket bound to a namespace for a specific game ID.
 // 'GAME_ID' is defined before this JS file is imported
-const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"]});
+const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true});
+socket.on("connect_error", function(err) {
+    console.error("Socket connection error:", err);
+});
+
 const TIME_FOR_ANSWERING = 6;
 const TIME_FOR_DOUBLE_ANSWER = 10;
 const TIME_FOR_WAGERING = 60;
@@ -58,6 +62,13 @@ function getFinaleURL() {
 
 function getEndscreenURL() {
     return `${getPresenterURL()}/${GAME_ID}/endscreen`;
+}
+
+function goToPage(url) {
+    if (socket) {
+        socket.close();
+    }
+    window.location.href = url;
 }
 
 function playCorrectSound() {
@@ -138,7 +149,7 @@ function afterQuestion() {
 
     window.onkeydown = function(e) {
         if (e.code == PRESENTER_ACTION_KEY) {
-            window.location.href = getSelectionURL();
+            goToPage(getSelectionURL());
         }
     }
 }
@@ -728,7 +739,7 @@ function questionAsked(countdownDelay) {
         else if (activeStage == "finale_question") {
             // Go to finale screen after countdown is finished if it's round 3
             document.getElementById("question-finale-suspense").play();
-            startCountdown(TIME_FOR_FINAL_ANSWER, () => window.location.href = getFinaleURL());
+            startCountdown(TIME_FOR_FINAL_ANSWER, () => goToPage(getFinaleURL()));
         }
     }, countdownDelay);
 
@@ -916,7 +927,7 @@ function goToQuestion(div, questionId, isDouble) {
 
     socket.emit("mark_question_active", questionId, function() {
         setTimeout(() => {
-            window.location.href = getQuestionURL();
+            goToPage(getQuestionURL());
         }, 2600);
     });
 
@@ -1040,7 +1051,7 @@ function chooseStartingPlayer(callback) {
 }
 
 function beginJeopardy() {
-    window.location.href = getSelectionURL();
+    goToPage(getSelectionURL());
 }
 
 function addContestantDiv(id, name, avatar, color) {
@@ -1112,7 +1123,7 @@ function showFinaleCategory() {
 
                 window.onkeydown = function(e) {
                     if (e.code == PRESENTER_ACTION_KEY) {
-                        window.location.href = getQuestionURL();
+                        goToPage(getQuestionURL());
                     }
                 }
             }, 3000);
@@ -1134,7 +1145,7 @@ function showFinaleResult() {
             teaserElem.style.opacity = 1;
 
             setTimeout(function() {
-                window.location.href = getEndscreenURL();
+                goToPage(getEndscreenURL());
             }, 2000);
         }
         else {

@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 
 from jeoparty.api.enums import StageType
@@ -239,7 +240,7 @@ async def test_first_round(database, locales):
             )
 
             # Finish the question and go to selection screen
-            async with await context.wait_for_contestants():
+            async with await context.wait_until_ready():
                 await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
             session.refresh(game_data)
@@ -312,3 +313,105 @@ async def test_all_wrong_buzzes(database, locales):
         with database as session:
             game_data = database.get_game_from_id(game_id)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+@pytest.mark.asyncio
+async def test_daily_double_valid(database, locales):
+    pass
+
+@pytest.mark.asyncio
+async def test_daily_double_invalid(database, locales):
+    pass
+
+@pytest.mark.asyncio
+async def test_freeze_power(database, locales):
+    pass
+
+@pytest.mark.asyncio
+async def test_rewind_power(database, locales):
+    pass
+
+@pytest.mark.asyncio
+async def test_hijack_power(database, locales):
+    pass
+
+@pytest.mark.asyncio
+async def test_finale_question(database, locales):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+    contestant_scores = [
+        -500, 300, 1200, 0
+    ]
+    contestant_wagers = [1000, 300, 700, 0]
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            game_data.round = 3
+            game_data.stage = StageType.FINALE_WAGER
+            finale_question = game_data.get_questions_for_round()[0]
+            finale_question.active = True
+
+            database.save_models(finale_question, game_data)
+            session.refresh(game_data)
+
+            assert len(game_data.game_contestants) == len(contestant_names)
+
+            for contestant, score, wager in zip(game_data.game_contestants, contestant_scores, contestant_wagers):
+                contestant.score = score
+                contestant.finale_wager = wager
+
+            database.save_models(*game_data.game_contestants)
+
+            await context.open_question_page(game_data.id)
+
+            session.refresh(game_data)
+            
+            assert game_data.stage == StageType.FINALE_QUESTION
+
+            await context.assert_question_values(
+                game_data.get_active_question(),
+                False,
+                is_finale=True,
+            )
+    
+            await context.show_question()
+
+            # Have contestants write their answers
+            answers = ["4", "4", "3"]
+
+            pending = (
+                await asyncio.wait(
+                    [
+                        asyncio.create_task(context.give_finale_answer(contestant.contestant_id, answer))
+                        for contestant, answer in zip(game_data.game_contestants[:-1], answers)
+                    ],
+                    timeout=10
+                )
+            )[1]
+
+            assert len(pending) == 0
+
+            await context.screenshot_views()
+
+@pytest.mark.asyncio
+async def test_undo(database, locales):
+    pass

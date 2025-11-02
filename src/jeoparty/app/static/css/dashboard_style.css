@@ -571,7 +571,7 @@
     color: inherit;
 }
 
-.question-question-image.question-editable, .question-answer-image.question-editable {
+.question-question-image.question-editable, .question-answer-image.question-editable, .question-question-video.question-editable {
     opacity: 1;
 }
 
@@ -796,45 +796,38 @@
 .media-delete-btn {
     z-index: 10;
     right: 6px;
-    top: 4px;
     font-size: 29px;
-    background-color: #333;
     padding: 0 8px;
     padding-bottom: 0px;
     padding-bottom: 0px;
-    border-radius: 10px;
     line-height: 1;
     padding-bottom: 5px;
-    border: 1px solid #dbdbdb;
     color: #dbdbdb;
 }
 
 .media-maximize-btn {
-    cursor: pointer;
     width: 36px;
-    height: 36px;
-    background-color: #333;
-    position: absolute;
-    top: 4px;
     right: 46px;
-    border-radius: 10px;
-    border: 1px solid #dbdbdb;
 }
 
 .media-color-btn {
     background-color: initial !important;
-    cursor: pointer;
     width: 36px;
-    height: 36px;
-    position: absolute;
-    top: 4px;
     right: 90px;
-    border: 1px solid white;
     padding: 0;
-    border-radius: 10px;
 }
 
-.media-delete-btn:hover, .media-maximize-btn:hover, .media-color-btn:hover {
+.media-control-btn {
+    cursor: pointer;
+    background-color: #333;
+    position: absolute;
+    border: 2px solid #dbdbdb;
+    border-radius: 10px;
+    height: 36px;
+    top: 4px;
+}
+
+.media-control-btn:hover {
     filter: brightness(0.8);
 }
 
