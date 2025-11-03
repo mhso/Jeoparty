@@ -68,6 +68,7 @@ class ContextHandler:
         self.presenter_page: Page = None
         self.contestant_contexts: Dict[str, BrowserContext] = {}
         self.contestant_pages: Dict[str, Page] = {}
+        self.screenshots = 0
         self.pack_folders = []
         self.avatar_images = []
         self._browser_tasks = []
@@ -286,7 +287,7 @@ class ContextHandler:
         finally:
             await self.wait_for_event(event)
 
-    async def wait_until_ready(self):
+    async def wait_until_ready(self, wait_for_socket: bool = True):
         """
         Create a stack of context managers so we can wait wait for the presenter
         and each contestant to be redirected after presented jumps to new page.
@@ -294,7 +295,8 @@ class ContextHandler:
         """
         stack = AsyncExitStack()
 
-        await stack.enter_async_context(self.wait_for_event_context_manager(self._socket_connected))
+        if wait_for_socket:
+            await stack.enter_async_context(self.wait_for_event_context_manager(self._socket_connected))
 
         for page in self.contestant_pages.values():
             await stack.enter_async_context(page.expect_navigation())
@@ -323,9 +325,15 @@ class ContextHandler:
         async with await self.wait_until_ready():
             await self.presenter_page.goto(url)
 
-    async def open_endscreen_page(self, player_data: list[tuple[str, int, int, str]]):
-        query_str = _get_players_query_string("null", 1, player_data)
-        await self.presenter_page.goto(f"{ContextHandler.PRESENTER_URL}/endscreen?{query_str}")
+    async def open_finale_page(self, game_id: str):
+        url = f"{self.PRESENTER_URL}/{game_id}/finale"
+        async with self.presenter_page.expect_navigation():
+            await self.presenter_page.goto(url)
+
+    async def open_endscreen_page(self, game_id: str):
+        url = f"{self.PRESENTER_URL}/{game_id}/endscreen"
+        async with self.presenter_page.expect_navigation():
+            await self.presenter_page.goto(url)
 
     async def show_question(self, is_daily_double=False):
         if not is_daily_double:
@@ -708,6 +716,48 @@ class ContextHandler:
         music = await self.presenter_page.query_selector("#selection-jeopardy-theme")
         assert await music.evaluate("(elem) => elem.paused") is not music_playing
 
+    async def assert_finale_question_values(
+        self,
+        contestant_id: str,
+        locale: Dict[str, str],
+        category_name: str,
+        question: str,
+        wager: int,
+    ):
+        page = self.contestant_pages[contestant_id]
+        category_header = await page.query_selector("#question-category-name")
+        wager_header = await page.query_selector("#finale-wager-header")
+
+        assert await category_header.text_content() == category_name
+        assert await wager_header.text_content() == f"{locale['finale_wager_amount']} {wager} {locale['points']}"
+
+        if wager > 0:
+            wrapper = await page.query_selector("#finale-question-wrapper")
+            question_header = await page.query_selector("#finale-question-header")
+            answer_header = await wrapper.query_selector("h4")
+
+            assert await question_header.text_content() == question
+            assert await answer_header.text_content() == locale["finale_answer"]
+        else:
+            no_wager_header = await page.query_selector("#finale-no-wager-header")
+            assert await no_wager_header.text_content() == locale["finale_no_wager"]
+
+    async def assert_finale_result_values(
+        self,
+        locale: Dict[str, str],
+        result_lines: List[List[str]],
+        teaser_visible: bool = False,
+    ):
+        lines = await self.presenter_page.query_selector_all(".finale-result-name")
+        for expected, line in zip(result_lines, lines):
+            assert (await line.text_content()).strip() == " ".join(expected).strip()
+
+        teaser_header = await self.presenter_page.query_selector("#endscreen-teaser")
+        elem_opacity = await teaser_header.evaluate("(el) => window.getComputedStyle(el).getPropertyValue('opacity')")
+
+        assert (float(elem_opacity) > 0) is teaser_visible
+        assert await teaser_header.text_content() == locale["endscreen_teaser"]
+
     async def screenshot_views(self, suffix: str | None = None):
         width = PRESENTER_VIEWPORT["width"]
         height = PRESENTER_VIEWPORT["height"] + CONTESTANT_VIEWPORT["height"]
@@ -729,7 +779,9 @@ class ContextHandler:
                 x += contestant_image.width + border_width
 
         if not suffix:
-            suffix = "0"
+            suffix = str(self.screenshots)
+
+        self.screenshots += 1
 
         combined_image.save(f"jeoparty_test_{suffix}.png")
 

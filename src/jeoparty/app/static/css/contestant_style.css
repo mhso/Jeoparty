@@ -191,6 +191,10 @@ h1 {
     color: #32bc32;
 }
 
+.player-lost {
+    color: #c80c0c;
+}
+
 #buzzer-wrapper {
     touch-action: manipulation;
     margin-bottom: 10px;

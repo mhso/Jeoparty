@@ -15,12 +15,13 @@ from mhooge_flask.routing import make_template_context
 from mhooge_flask.database import Base
 
 from jeoparty.api.config import Config, get_question_pack_data_path
+from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Game, Question, QuestionPack
 
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
 
-def render_locale_template(template: str, lang_code: str | None = None, status=200, **variables):
+def render_locale_template(template: str, lang_code: Language | None = None, status=200, **variables):
     if lang_code is not None:
         locale_data = flask.current_app.config["LOCALES"].get(lang_code.value)
         page_key = template.split(".")[0]

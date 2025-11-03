@@ -30,10 +30,12 @@
             {% elif stage == "ended" %}
 
                 <!-- Endscreen -->
-                {% if user_id in winner_ids %}
-                    <h2 class="player-has-turn">{{ _locale["game_over_winner"] }}</h2>
+                {% if winner %}
+                    <h2 class="player-has-turn">{{ _locale["game_over_winner_header"] }}</h2>
+                    <h3>{{ _locale["game_over_winner_text"] }}</h3>
                 {% else %}
-                    <h2>{{ _locale["game_over_loser"] }}</h2>
+                    <h2 class="player-lost">{{ _locale["game_over_loser_header"] }}</h2>
+                    <h3>{{ _locale["game_over_loser_text"] }}</h3>
                 {% endif %}
 
             {% else %}
@@ -61,7 +63,7 @@
                         <button id="contestant-wager-btn" onclick="giveFinalJeopardyAnswer('{{ user_id }}');">OK</button>
                     </div>
                     {% else %}
-                    <h4>{{ _locale["finale_no_wager"] }}</h4>
+                    <h4 id="finale-no-wager-header">{{ _locale["finale_no_wager"] }}</h4>
 
                     {% endif %}
 

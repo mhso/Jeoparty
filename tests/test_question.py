@@ -175,7 +175,7 @@ async def test_first_round(database, locales):
                 enabled_power_ups={"hijack": False, "freeze": True, "rewind": False},
             )
 
-            # Assert vaæies for the player who buzzed earlier
+            # Assert values for the player who buzzed earlier
             await context.assert_contestant_values(
                 wrong_buzz_player.contestant_id,
                 wrong_buzz_player.contestant.name,
@@ -246,6 +246,7 @@ async def test_first_round(database, locales):
             session.refresh(game_data)
 
             assert game_data.stage == StageType.SELECTION
+            assert context.presenter_page.url.endswith("/selection")
 
             active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("choices"), game_data.game_questions))
 
@@ -359,7 +360,9 @@ async def test_finale_question(database, locales):
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
-            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+            language_locale = locales[game_data.pack.language.value]
+            locale = language_locale["pages"]["presenter/game"]
+            locale.update(language_locale["pages"]["global"])
 
             # Add contestants to the game
             for name, color in zip(contestant_names, contestant_colors):
@@ -410,7 +413,28 @@ async def test_finale_question(database, locales):
 
             assert len(pending) == 0
 
-            await context.screenshot_views()
+            # Assert contestant values are correct
+            for contestant, wager in zip(game_data.game_contestants, contestant_wagers):
+                await context.assert_finale_question_values(
+                    contestant.contestant_id,
+                    locale,
+                    finale_question.question.category.name,
+                    finale_question.question.question,
+                    wager,
+                )
+
+            await asyncio.sleep(2)
+
+            # Finish the question and go to finale screen
+            async with context.presenter_page.expect_navigation(timeout=10000):
+                await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            session.refresh(game_data)
+
+            assert game_data.stage == StageType.FINALE_RESULT
+            assert context.presenter_page.url.endswith("/finale")
+            for contestant, answer in zip(game_data.game_contestants, answers + [None]):
+                assert contestant.finale_answer == answer
 
 @pytest.mark.asyncio
 async def test_undo(database, locales):

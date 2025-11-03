@@ -6,7 +6,7 @@
 
         <div id="finale-wrapper">
             <!-- Logo -->
-            {% include 'jeopardy/logo.html' %}
+            {% include 'logo.html' %}
 
             <!-- Category and question -->
             <h2 id="finale-category-header">{{ category["name"] }}</h2>
@@ -16,7 +16,7 @@
             <div id="finale-wagers-wrapper">
                 {% for contestant in game_contestants %}
                 <div class="finale-wager-entry">
-                    <span class="finale-wager-name" style="color: #{{ contestant['color'] }};">{{ contestant["name"] }}</span>: <div class="finale-wager-amount">{{ contestant["wager"] }}</div>
+                    <span class="finale-wager-name" style="font-weight: 800; color: {{ contestant['color'] }};">{{ contestant["name"] }}</span>: <div class="finale-wager-amount">{{ contestant["wager"] }}</div>
                 </div>
                 {% endfor %}
             </div>
@@ -27,7 +27,7 @@
                 <ul>
                     {% for contestant in game_contestants %}
                     <li class="finale-result-name">
-                        <span>{{ contestant["name"] }}</span> {{ _locale["player_answer"] }} <strong>{{ contestant["answer"] }}</strong> <span class="finale-result-desc"></span>
+                        <span style="font-weight: 800;">{{ contestant["name"] }}</span> {{ _locale["player_answer"] }} <strong>{{ contestant["answer"] }}</strong> <span class="finale-result-desc"></span>
                     </li>
                     {% endfor %}
                 </ul>
@@ -39,12 +39,16 @@
 
     <script>
         initialize(
-            {{ player_data | tojson }},
+            {{ game_contestants | tojson }},
             "{{ stage | safe }}",
             {{ _locale | tojson }},
         );
 
         socket.on("connect", function() {
+            socket.on("presenter_joined", function () {
+                hideConnectionStatus();
+            });
+
             socket.emit("presenter_join", "{{ created_by }}");
         });
 

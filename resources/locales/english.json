@@ -32,7 +32,16 @@
             "answer_correct_1": "and",
             "answer_correct_2": "wins",
             "answer_wrong_1": "and",
-            "answer_wrong_2": "loses"
+            "answer_wrong_2": "loses",
+            "nothing": "nothing"
+        },
+        "presenter/endscreen": {
+            "stats_header": "Final Statz",
+            "name": "Name",
+            "score": "Score",
+            "buzzes": "Buzzes",
+            "correct": "Correct",
+            "wrong": "Wrong"
         },
         "contestant/lobby": {
             "welcome_header": "Welcome to the Jeoparty!",
@@ -42,8 +51,10 @@
         },
         "contestant/game": {
             "waiting_for_start": "Waiting for the game to start...",
-            "game_over_winner": "You won! CONGRATULATIONS!!! 🥳🎉🎈🤩🤩🤩",
-            "game_over_loser": "Game over! You did not win, but you did your best and that's what matters!",
+            "game_over_winner_header": "You won!",
+            "game_over_winner_text": "CONGRATULATIONS!!! 🥳🎉🎈🤩🤩🤩",
+            "game_over_loser_header": "Better luck next time!",
+            "game_over_loser_text": "You did not win, but you did your best and that's what matters!",
             "round_header": "Round",
             "question_header": "Question",
             "finale_wager_amount": "You wagered",

@@ -428,6 +428,11 @@ h3 {
 |                    FINALE                    |
 \****************##############****************/
 
+#finale-wrapper {
+    text-align: center;
+    color: white;
+}
+
 #finale-wrapper > #logo-wrapper {
     width: 100%;
 }
@@ -460,8 +465,8 @@ h3 {
 }
 
 #finale-wagers-wrapper {
-    width: 200px;
-    max-width: 300px;
+    width: 250px;
+    max-width: 400px;
     margin: 0 auto;
     text-align: center;
     background-color: #000000d6;
@@ -752,6 +757,11 @@ h3 {
 |                  ENDSCREEN                   |
 \****************##############****************/
 
+#endscreen-wrapper {
+    text-align: center;
+    color: white;
+}
+
 #endscreen-wrapper > #logo-wrapper {
     width: 100%;
 }
@@ -788,6 +798,7 @@ h3 {
     position: relative;
     width: 120px;
     border-radius: 60px;
+    background-color: red;
 }
 
 #endscreen-scores-table {

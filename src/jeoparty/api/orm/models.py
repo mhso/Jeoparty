@@ -231,6 +231,7 @@ class GameContestant(Base):
             "color": self.contestant.color,
             **self.contestant.extra_fields,
             "finale_wager": self.finale_wager,
+            "finale_answer": self.finale_answer,
         }
 
     def get_power(self, power: PowerUpType) -> GamePowerUp | None:

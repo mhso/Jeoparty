@@ -200,7 +200,7 @@ function updatePlayerScore(playerId, delta) {
     playerScores[playerId] += delta;
     let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
     let scoreElem = playerEntry.querySelector(".footer-contestant-entry-score");
-    scoreElem.textContent = `${playerScores[playerId]} points`;
+    scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points"]}`;
 }
 
 function correctAnswer() {
@@ -739,7 +739,19 @@ function questionAsked(countdownDelay) {
         else if (activeStage == "finale_question") {
             // Go to finale screen after countdown is finished if it's round 3
             document.getElementById("question-finale-suspense").play();
-            startCountdown(TIME_FOR_FINAL_ANSWER, () => goToPage(getFinaleURL()));
+            let url = getFinaleURL();
+    
+            startCountdown(TIME_FOR_FINAL_ANSWER, () => goToPage(url));
+
+            // Allow us to override the countdown if people are done answering
+            setTimeout(function() {
+                window.onkeydown = function(e) {
+                    if (e.code == PRESENTER_ACTION_KEY) {
+                        stopCountdown();
+                        goToPage(url);
+                    }
+                }
+            }, 2000);
         }
     }, countdownDelay);
 
@@ -1174,10 +1186,12 @@ function showFinaleResult() {
                     else if (e.key == 1) { // Current player answered correctly
                         className = "wager-answer-correct";
                         desc = `${localeStrings["answer_correct_1"]} <strong>${localeStrings["answer_correct_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
+                        socket.emit("finale_answer_correct", playerId, amount);
                     }
                     else if (e.key == 2) { // Current player answered incorrectly
                         className = "wager-answer-wrong";
                         desc = `${localeStrings["answer_wrong_1"]} <strong>${localeStrings["answer_wrong_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
+                        socket.emit("finale_answer_wrong", playerId, amount);
                     }
 
                     descElem.classList.add(className);

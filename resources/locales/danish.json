@@ -32,7 +32,16 @@
             "answer_correct_1": "og",
             "answer_correct_2": "vinder",
             "answer_wrong_1": "og",
-            "answer_wrong_2": "taber"
+            "answer_wrong_2": "taber",
+            "nothing": "intet"
+        },
+        "presenter/endscreen": {
+            "stats_header": "Endelig Oversigt",
+            "name": "Navn",
+            "score": "Score",
+            "buzzes": "Buzzes",
+            "correct": "Korrect",
+            "wrong": "Forkert"
         },
         "contestant/lobby": {
             "welcome_header": "Velkommen til Jeoparty!",
@@ -42,8 +51,10 @@
         },
         "contestant/game": {
             "waiting_for_start": "Venter på at spillet starter...",
-            "game_over_winner": "Du vandt! TILLYKKE!!! 🥳🎉🎈🤩🤩🤩",
-            "game_over_loser": "Spillet er slut! Du vandt desværre ikke, men du kæmpede bravt!",
+            "game_over_winner_header": "Du vandt!",
+            "game_over_winner_text": "TILLYKKE!!! 🥳🎉🎈🤩🤩🤩",
+            "game_over_loser_header": "Bedre held næste gang!",
+            "game_over_loser_text": "Du vandt desværre ikke, men du kæmpede bravt!",
             "round_header": "Runde",
             "question_header": "Spørgsmål",
             "finale_wager_amount": "Du satsede",

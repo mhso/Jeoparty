@@ -7,7 +7,7 @@
         <div id="endscreen-techno-overlay" class="d-none"></div>
 
         <div id="endscreen-wrapper">
-            {% include 'jeopardy/logo.html' %}
+            {% include 'logo.html' %}
 
             <h1>GG WP!</h1>
 
@@ -17,28 +17,30 @@
                 {{ winner_desc }}
                 {% endautoescape %}
             </p>
+
             <div id="endscreen-avatars-wrapper">
                 {% for winner in winners %}
                 <div class="endscreen-avatars-entry">
                     <img src="{{ url_for('static', _external=True, filename='img/crown.png') }}" class="endscreen-crown">
-                    <img src="{{ winner['contestant']['avatar'] }}" class="endscreen-avatar">
+                    <img src="{{ winner['avatar'] }}" class="endscreen-avatar">
                 </div>
                 {% endfor %}
             </div>
 
             <!-- Scores table -->
-            <h2>Final Statz</h2>
+            <h2>{{ _locale['stats_header'] }}</h2>
             <table id="endscreen-scores-table">
                 <tr>
-                    <th>Name</th>
-                    <th>Score</th>
-                    <th>Buzzes</th>
-                    <th>Correct</th>
-                    <th>Wrong</th>
+                    <th>{{ _locale['name'] }}</th>
+                    <th>{{ _locale['score'] }}</th>
+                    <th>{{ _locale['buzzes'] }}</th>
+                    <th>{{ _locale['correct'] }}</th>
+                    <th>{{ _locale['wrong'] }}</th>
                 </tr>
+
                 {% for contestant in game_contestants %}
                 <tr>
-                    <td class="endscreen-score-name" style="color: #{{ contestant['contestant']['color'] }};">{{ contestant['contestant']['name'] }}</td>
+                    <td class="endscreen-score-name" style="color: #{{ contestant['contestant']['color'] }};">{{ contestant['name'] }}</td>
                     <td class="endscreen-score-data">{{ contestant['score'] }}</td>
                     <td class="endscreen-score-data">{{ contestant['buzzes'] }}</td>
                     <td class="endscreen-score-data">{{ contestant['hits'] }}</td>

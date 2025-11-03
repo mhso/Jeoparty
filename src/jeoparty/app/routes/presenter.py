@@ -1,5 +1,6 @@
 import os
 import random
+import traceback
 
 import flask
 from mhooge_flask.auth import get_user_details
@@ -267,40 +268,47 @@ def finale(game_data: Game):
 
     # Get game JSON data with nested contestant data
     game_json = game_data.dump(included_relations=[Game.game_contestants], id="game_id")
+    locale_data = flask.current_app.config["LOCALES"].get(game_data.pack.language.value)
+    page_locale = locale_data["pages"]["presenter/finale"]
 
     for contestant in game_json["game_contestants"]:
-        wager = contestant.finale_wager
-        contestant["wager"] = wager if wager > 0 else "nothing"
-        answer = contestant.finale_answer
-        contestant["answer"] = "nothing" if answer is None else f"'{answer}'"
+        wager = contestant["finale_wager"]
+        contestant["wager"] = wager if wager > 0 else page_locale["nothing"]
+        answer = contestant["finale_answer"]
+        contestant["answer"] = page_locale["nothing"] if answer is None else f"'{answer}'"
 
     return render_locale_template(
-        "jeopardy/presenter_finale.html",
+        "presenter/finale.html",
         game_data.pack.language,
-        **game_data,
+        **game_json,
         **question_json
     )
 
 @presenter_page.route("/<game_id>/endscreen")
 @_request_decorator
 def endscreen(game_data: Game):
+    database: Database = flask.current_app.config["DATABASE"]
+    game_data.stage = StageType.ENDED
+
+    database.save_game(game_data)
+
     # Game over! Go to endscreen
     winners = game_data.get_game_winners()
 
     if len(winners) == 1:
-        winner_desc = f'<span style="color: #{winners[0].contestant.color}; font-weight: 800;">{winners[0].contestant.name}</span> wonnered!!! All hail the king!'
+        winner_desc = f'<span style="color: {winners[0].contestant.color}; font-weight: 800;">{winners[0].contestant.name}</span> wonnered!!! All hail the king!'
 
     elif len(winners) == 2:
         winner_desc = (
-            f'<span style="color: #{winners[0].contestant.color}">{winners[0].contestant.name}</span> '
-            f'and <span style="color: #{winners[1].contestant.color}; font-weight: 800;">{winners[1].contestant.name}</span> '
+            f'<span style="color: {winners[0].contestant.color}">{winners[0].contestant.name}</span> '
+            f'and <span style="color: {winners[1].contestant.color}; font-weight: 800;">{winners[1].contestant.name}</span> '
             "have the same amount of points, they both win!!!"
         )
 
     else:
         players_tied = ", ".join(
-            f'<span style="color: #{data.contestant.color}; font-weight: 800;">{data.contestant.name}</span>' for data in winners
-        ) + f', and <span style="color: #{winners[-1].contestant.color}; font-weight: 800;">{winners[-1].contestant.name}</span>'
+            f'<span style="color: {data.contestant.color}; font-weight: 800;">{data.contestant.name}</span>' for data in winners
+        ) + f', and <span style="color: {winners[-1].contestant.color}; font-weight: 800;">{winners[-1].contestant.name}</span>'
 
         winner_desc = (
             f"{players_tied} all have equal amount of points! They are all winners!!!"
@@ -314,7 +322,7 @@ def endscreen(game_data: Game):
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
     return render_locale_template(
-        "jeopardy/presenter_endscreen.html",
+        "presenter/endscreen.html",
         game_data.pack.language,
         **game_json,
         winners=winners_json,

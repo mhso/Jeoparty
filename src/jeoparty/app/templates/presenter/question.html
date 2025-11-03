@@ -80,7 +80,6 @@
         );
 
         socket.on("connect", function() {
-            console.log("Connected...");
             socket.on("presenter_joined", function () {
                 hideConnectionStatus();
                 socket.on("buzz_received", addBuzzToFeed);
@@ -116,7 +115,6 @@
                 {% endif %}
             });
 
-            console.log("Sending message...");
             socket.emit("presenter_join", "{{ created_by }}");
         });
 

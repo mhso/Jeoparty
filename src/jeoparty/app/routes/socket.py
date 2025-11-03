@@ -421,7 +421,6 @@ class GameSocketHandler(Namespace):
     @_contestants_event
     def on_give_finale_answer(self, user_id: str, answer: str):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
-
         if not contestant_data.finale_wager:
             return
 
@@ -431,3 +430,25 @@ class GameSocketHandler(Namespace):
 
         self.emit("finale_answer_given")
         self.emit("contestant_ready", user_id, to="presenter")
+
+    @_presenter_event
+    def on_finale_answer_correct(self, user_id: str, amount: int):
+        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+        if not contestant_data.finale_wager:
+            return
+
+        contestant_data.score += amount
+        contestant_data.hits += 1
+
+        self.database.save_models(contestant_data)
+
+    @_presenter_event
+    def on_finale_answer_wrong(self, user_id: str, amount: int):
+        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+        if not contestant_data.finale_wager:
+            return
+
+        contestant_data.score -= amount
+        contestant_data.misses += 1
+
+        self.database.save_models(contestant_data)
