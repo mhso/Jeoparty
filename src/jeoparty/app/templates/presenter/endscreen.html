@@ -3,32 +3,27 @@
     {% include 'presenter/head.html' %}
 
     <body>
-        <div class="bg-image"></div>
+        <div id="bg-fill"></div>
         <div id="endscreen-techno-overlay" class="d-none"></div>
 
         <div id="endscreen-wrapper">
             {% include 'logo.html' %}
 
-            <h1>GG WP!</h1>
+            <h1>{% if lan_mode %}GG WP!{% else %}{{ _locale['header'] }}{% endif %}</h1>
 
             <!-- Winner description -->
-            <p id="endscreen-winner-desc">
-                {% autoescape false %}
-                {{ winner_desc }}
-                {% endautoescape %}
-            </p>
+            <p id="endscreen-winner-desc">{% autoescape false %}{{ winner_desc }}{% endautoescape %}</p>
 
             <div id="endscreen-avatars-wrapper">
                 {% for winner in winners %}
                 <div class="endscreen-avatars-entry">
                     <img src="{{ url_for('static', _external=True, filename='img/crown.png') }}" class="endscreen-crown">
-                    <img src="{{ winner['avatar'] }}" class="endscreen-avatar">
+                    <img src="{{ url_for('static', filename=winner['avatar']) }}" class="endscreen-avatar">
                 </div>
                 {% endfor %}
             </div>
 
             <!-- Scores table -->
-            <h2>{{ _locale['stats_header'] }}</h2>
             <table id="endscreen-scores-table">
                 <tr>
                     <th>{{ _locale['name'] }}</th>
@@ -40,7 +35,7 @@
 
                 {% for contestant in game_contestants %}
                 <tr>
-                    <td class="endscreen-score-name" style="color: #{{ contestant['contestant']['color'] }};">{{ contestant['name'] }}</td>
+                    <td class="endscreen-score-name" style="color: {{ contestant['color'] }};">{{ contestant['name'] }}</td>
                     <td class="endscreen-score-data">{{ contestant['score'] }}</td>
                     <td class="endscreen-score-data">{{ contestant['buzzes'] }}</td>
                     <td class="endscreen-score-data">{{ contestant['hits'] }}</td>
@@ -54,19 +49,25 @@
             </video>
         </div>
 
+        {% if lan_mode %}
         <!-- I LOVE LEAGUE OF LEGENDS! -->
         <audio id="endscreen-sound" class="volume-5">
-            <source src="{{ url_for('static', _external=True, filename='sounds/league.mp3') }}" type="audio/mpeg">
+            <source src="{{ url_for('static', _external=True, filename='data/sounds/league.mp3') }}" type="audio/mpeg">
         </audio>
+        {% endif %}
 
         <!-- Shooting Star celebratory music -->
         <audio id="endscreen-music">
-            <source src="{{ url_for('static', _external=True, filename='data/shooting_star.mp3') }}" type="audio/mpeg">
+            <source src="{{ url_for('static', _external=True, filename='data/sounds/shooting_star.mp3') }}" type="audio/mpeg">
         </audio>
     
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                document.getElementById("endscreen-sound").play();
+                const endscreenSound = document.getElementById("endscreen-sound");
+                if (endscreenSound) {
+                    endscreenSound.play();
+                }
+
                 startWinnerParty();
             });
         </script>

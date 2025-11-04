@@ -19,7 +19,6 @@ async def test_finale_result(database, locales):
         "#BD1D1D",
         "#CA12AF",
     ]
-    contestant_scores = [500, 600, 500, 0]
     contestant_buzzes = [5, 9, 3, 1]
     contestant_hits = [3, 6, 1, 0]
     contestant_misses = [2, 3, 2, 1]
@@ -44,6 +43,8 @@ async def test_finale_result(database, locales):
 
             assert len(game_data.game_contestants) == len(contestant_names)
 
+            # Create an endscreen with one winner
+            contestant_scores = [500, 600, 500, 0]
             for contestant, score, buzzes, hits, misses in zip(
                 game_data.game_contestants,
                 contestant_scores,
@@ -60,4 +61,44 @@ async def test_finale_result(database, locales):
 
             await context.open_endscreen_page(game_data.id)
 
-            await context.screenshot_views()
+            expected_winner_desc = f"{contestant_names[1]} {locale['winner_flavor_1']}"
+            await context.assert_endscreen_values(
+                locale, expected_winner_desc, game_data.game_contestants
+            )
+
+            # Create an endscreen with two winners
+            contestant_scores = [500, 600, 600, 0]
+            for contestant, score in zip(
+                game_data.game_contestants, contestant_scores
+            ):
+                contestant.score = score
+
+            database.save_models(*game_data.game_contestants)
+
+            await context.open_endscreen_page(game_data.id)
+
+            expected_winner_desc = (
+                f"{contestant_names[1]} {locale['and']} {contestant_names[2]} {locale['winner_flavor_2']}"
+            )
+            await context.assert_endscreen_values(
+                locale, expected_winner_desc, game_data.game_contestants
+            )
+
+            # Create an endscreen with three winners
+            contestant_scores = [600, 600, 600, 100]
+            for contestant, score in zip(
+                game_data.game_contestants, contestant_scores
+            ):
+                contestant.score = score
+
+            database.save_models(*game_data.game_contestants)
+
+            await context.open_endscreen_page(game_data.id)
+
+            expected_winner_desc = (
+                f"{contestant_names[1]}, {contestant_names[2]}, {locale['and']} "
+                f"{contestant_names[0]} {locale['winner_flavor_3']}"
+            )
+            await context.assert_endscreen_values(
+                locale, expected_winner_desc, game_data.game_contestants
+            )

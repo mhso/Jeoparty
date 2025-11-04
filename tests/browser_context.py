@@ -15,7 +15,7 @@ from sqlalchemy import Enum
 
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
-from jeoparty.api.orm.models import GameQuestion
+from jeoparty.api.orm.models import GameContestant, GameQuestion
 from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
 from jeoparty.app.routes.contestant import COOKIE_ID
 from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
@@ -757,6 +757,41 @@ class ContextHandler:
 
         assert (float(elem_opacity) > 0) is teaser_visible
         assert await teaser_header.text_content() == locale["endscreen_teaser"]
+
+    async def assert_endscreen_values(
+        self,
+        locale: Dict[str, str],
+        winner_desc: str,
+        contestants: List[GameContestant],
+    ):
+        header = await self.presenter_page.query_selector("h1")
+        assert await header.text_content() == locale["header"]
+
+        description = await self.presenter_page.query_selector("#endscreen-winner-desc")
+        assert await description.text_content() == winner_desc
+
+        table_headers = await self.presenter_page.query_selector_all("#endscreen-scores-table th")
+        table_rows = await self.presenter_page.query_selector_all("#endscreen-scores-table tr")
+
+        assert await table_headers[0].text_content() == locale['name']
+        assert await table_headers[1].text_content() == locale['score']
+        assert await table_headers[2].text_content() == locale['buzzes']
+        assert await table_headers[3].text_content() == locale['correct']
+        assert await table_headers[4].text_content() == locale['wrong']
+
+        sorted_by_score = sorted(contestants, key=lambda c: (-c.score, c.contestant.name))
+        for contestant, row in zip(sorted_by_score, table_rows[1:]):
+            values = [
+                contestant.contestant.name,
+                contestant.score,
+                contestant.buzzes,
+                contestant.hits,
+                contestant.misses,
+            ]
+            columns = await row.query_selector_all("td")
+
+            for col, value in zip(columns, values):
+                assert await col.text_content() == str(value)
 
     async def screenshot_views(self, suffix: str | None = None):
         width = PRESENTER_VIEWPORT["width"]

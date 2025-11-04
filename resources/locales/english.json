@@ -29,15 +29,16 @@
             "player_answer": "answered",
             "endscreen_teaser": "Which means...",
             "answer_skipped": "and nothing changes",
-            "answer_correct_1": "and",
             "answer_correct_2": "wins",
-            "answer_wrong_1": "and",
             "answer_wrong_2": "loses",
             "nothing": "nothing"
         },
         "presenter/endscreen": {
-            "stats_header": "Final Statz",
-            "name": "Name",
+            "header": "GG WP!",
+            "winner_flavor_1": "won!!! All hail the king!",
+            "winner_flavor_2": "have the same amount of points, they both win!!!",
+            "winner_flavor_3": "all have equal amount of points! They are all winners!!!",
+            "name": "Player",
             "score": "Score",
             "buzzes": "Buzzes",
             "correct": "Correct",
@@ -72,6 +73,7 @@
             "points": "points",
             "contestants": "contestants",
             "for": "for",
+            "and": "and",
             "connecting": "Connecting to server"  
         }
     }

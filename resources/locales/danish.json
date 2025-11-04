@@ -29,18 +29,19 @@
             "player_answer": "svarede",
             "endscreen_teaser": "Hvilket betyder...",
             "answer_skipped": "og intet ændrer sig",
-            "answer_correct_1": "og",
             "answer_correct_2": "vinder",
-            "answer_wrong_1": "og",
             "answer_wrong_2": "taber",
             "nothing": "intet"
         },
         "presenter/endscreen": {
-            "stats_header": "Endelig Oversigt",
-            "name": "Navn",
+            "header": "Tak for spillet!",
+            "winner_flavor_1": "vandt!!! Bøj jer i støvet!",
+            "winner_flavor_2": "har samme mængde point, de vinder begge to!!!",
+            "winner_flavor_3": "har alle samme mængde point! De er alle vindere!!!",
+            "name": "Spiller",
             "score": "Score",
             "buzzes": "Buzzes",
-            "correct": "Korrect",
+            "correct": "Korrekt",
             "wrong": "Forkert"
         },
         "contestant/lobby": {
@@ -72,6 +73,7 @@
             "points": "point",
             "contestants": "deltagere",
             "for": "til",
+            "and": "og",
             "connecting": "Forbinder til serveren" 
         }
     }

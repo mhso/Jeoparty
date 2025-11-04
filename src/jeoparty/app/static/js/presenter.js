@@ -1185,12 +1185,12 @@ function showFinaleResult() {
                     }
                     else if (e.key == 1) { // Current player answered correctly
                         className = "wager-answer-correct";
-                        desc = `${localeStrings["answer_correct_1"]} <strong>${localeStrings["answer_correct_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
+                        desc = `${localeStrings["and"]} <strong>${localeStrings["answer_correct_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
                         socket.emit("finale_answer_correct", playerId, amount);
                     }
                     else if (e.key == 2) { // Current player answered incorrectly
                         className = "wager-answer-wrong";
-                        desc = `${localeStrings["answer_wrong_1"]} <strong>${localeStrings["answer_wrong_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
+                        desc = `${localeStrings["and"]} <strong>${localeStrings["answer_wrong_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
                         socket.emit("finale_answer_wrong", playerId, amount);
                     }
 

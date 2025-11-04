@@ -340,8 +340,7 @@ class Game(Base):
     def get_game_winners(self):
         sorted_contestants = sorted(
             self.game_contestants,
-            key=lambda x: x.score,
-            reverse=True
+            key=lambda x: (-x.score, x.contestant.name),
         )
 
         ties = 0

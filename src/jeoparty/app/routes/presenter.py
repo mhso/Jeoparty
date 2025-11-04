@@ -21,6 +21,12 @@ from jeoparty.app.routes.shared import (
 
 presenter_page = flask.Blueprint("presenter", __name__, template_folder="templates")
 
+def _is_lan_active(game_data: Game):
+    return (
+        game_data.pack.name.startswith("LoL Jeopardy")
+        and game_data.created_by == Config.ADMIN_ID
+    )
+
 def _request_decorator(func):
     """
     Decorator for ensuring the following before a request:
@@ -79,18 +85,13 @@ def lobby(game_data: Game):
     else:
         lobby_music_path = None
 
-    lan_mode = (
-        game_data.pack.name.startswith("LoL Jeopardy")
-        and game_data.created_by == Config.ADMIN_ID
-        and False
-    )
     game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
 
     return render_locale_template(
         "presenter/lobby.html",
         game_data.pack.language,
         join_url=join_url,
-        lan_mode=lan_mode,
+        lan_mode=_is_lan_active(game_data),
         lobby_music=lobby_music_path,
         **game_json,
     )
@@ -250,6 +251,7 @@ def selection(game_data: Game):
         game_data.pack.language,
         first_round=first_round,
         round_name=round_data.name,
+        lan_mode=_is_lan_active(game_data),
         **game_json,
         **round_json,
     )
@@ -292,38 +294,46 @@ def endscreen(game_data: Game):
 
     database.save_game(game_data)
 
+    locale_data = flask.current_app.config["LOCALES"].get(game_data.pack.language.value)
+    page_locale = locale_data["pages"]["presenter/endscreen"]
+
     # Game over! Go to endscreen
     winners = game_data.get_game_winners()
 
-    if len(winners) == 1:
-        winner_desc = f'<span style="color: {winners[0].contestant.color}; font-weight: 800;">{winners[0].contestant.name}</span> wonnered!!! All hail the king!'
-
-    elif len(winners) == 2:
+    if len(winners) == 1: # Only one winner
         winner_desc = (
-            f'<span style="color: {winners[0].contestant.color}">{winners[0].contestant.name}</span> '
-            f'and <span style="color: {winners[1].contestant.color}; font-weight: 800;">{winners[1].contestant.name}</span> '
-            "have the same amount of points, they both win!!!"
+            f'<span style="color: {winners[0].contestant.color}; font-weight: 800;">'
+            f"{winners[0].contestant.name}</span> {page_locale['winner_flavor_1']}"
         )
 
-    else:
+    elif len(winners) == 2: # Two winners tied in points
+        winner_desc = (
+            f'<span style="color: {winners[0].contestant.color}">{winners[0].contestant.name}</span> '
+            f'{page_locale["and"]} <span style="color: {winners[1].contestant.color}; font-weight: 800;">{winners[1].contestant.name}</span> '
+            f"{page_locale['winner_flavor_2']}"
+        )
+
+    else: # More than two winners tied in points
         players_tied = ", ".join(
-            f'<span style="color: {data.contestant.color}; font-weight: 800;">{data.contestant.name}</span>' for data in winners
-        ) + f', and <span style="color: {winners[-1].contestant.color}; font-weight: 800;">{winners[-1].contestant.name}</span>'
+            f'<span style="color: {data.contestant.color}; font-weight: 800;">{data.contestant.name}</span>' for data in winners[:-1]
+        ) + f', {page_locale["and"]} <span style="color: {winners[-1].contestant.color}; font-weight: 800;">{winners[-1].contestant.name}</span>'
 
         winner_desc = (
-            f"{players_tied} all have equal amount of points! They are all winners!!!"
+            f"{players_tied} {page_locale['winner_flavor_3']}"
         )
 
     winners_json = [winner.dump() for winner in winners]
     logger.bind(event="jeopardy_player_data", player_data=winners_json).info(f"Jeopardy player data at endscreen: {winners_json}")
 
     game_json = game_data.dump(included_relations=[Game.game_contestants], id="game_id")
+    game_json["game_contestants"].sort(key=lambda c: (-c["score"], c["contestant"]["name"]))
 
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
     return render_locale_template(
         "presenter/endscreen.html",
         game_data.pack.language,
+        lan_mode=_is_lan_active(game_data),
         **game_json,
         winners=winners_json,
         winner_desc=winner_desc,

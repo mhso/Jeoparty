@@ -30,7 +30,7 @@
                 {% endfor %}
             </div>
 
-            {% if first_round %}
+            {% if first_round and lan_mode %}
             <audio id="selection-start-sound">
                 <source src="{{ url_for('static', _external=True, filename='data/sounds/its_happening.mp3') }}" type="audio/mpeg">
             </audio>
