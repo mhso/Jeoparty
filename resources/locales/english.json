@@ -29,8 +29,8 @@
             "player_answer": "answered",
             "endscreen_teaser": "Which means...",
             "answer_skipped": "and nothing changes",
-            "answer_correct_2": "wins",
-            "answer_wrong_2": "loses",
+            "answer_correct": "wins",
+            "answer_wrong": "loses",
             "nothing": "nothing"
         },
         "presenter/endscreen": {

@@ -100,6 +100,13 @@ def _create_question_packs(database: Database):
             value=200,
         )
 
+        question_model_2_1_2 = Question(
+            category_id=category_model_2_1.id,
+            question="Have you ever had a dream that where what he that where that?",
+            answer="I sure have, kid",
+            value=400,
+        )
+
         question_model_3_1_1 = Question(
             category_id=category_model_3_1.id,
             question="How many choices are in this question?",
@@ -108,7 +115,14 @@ def _create_question_packs(database: Database):
             extra={"image": "questionmark.png", "choices": ["1", "2", "3", "4"], "height": 256}
         )
 
-        database.save_models(question_model_1_1_1, question_model_1_2_1, question_model_1_2_2, question_model_2_1_1, question_model_3_1_1)
+        database.save_models(
+            question_model_1_1_1,
+            question_model_1_2_1,
+            question_model_1_2_2,
+            question_model_2_1_1,
+            question_model_2_1_2,
+            question_model_3_1_1
+        )
 
         return [pack_model_1.id, pack_model_2.id]
 

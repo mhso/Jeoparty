@@ -29,8 +29,8 @@
             "player_answer": "svarede",
             "endscreen_teaser": "Hvilket betyder...",
             "answer_skipped": "og intet ændrer sig",
-            "answer_correct_2": "vinder",
-            "answer_wrong_2": "taber",
+            "answer_correct": "vinder",
+            "answer_wrong": "taber",
             "nothing": "intet"
         },
         "presenter/endscreen": {

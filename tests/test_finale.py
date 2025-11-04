@@ -84,10 +84,10 @@ async def test_finale_result(database, locales):
                 if contestant.finale_answer is not None:
                     correct = contestant.finale_answer == "4"
                     if correct:
-                        correct_line = f"{locale['answer_correct_1']} {locale['answer_correct_2']}"
+                        correct_line = f"{locale['and']} {locale['answer_correct']}"
                         key = "1"
                     else:
-                        correct_line = f"{locale['answer_wrong_1']} {locale['answer_wrong_2']}"
+                        correct_line = f"{locale['and']} {locale['answer_wrong']}"
                         key = "2"
 
                     result_line = f"{correct_line} {wager} {locale['points']}!"

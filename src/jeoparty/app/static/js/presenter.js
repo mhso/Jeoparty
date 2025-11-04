@@ -200,7 +200,17 @@ function updatePlayerScore(playerId, delta) {
     playerScores[playerId] += delta;
     let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
     let scoreElem = playerEntry.querySelector(".footer-contestant-entry-score");
+
     scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points"]}`;
+}
+
+function updatePlayerBuzzStats(playerId, hit) {
+    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
+    let name = hit ? ".footer-contestant-entry-hits" : ".footer-contestant-entry-misses"
+    let statElem = playerEntry.querySelector(name);
+
+    let newValue = Number.parseInt(statElem.textContent) + 1;
+    statElem.textContent = newValue.toString();
 }
 
 function correctAnswer() {
@@ -238,6 +248,7 @@ function correctAnswer() {
 
     // Add value to player score
     updatePlayerScore(answeringPlayer, activeValue);
+    updatePlayerBuzzStats(answeringPlayer, true);
 
     if (playerTurn != answeringPlayer) {
         // Set player as having the turn, if they didn't already
@@ -282,6 +293,7 @@ function wrongAnswer(reason, questionOver=false) {
         // Deduct points from player if someone buzzed in
         valueElem.textContent = `-${activeValue} ${localeStrings["points"]}`;
         updatePlayerScore(answeringPlayer, -activeValue);
+        updatePlayerBuzzStats(answeringPlayer, false);
 
         // Send update to server
         socket.emit("wrong_answer", answeringPlayer, activeValue);
@@ -724,7 +736,7 @@ function questionAsked(countdownDelay) {
                 // Question has no timer, contestants can take their time
                 window.onkeydown = function(e) {
                     if (e.code == PRESENTER_ACTION_KEY) {
-                        wrongAnswer(localeStrings["wrong_answer_cowards"]);
+                        wrongAnswer(localeStrings["wrong_answer_cowards"], true);
                     }
                 };
             }
@@ -1185,18 +1197,21 @@ function showFinaleResult() {
                     }
                     else if (e.key == 1) { // Current player answered correctly
                         className = "wager-answer-correct";
-                        desc = `${localeStrings["and"]} <strong>${localeStrings["answer_correct_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
+                        desc = `${localeStrings["and"]} <strong>${localeStrings["answer_correct"]} ${amount} ${localeStrings["points"]}</strong>!`;
                         socket.emit("finale_answer_correct", playerId, amount);
+                        updatePlayerScore(playerId, amount);
+                        updatePlayerBuzzStats(playerId, true);
                     }
                     else if (e.key == 2) { // Current player answered incorrectly
                         className = "wager-answer-wrong";
-                        desc = `${localeStrings["and"]} <strong>${localeStrings["answer_wrong_2"]} ${amount} ${localeStrings["points"]}</strong>!`;
+                        desc = `${localeStrings["and"]} <strong>${localeStrings["answer_wrong"]} ${amount} ${localeStrings["points"]}</strong>!`;
                         socket.emit("finale_answer_wrong", playerId, amount);
+                        updatePlayerScore(playerId, -amount);
+                        updatePlayerBuzzStats(playerId, false);
                     }
 
                     descElem.classList.add(className);
                     descElem.innerHTML = desc;
-                    updatePlayerScore(playerId, amount);
                 }
                 else if (e.code == PRESENTER_ACTION_KEY) {
                     showNextResult(player + 1);

@@ -157,6 +157,7 @@ async def test_first_round(database, locales):
                 question_visible=True,
                 answer_visible=False,
                 correct_answer=False,
+                wrong_answer_text=locale["wrong_answer_given"],
             )
 
             # Have another player buzz in
@@ -315,25 +316,244 @@ async def test_all_wrong_buzzes(database, locales):
             game_data = database.get_game_from_id(game_id)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
 
-@pytest.mark.asyncio
-async def test_daily_double_valid(database, locales):
-    pass
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            await context.start_game()
+
+            session.refresh(game_data)
+
+            # Set question 2 as the active question
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.game_questions))
+
+            active_question.active = True
+
+            database.save_models(active_question)
+
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            await context.show_question()
+
+            for contestant in game_data.game_contestants:
+                await context.assert_presenter_values(
+                    contestant.id,
+                    contestant.contestant.name,
+                    contestant.contestant.color,
+                    score=0,
+                    hits=0,
+                    misses=0,
+                )
+            
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    contestant.contestant.name,
+                    contestant.contestant.color,
+                    buzzer_status="active"
+                )
+
+                await context.hit_buzzer(contestant.contestant_id)
+                await asyncio.sleep(0.5)
+
+                await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+                await asyncio.sleep(0.5)
+
+                await context.presenter_page.press("body", "2")
+                await asyncio.sleep(0.5)
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    contestant.contestant.name,
+                    contestant.contestant.color,
+                    buzzer_status="inactive"
+                )
+
+                await context.assert_presenter_values(
+                    contestant.id,
+                    contestant.contestant.name,
+                    contestant.contestant.color,
+                    score=-active_question.question.value,
+                    hits=0,
+                    misses=1,
+                )
+
+            await context.assert_question_values(
+                active_question,
+                question_visible=True,
+                answer_visible=True,
+                correct_answer=False,
+                wrong_answer_text=locale["wrong_answer_given"],
+            )
+
+            # Assert that we go back to selection page after everyone answered wrong
+            async with context.presenter_page.expect_navigation():
+                await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            session.refresh(game_data)
+
+            assert context.presenter_page.url.endswith("/selection")
+            assert game_data.stage == StageType.SELECTION
 
 @pytest.mark.asyncio
-async def test_daily_double_invalid(database, locales):
-    pass
+async def test_time_runs_out(database, locales):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            await context.start_game()
+
+            session.refresh(game_data)
+
+            # Set question 2 as the active question
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.game_questions))
+            active_question.active = True
+
+            database.save_models(active_question)
+
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            wrong_answer_elem = await context.presenter_page.query_selector("#question-answer-wrong")
+
+            async def wrong_answer_visible():
+                return await wrong_answer_elem.is_visible()
+
+            await context.show_question()
+
+            await context.wait_for_event(wrong_answer_visible, timeout=active_question.question.category.buzz_time + 2)
+
+            await context.assert_question_values(
+                active_question,
+                question_visible=True,
+                answer_visible=True,
+                correct_answer=False,
+                wrong_answer_text=locale["wrong_answer_time"],
+            )
+
+            # Assert that we go back to selection page after everyone answered wrong
+            async with context.presenter_page.expect_navigation():
+                await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            session.refresh(game_data)
+
+            assert context.presenter_page.url.endswith("/selection")
+            assert game_data.stage == StageType.SELECTION
 
 @pytest.mark.asyncio
-async def test_freeze_power(database, locales):
-    pass
+async def test_question_aborted(database, locales):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
 
-@pytest.mark.asyncio
-async def test_rewind_power(database, locales):
-    pass
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
-@pytest.mark.asyncio
-async def test_hijack_power(database, locales):
-    pass
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            await context.start_game()
+
+            session.refresh(game_data)
+
+            # Set question 2 as the active question
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.game_questions))
+            active_question.active = True
+            active_question.question.category.buzz_time = 0
+
+            database.save_models(active_question)
+            database.save_models(active_question.question.category)
+
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            wrong_answer_elem = await context.presenter_page.query_selector("#question-answer-wrong")
+
+            await context.show_question()
+
+            await asyncio.sleep(2)
+
+            await context.screenshot_views()
+
+            await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+            await asyncio.sleep(1)
+
+            await context.screenshot_views()
+
+            assert await wrong_answer_elem.is_visible()
+
+            await context.assert_question_values(
+                active_question,
+                question_visible=True,
+                answer_visible=True,
+                correct_answer=False,
+                wrong_answer_text=locale["wrong_answer_cowards"],
+            )
+
+            # Assert that we go back to selection page after everyone answered wrong
+            async with context.presenter_page.expect_navigation():
+                await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            session.refresh(game_data)
+
+            assert context.presenter_page.url.endswith("/selection")
+            assert game_data.stage == StageType.SELECTION
+
+# @pytest.mark.asyncio
+# async def test_daily_double_valid(database, locales):
+#     pass
+
+# @pytest.mark.asyncio
+# async def test_daily_double_invalid(database, locales):
+#     pass
+
+# @pytest.mark.asyncio
+# async def test_freeze_power(database, locales):
+#     pass
+
+# @pytest.mark.asyncio
+# async def test_rewind_power(database, locales):
+#     pass
+
+# @pytest.mark.asyncio
+# async def test_hijack_power(database, locales):
+#     pass
 
 @pytest.mark.asyncio
 async def test_finale_question(database, locales):
@@ -361,7 +581,7 @@ async def test_finale_question(database, locales):
         with database as session:
             game_data = database.get_game_from_id(game_id)
             language_locale = locales[game_data.pack.language.value]
-            locale = language_locale["pages"]["presenter/game"]
+            locale = language_locale["pages"]["contestant/game"]
             locale.update(language_locale["pages"]["global"])
 
             # Add contestants to the game
@@ -436,6 +656,6 @@ async def test_finale_question(database, locales):
             for contestant, answer in zip(game_data.game_contestants, answers + [None]):
                 assert contestant.finale_answer == answer
 
-@pytest.mark.asyncio
-async def test_undo(database, locales):
-    pass
+# @pytest.mark.asyncio
+# async def test_undo(database, locales):
+#     pass

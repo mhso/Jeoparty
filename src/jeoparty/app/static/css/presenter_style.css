@@ -557,7 +557,7 @@ h3 {
 .footer-contestant-buzzes {
     display: flex;
     justify-content: space-between;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     font-weight: 800;
 }
 
@@ -748,9 +748,9 @@ h3 {
 
 .question-result-avatar {
     position: relative;
+    width: auto;
     height: 50px;
     top: 10px;
-    height: auto;
 }
 
 /****************##############****************\

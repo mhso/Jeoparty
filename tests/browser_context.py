@@ -5,7 +5,7 @@ import re
 import shutil
 from io import BytesIO
 from multiprocessing import Process
-from typing import Dict, List, Tuple
+from typing import Dict, List, Literal, Tuple
 from argparse import Namespace
 from contextlib import AsyncExitStack, asynccontextmanager
 
@@ -336,11 +336,15 @@ class ContextHandler:
             await self.presenter_page.goto(url)
 
     async def show_question(self, is_daily_double=False):
+        await self.screenshot_views()
         if not is_daily_double:
             # Show the question
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
         await asyncio.sleep(1)
+
+        question_image = await self.presenter_page.query_selector(".question-question-image")
+        question_video = await self.presenter_page.query_selector(".question-question-video")
 
         await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
@@ -352,7 +356,7 @@ class ContextHandler:
             for _ in range(4):
                 await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
                 await asyncio.sleep(0.5)
-        else:
+        elif question_image is not None or question_video is not None:
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def answer_question(self, index: int | None = None, choice: str | None = None):
@@ -453,6 +457,7 @@ class ContextHandler:
         buzzes: int | None = None,
         hits: int | None = None,
         misses: int | None = None,
+        buzzer_status: Literal["active", "inactive", "pressed"] | None = None,
         used_power_ups: Dict[str, bool] | None = None,
         enabled_power_ups: Dict[str, bool] | None = None,
     ):
@@ -477,6 +482,11 @@ class ContextHandler:
                 assert avatar.endswith(src_path)
             else:
                 assert src_path == avatar
+
+        # Assert that buzzer status is correct
+        if buzzer_status is not None:
+            elem = await page.query_selector(f"#buzzer-{buzzer_status}")
+            assert await elem.is_visible()
 
         # Assert that used power-ups are correct
         if used_power_ups is not None:
@@ -505,7 +515,7 @@ class ContextHandler:
 
             element = await page.query_selector(f"#contestant-game-{elem}")
 
-            assert await element.text_content() == value
+            assert await element.text_content() == value, elem
 
     async def assert_presenter_values(
         self,
@@ -593,7 +603,7 @@ class ContextHandler:
                 wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
                 element = await wrapper_elem.query_selector(f".menu-contestant-{elem}")
 
-            assert await element.text_content() == value
+            assert await element.text_content() == value, elem
 
     async def assert_question_values(
         self,
@@ -601,6 +611,7 @@ class ContextHandler:
         question_visible: bool | None = True,
         answer_visible: bool | None = None,
         correct_answer: bool | None = None,
+        wrong_answer_text: str | None = None,
         game_feed: List[str] | None = None,
         is_finale: bool = False,
     ):
@@ -659,7 +670,7 @@ class ContextHandler:
             seen_tips = set()
             for elem in tip_elems:
                 tip_text = await elem.text_content()
-                seen_tips.add(tip_text.strip().split("\n")[1])
+                seen_tips.add(tip_text.strip())
 
             assert (set(tips).difference(seen_tips)) == set()
 
@@ -690,6 +701,10 @@ class ContextHandler:
             else:
                 wrong_elem = await self.presenter_page.query_selector("#question-answer-wrong")
                 assert await wrong_elem.is_visible()
+
+                if wrong_answer_text is not None:
+                    wrong_text_elem = await self.presenter_page.query_selector("#question-wrong-reason-text")
+                    assert await wrong_text_elem.text_content() == wrong_answer_text
 
     async def assert_finale_wager_values(
         self,
