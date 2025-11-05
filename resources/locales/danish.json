@@ -67,7 +67,7 @@
             "waiting_turn_1": "Venter på at",
             "waiting_turn_2": "vælger et spørgsmål...",
             "waiting_turn_3": "Venter på at en anden spiller vælger et spørgsmål...",
-            "invalid_wager": "Ugyldig mængde point, skal være mellem 100 og"
+            "invalid_wager": "Ugyldig mængde point, skal være mellem"
         },
         "global": {
             "points": "point",

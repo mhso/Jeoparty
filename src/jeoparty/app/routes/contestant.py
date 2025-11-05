@@ -1,5 +1,4 @@
 import os
-import traceback
 from typing import Any, Dict, Tuple
 
 import flask
@@ -163,32 +162,31 @@ def game_view(game_id: str):
 
         game_json = game_data.dump(included_relations=[], id="game_id")
 
-        try:
-            game_contestant_json = contestant_data.dump(id="user_id")
-            if game_data.stage == StageType.ENDED:
-                winners = game_data.get_game_winners()
-                contestant_won = False
-                for winner_data in winners:
-                    if winner_data.id == contestant_data.id:
-                        contestant_won = True
+        game_contestant_json = contestant_data.dump(id="user_id")
 
-                game_contestant_json["winner"] = contestant_won
+        # If game is ended, save whether this contestant won
+        if game_data.stage == StageType.ENDED:
+            winners = game_data.get_game_winners()
+            contestant_won = False
+            for winner_data in winners:
+                if winner_data.id == contestant_data.id:
+                    contestant_won = True
 
-            total_questions = len(game_data.get_questions_for_round())
+            game_contestant_json["winner"] = contestant_won
 
-            return render_locale_template(
-                "contestant/game.html",
-                game_data.pack.language,
-                ping=30,
-                question=question,
-                total_questions=total_questions,
-                first_round=first_round,
-                round_name=round_name,
-                **game_json,
-                **game_contestant_json,
-            )
-        except Exception:
-            traceback.print_exc()
+        total_questions = len(game_data.get_questions_for_round())
+
+        return render_locale_template(
+            "contestant/game.html",
+            game_data.pack.language,
+            ping=30,
+            question=question,
+            total_questions=total_questions,
+            first_round=first_round,
+            round_name=round_name,
+            **game_json,
+            **game_contestant_json,
+        )
 
 @contestant_page.route("/<join_code>")
 def lobby(join_code: str):

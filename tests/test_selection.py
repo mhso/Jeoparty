@@ -190,6 +190,9 @@ async def test_finale_wager_valid(database, locales):
             for contestant, score in zip(game_data.game_contestants, contestant_scores):
                 contestant.score = score
 
+            database.save_models(*game_data.game_contestants)
+            session.refresh(game_data)
+
             # Mark all but one question in the round as used
             questions_for_round = game_data.get_questions_for_round()
             for question in questions_for_round:
@@ -314,38 +317,81 @@ async def test_finale_wager_valid(database, locales):
                 is_finale=True,
             )
 
-# async def test_finale_wager_invalid(database, locales):
-#     pack_name = "Test Pack"
-#     contestant_names = [
-#         "Contesto Uno",
-#         "Contesto Dos",
-#         "Contesto Tres",
-#         "Contesto Quatro",
-#     ]
-#     contestant_colors = [
-#         "#1FC466",
-#         "#1155EE",
-#         "#BD1D1D",
-#         "#CA12AF",
-#     ]
-#     contestant_scores = [
-#         -500, 300, 1200, 0
-#     ]
+@pytest.mark.asyncio
+async def test_finale_wager_invalid(database, locales):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+    contestant_scores = [
+        -500, 300, 1200, 0
+    ]
 
-#     async with ContextHandler(database) as context:
-#         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
-#         with database as session:
-#             game_data = database.get_game_from_id(game_id)
-#             locale = locales[game_data.pack.language.value]["pages"]["contestant/game"]
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+            language_locale = locales[game_data.pack.language.value]
+            locale = language_locale["pages"]["contestant/game"]
+            locale.update(language_locale["pages"]["global"])
 
-#             # Add contestants to the game
-#             for name, color in zip(contestant_names, contestant_colors):
-#                 await context.join_lobby(game_data.join_code, name, color)
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
 
-#             # Make an invalid wager
-#             async def on_dialog(dialog: Dialog):
-#                 assert dialog.message == f"{locale["invalid_wager"]} 1000"
-#                 await dialog.dismiss()
+            for contestant, score in zip(game_data.game_contestants, contestant_scores):
+                contestant.score = score
 
-#             await context.make_wager(game_data.game_contestants[0].contestant_id, 1100, on_dialog)
+            database.save_models(*game_data.game_contestants)
+
+            game_data.round = 2
+            database.save_models(game_data)
+
+            session.refresh(game_data)
+
+            # Mark all but one question in the round as used
+            questions_for_round = game_data.get_questions_for_round()
+            for question in questions_for_round:
+                question.active = False
+                question.used = True
+
+            questions_for_round[0].active = True
+            questions_for_round[0].used = False
+
+            database.save_models(*questions_for_round)
+
+            # Go to selection page
+            await context.open_selection_page(game_id)
+
+            # Show finale category
+            await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            await asyncio.sleep(4)
+
+            await context.screenshot_views()
+
+            # Make a wager that is too high
+            async def on_dialog(dialog: Dialog):
+                await dialog.dismiss()
+                assert dialog.message == f"{locale['invalid_wager']} 0 {locale['and']} 1000"
+                await dialog.page.evaluate("dialog = true")
+
+            await context.make_wager(game_data.game_contestants[0].contestant_id, 1100, on_dialog)
+
+            # Make a wager that is too low
+            async def on_dialog(dialog: Dialog):
+                await dialog.dismiss()
+                assert dialog.message == f"{locale['invalid_wager']} 0 {locale['and']} 1000"
+                await dialog.page.evaluate("dialog = true")
+
+            await context.make_wager(game_data.game_contestants[1].contestant_id, -100, on_dialog)

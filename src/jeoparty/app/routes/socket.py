@@ -230,7 +230,7 @@ class GameSocketHandler(Namespace):
         contestant_data.has_turn = True
         models_to_save = [contestant_data]
 
-        if player_with_turn is not None:
+        if player_with_turn is not None and player_with_turn.id != contestant_data.id:
             player_with_turn.has_turn = False
             models_to_save.append(player_with_turn)
 
@@ -366,6 +366,19 @@ class GameSocketHandler(Namespace):
 
             self.database.save_models(contestant_data)
 
+    @_presenter_event
+    def on_undo_answer(self, user_id: str, value: int):
+        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+
+        if value < 0:
+            contestant_data.hits -= 1
+        else:
+            contestant_data.misses -= 1
+
+        contestant_data.score += value
+
+        self.database.save_models(contestant_data)
+
     @_contestants_event
     def on_ping_request(self, user_id: str, timestamp: float):
         self.emit("ping_response", (user_id, timestamp))
@@ -381,33 +394,35 @@ class GameSocketHandler(Namespace):
     def on_make_daily_wager(self, user_id: str, amount: str):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
 
+        min_wager = 100
         max_wager = max(contestant_data.score, 500 * self.game_data.round)
 
         try:
             amount = int(amount)
         except ValueError:
-            self.emit("invalid_wager", max_wager)
+            self.emit("invalid_wager", (min_wager, max_wager))
             return
 
-        if 100 <= amount <= max_wager:
+        if min_wager <= amount <= max_wager:
             self.emit("daily_wager_made", amount)
             self.emit("daily_wager_made", amount, to="presenter")
         else:
-            self.emit("invalid_wager", max_wager)
+            self.emit("invalid_wager", (min_wager, max_wager))
 
     @_contestants_event
     def on_make_finale_wager(self, user_id: str, amount: str):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
 
+        min_wager = 0
         max_wager = max(contestant_data.score, 1000)
 
         try:
             amount = int(amount)
         except ValueError:
-            self.emit("invalid_wager", max_wager)
+            self.emit("invalid_wager", (min_wager, max_wager))
             return
 
-        if 0 <= amount <= max_wager:
+        if min_wager <= amount <= max_wager:
             print(f"Made finale wager for {user_id} ({contestant_data.contestant.name}) for {amount} points")
             contestant_data.finale_wager = amount
 
@@ -416,7 +431,7 @@ class GameSocketHandler(Namespace):
             self.emit("finale_wager_made")
             self.emit("contestant_ready", user_id, to="presenter")
         else:
-            self.emit("invalid_wager", max_wager)
+            self.emit("invalid_wager", (min_wager, max_wager))
 
     @_contestants_event
     def on_give_finale_answer(self, user_id: str, answer: str):

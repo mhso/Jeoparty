@@ -1,6 +1,5 @@
 import os
 import random
-import traceback
 
 import flask
 from mhooge_flask.auth import get_user_details

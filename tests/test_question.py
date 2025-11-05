@@ -86,6 +86,8 @@ async def test_first_round(database, locales):
 
             await context.show_question()
 
+            await asyncio.sleep(0.5)
+
             await context.assert_question_values(
                 active_question,
                 question_visible=True,
@@ -535,9 +537,86 @@ async def test_question_aborted(database, locales):
             assert context.presenter_page.url.endswith("/selection")
             assert game_data.stage == StageType.SELECTION
 
-# @pytest.mark.asyncio
-# async def test_daily_double_valid(database, locales):
-#     pass
+@pytest.mark.asyncio
+async def test_daily_double_valid(database, locales):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name, daily_doubles=True))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            await context.start_game()
+            session.refresh(game_data)
+
+            active_player = game_data.game_contestants[-1]
+
+            active_player.has_turn = True
+            active_player.score = 700
+            database.save_models(active_player)
+
+            session.refresh(game_data)
+
+            # Set daily double question as active
+            active_question = next(filter(lambda q: q.daily_double, game_data.game_questions))
+            active_question.active = True
+
+            database.save_models(active_question)
+
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            daily_header = await context.presenter_page.query_selector("#question-wager-wrapper > h3")
+            assert await daily_header.text_content() == f"{locale['daily_double_wager_1']} {active_player.contestant.name} {locale['daily_double_wager_2']} (max 700)"
+
+            # Make a valid wager
+            await context.make_wager(active_player.contestant_id, 600)
+
+            await context.show_question(True)
+
+            # Have the contestant answer correctly
+            if active_question.question.extra and "choices" in active_question.question.extra:
+               await context.answer_question(choice="42")
+            else:
+               await context.answer_question(key=1)
+
+            await context.assert_presenter_values(
+                active_player.id,
+                active_player.contestant.name,
+                active_player.contestant.color,
+                score=active_player.score + 600,
+                hits=1,
+                misses=0,
+            )
+
+            async with context.presenter_page.expect_navigation():
+                await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            session.refresh(active_player)
+
+            assert active_player.has_turn
+            assert active_player.score == 1300
+            assert active_player.buzzes == 0
+            assert active_player.hits == 1
+            assert active_player.misses == 0
 
 # @pytest.mark.asyncio
 # async def test_daily_double_invalid(database, locales):

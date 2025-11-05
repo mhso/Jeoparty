@@ -79,7 +79,7 @@ async def test_finale_result(database, locales):
                 await context.assert_finale_result_values(locale, lines)
                 await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-                await asyncio.sleep(0.25)
+                await asyncio.sleep(0.5)
 
                 if contestant.finale_answer is not None:
                     correct = contestant.finale_answer == "4"
@@ -92,15 +92,16 @@ async def test_finale_result(database, locales):
 
                     result_line = f"{correct_line} {wager} {locale['points']}!"
                 else:
+                    key = "1"
                     result_line = locale["answer_skipped"]
-
-                lines[-1].append(result_line)
 
                 await context.presenter_page.press("body", key)
 
-                await context.assert_finale_result_values(locale, lines)
+                lines[-1].append(result_line)
 
-                await asyncio.sleep(0.25)
+                await asyncio.sleep(1)
+
+                await context.assert_finale_result_values(locale, lines)
 
             await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 

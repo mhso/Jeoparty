@@ -336,7 +336,6 @@ class ContextHandler:
             await self.presenter_page.goto(url)
 
     async def show_question(self, is_daily_double=False):
-        await self.screenshot_views()
         if not is_daily_double:
             # Show the question
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
@@ -359,9 +358,9 @@ class ContextHandler:
         elif question_image is not None or question_video is not None:
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-    async def answer_question(self, index: int | None = None, choice: str | None = None):
+    async def answer_question(self, *, key: int | None = None, choice: str | None = None):
         await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.5)
     
         answer_choices = await self.presenter_page.query_selector_all(".question-choices-wrapper > .question-choice-entry")
         if answer_choices != []:
@@ -371,7 +370,7 @@ class ContextHandler:
                     await self.presenter_page.press("body", str(i))
                     break
         else:
-            await self.presenter_page.press("body", str(index))
+            await self.presenter_page.press("body", str(key))
 
         answer_correct = await self.presenter_page.query_selector("#question-answer-correct")
         answer_wrong = await self.presenter_page.query_selector("#question-answer-wrong")
@@ -394,18 +393,6 @@ class ContextHandler:
     async def use_power_up(self, contestant_id: str, power_id: str):
         await self.contestant_pages[contestant_id].click(f"#contestant-power-btn-{power_id}")
 
-    async def get_player_scores(self):
-        point_elems = await self.presenter_page.query_selector_all(".footer-contestant-entry-score")
-        points_text = [await elem.text_content() for elem in point_elems]
-        points_values = await self.presenter_page.evaluate("playerScores")
-
-        points_contestants = []
-        for page in self.contestant_pages:
-            elem = await page.query_selector("#contestant-game-score")
-            points_contestants.append(await elem.text_content())
-
-        return points_text, points_values, points_contestants
-
     async def make_wager(self, contestant_id: str, amount: int, dialog_callback=None):
         page = self.contestant_pages[contestant_id]
 
@@ -418,6 +405,7 @@ class ContextHandler:
 
         # Handle alert
         if dialog_callback is not None:
+            await page.evaluate("var dialog = false")
             page.on("dialog", dialog_callback)
         else:
             page.on("dialog", fail)
@@ -426,10 +414,16 @@ class ContextHandler:
         submit_button = await page.query_selector("#contestant-wager-btn")
         await submit_button.tap()
 
-        async def wager_accepted():
-            return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
+        if dialog_callback is None:
+            async def wager_accepted():
+                return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
 
-        await self.wait_for_event(wager_accepted)
+            await self.wait_for_event(wager_accepted)
+        else:
+            async def dialog_opened():
+                return await page.evaluate("dialog")
+
+            await self.wait_for_event(dialog_opened)
 
     async def give_finale_answer(self, contestant_id: str, answer: str):
         page = self.contestant_pages[contestant_id]

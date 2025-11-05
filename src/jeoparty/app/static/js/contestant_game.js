@@ -212,10 +212,10 @@ function monitorGame(userId, localeData) {
     });
 
     // Called when person has made a wager that is invalid
-    socket.on("invalid_wager", function(maxWager) {
+    socket.on("invalid_wager", function(minWager, maxWager) {
         let btn = document.getElementById("contestant-wager-btn");
         btn.disabled = false;
-        alert(`${localeData["invalid_wager"]} ${maxWager}`);
+        alert(`${localeData["invalid_wager"]} ${minWager} ${localeData['and']} ${maxWager}`);
     });
 }
 

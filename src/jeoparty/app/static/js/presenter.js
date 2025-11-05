@@ -213,7 +213,33 @@ function updatePlayerBuzzStats(playerId, hit) {
     statElem.textContent = newValue.toString();
 }
 
+function undoAnswer(playerId, correct) {
+    stopCountdown();
+
+    let value;
+    if (correct) {
+        value = -activeValue;
+    }
+    else {
+        value = activeValue;
+    }
+
+    socket.emit("undo_answer", playerId, value);
+    updatePlayerScore(answeringPlayer, value);
+
+    answeringPlayer = playerId;
+
+    afterBuzzIn(playerId);
+}
+
 function correctAnswer() {
+    // Add undo handler if presenter pressed wrong button
+    window.onkeydown = function(e) {
+        if (e.ctrlKey && e.code == "z") {
+            undoAnswer(answeringPlayer, true);
+        }
+    }
+
     // Disable all power-ups after question has been answered correctly
     disablePowerUp();
     activePowerUp = null;
@@ -264,6 +290,13 @@ function correctAnswer() {
 }
 
 function wrongAnswer(reason, questionOver=false) {
+    // Add undo handler if presenter pressed wrong button
+    window.onkeydown = function(e) {
+        if (e.ctrlKey && e.code == "z") {
+            undoAnswer(answeringPlayer, true);
+        }
+    }
+
     let outOfTime = questionOver && answeringPlayer == null;
 
     if (outOfTime) {
@@ -364,14 +397,14 @@ function answerQuestion(event) {
     if (keyIsNumeric(event.key, 1, 4)) {
         if (isQuestionMultipleChoice()) {
             // Highlight element as having been selected as the answer.
-            let delay = 2500
-            let elem = document.querySelector(".question-choice-" + event.key);
-            let answerElem = elem.querySelector(".question-choice-text");
+            const delay = 2500
+            const elem = document.querySelector(".question-choice-" + event.key);
+            const answerElem = elem.querySelector(".question-choice-text");
             elem.classList.add("question-answering");
 
-            setTimeout(function() {
+            const timeoutId = setTimeout(function() {
                 elem.classList.remove("question-answering");
-
+                
                 if (answerElem.textContent === activeAnswer) {
                     elem.classList.add("question-answered-correct");
                     correctAnswer();
@@ -1199,15 +1232,11 @@ function showFinaleResult() {
                         className = "wager-answer-correct";
                         desc = `${localeStrings["and"]} <strong>${localeStrings["answer_correct"]} ${amount} ${localeStrings["points"]}</strong>!`;
                         socket.emit("finale_answer_correct", playerId, amount);
-                        updatePlayerScore(playerId, amount);
-                        updatePlayerBuzzStats(playerId, true);
                     }
                     else if (e.key == 2) { // Current player answered incorrectly
                         className = "wager-answer-wrong";
                         desc = `${localeStrings["and"]} <strong>${localeStrings["answer_wrong"]} ${amount} ${localeStrings["points"]}</strong>!`;
                         socket.emit("finale_answer_wrong", playerId, amount);
-                        updatePlayerScore(playerId, -amount);
-                        updatePlayerBuzzStats(playerId, false);
                     }
 
                     descElem.classList.add(className);

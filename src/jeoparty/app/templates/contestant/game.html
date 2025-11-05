@@ -69,9 +69,9 @@
 
                     {% else %}
                     <!-- Question screen -->
-                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "question" %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ question["value"] }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "question" %}<br>{% if question["daily_double"] %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ question["value"] }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
 
-                    {% if daily_double %}
+                    {% if question["daily_double"] %}
 
                         {% if has_turn %}
                             {% set max_wager = [score, max_value] | max %}
