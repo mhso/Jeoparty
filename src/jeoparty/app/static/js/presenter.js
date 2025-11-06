@@ -143,12 +143,58 @@ function disableFreeze(playerId) {
     }, 1000);
 }
 
+function undoAnswer(playerId, currAnswer=null) {
+    console.log("Triggering undo for", playerId);
+    let wrong = document.getElementById("question-answer-correct").classList.contains("d-none");
+
+    let wrongElem = document.getElementById("question-answer-wrong");
+    if (!wrongElem.classList.contains("d-none")) {
+        wrongElem.classList.add("d-none");
+        wrongElem.style.setProperty("opacity", 0);
+    }
+
+    stopCountdown();
+
+    if (currAnswer != null) {
+        activeAnswer = currAnswer;
+
+        enabl
+    }
+
+    let value;
+    if (wrong) {
+        value = activeValue;
+    }
+    else {
+        value = -activeValue;
+    }
+
+    socket.emit("undo_answer", playerId, value);
+    updatePlayerScore(playerId, value);
+
+    answeringPlayer = playerId;
+
+    afterBuzzIn(playerId);
+}
+
+function isCtrlZHeld(event) {
+    return event.ctrlKey && event.key == "z";
+}
+
 function afterQuestion() {
+    const currAnswer = activeAnswer;
+    const currPlayer = answeringPlayer;
+
     activeAnswer = null;
     hideTips();
 
     window.onkeydown = function(e) {
-        if (e.code == PRESENTER_ACTION_KEY) {
+        // Undo answer if presenter pressed wrong button
+        if (isCtrlZHeld(e)) {
+            undoAnswer(currPlayer, currAnswer);
+        }
+
+        else if (e.code == PRESENTER_ACTION_KEY) {
             goToPage(getSelectionURL());
         }
     }
@@ -213,33 +259,7 @@ function updatePlayerBuzzStats(playerId, hit) {
     statElem.textContent = newValue.toString();
 }
 
-function undoAnswer(playerId, correct) {
-    stopCountdown();
-
-    let value;
-    if (correct) {
-        value = -activeValue;
-    }
-    else {
-        value = activeValue;
-    }
-
-    socket.emit("undo_answer", playerId, value);
-    updatePlayerScore(answeringPlayer, value);
-
-    answeringPlayer = playerId;
-
-    afterBuzzIn(playerId);
-}
-
 function correctAnswer() {
-    // Add undo handler if presenter pressed wrong button
-    window.onkeydown = function(e) {
-        if (e.ctrlKey && e.code == "z") {
-            undoAnswer(answeringPlayer, true);
-        }
-    }
-
     // Disable all power-ups after question has been answered correctly
     disablePowerUp();
     activePowerUp = null;
@@ -291,9 +311,10 @@ function correctAnswer() {
 
 function wrongAnswer(reason, questionOver=false) {
     // Add undo handler if presenter pressed wrong button
+    const currPlayer = answeringPlayer;
     window.onkeydown = function(e) {
-        if (e.ctrlKey && e.code == "z") {
-            undoAnswer(answeringPlayer, true);
+        if (isCtrlZHeld(e)) {
+            undoAnswer(currPlayer);
         }
     }
 
@@ -414,6 +435,23 @@ function answerQuestion(event) {
                     wrongAnswer(localeStrings["wrong_answer_given"], false);
                 }
             }, delay);
+
+            window.onkeydown = function(e) {
+                if (isCtrlZHeld(e)) {
+                    clearTimeout(timeoutId);
+
+                    if (
+                        elem.classList.contains("question-answered-correct")
+                        || elem.classList.contains("question-answered-wrong")
+                    ) {
+                        return;
+                    }
+
+                    // Answer the question again after an undo
+                    elem.classList.remove("question-answering");
+                    window.onkeydown = answerQuestion
+                }
+            }
         }
         else {
             if (event.key == 1) {
@@ -756,7 +794,6 @@ function showTip(index) {
 }
 
 function questionAsked(countdownDelay) {
-    window.onkeydown = null;
     setTimeout(function() {
         if (!activeAnswer) {
             return;
@@ -801,7 +838,7 @@ function questionAsked(countdownDelay) {
     }, countdownDelay);
 
     if (canPlayersBuzzIn()) {
-        // Enable participants to buzz in if we are in round 1 or 2
+        // Enable participants to buzz in if we are in regular rounds
         listenForBuzzIn();
     }
     else if (isDailyDouble) {

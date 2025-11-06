@@ -153,17 +153,6 @@ function getQuestionViewWrapper(roundId, categoryId, questionId) {
     return document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-view-${questionId}`);
 }
 
-function getUniqueFilename(filename) {
-    let uniqueName = filename;
-    let num = 1;
-    while (Object.hasOwn(questionMedia, uniqueName)) {
-        uniqueName = filename + num.toString();
-        num += 1;
-    }
-
-    return uniqueName
-}
-
 function syncQuestionData(round, category, question) {
     let wrapper = getQuestionViewWrapper(round, category, question);
 
@@ -230,7 +219,7 @@ function syncQuestionData(round, category, question) {
         }
     
         if (key != null) {
-            data["extra"][key] = getUniqueFilename(questionMediaFile.name.split(".")[0]);
+            data["extra"][key] = questionMediaFile.name.split(".")[0];
             questionMedia[data["extra"][key]] = questionMediaFile;
 
             let name = key == "question_image" ? ".question-question-image" : ".question-question-video";
@@ -263,7 +252,7 @@ function syncQuestionData(round, category, question) {
     if (answerMediaInput.files.length == 1) {
         let answerMediaFile = answerMediaInput.files[0];
         if (imageFileTypes.includes(answerMediaFile.type)) {
-            data["extra"]["answer_image"] = getUniqueFilename(answerMediaFile.name.split(".")[0]);
+            data["extra"]["answer_image"] = answerMediaFile.name.split(".")[0];
             questionMedia[data["extra"]["answer_image"]] = answerMediaFile;
         }
     }
@@ -364,8 +353,8 @@ function addQuestion(value, roundId, categoryId, questionId, wrapper) {
         event.stopPropagation();
     };
 
-    let questionElem = document.createElement("input");
-    questionElem.value = value;
+    let questionElem = document.createElement("div");
+    questionElem.textContent = value;
     questionElem.classList.add("question-pack-question-value");
     questionElem.classList.add(`question-pack-question-value-${questionId}`);
     questionElem.readonly = true;
@@ -438,7 +427,7 @@ function syncCategoryData(roundId, categoryId) {
     if (bgImageInput != null && bgImageInput.files.length == 1) {
         let bgMediaFile = bgImageInput.files[0];
         if (imageFileTypes.includes(bgMediaFile.type)) {
-            data["bg_image"] = getUniqueFilename(bgMediaFile.name.split(".")[0]);
+            data["bg_image"] = bgMediaFile.name.split(".")[0];
             questionMedia[data["bg_image"]] = bgMediaFile;
         }
     }
@@ -816,6 +805,15 @@ function syncIds(idList) {
     lastSaveState = questionData;
 }
 
+function clearMedia() {
+    questionMedia = {};
+    let fileInputs = document.querySelectorAll('.question-pack-question-view input[type="file"]');
+    fileInputs.forEach((elem) => {
+        let emptyFileList = new DataTransfer().files;
+        elem.files = emptyFileList;
+    });
+}
+
 function saveData(packId) {
     let saveBtn = document.getElementById("question-pack-save-btn");
     saveBtn.disabled = true;
@@ -875,6 +873,7 @@ function saveData(packId) {
 
         if (!error) {
             syncIds(data["ids"]);
+            clearMedia();
         }
 
         fade(btnPendingState, true, 1);
@@ -1447,8 +1446,8 @@ function orderQuestions(roundId, categoryId) {
 
     let sortedElements = Array.from(categoryWrapper.children).sort(
         function(a, b) {
-            let valA = Number.parseInt(a.querySelector(".question-pack-question-value").value);
-            let valB = Number.parseInt(b.querySelector(".question-pack-question-value").value);
+            let valA = Number.parseInt(a.querySelector(".question-pack-question-value").textContent);
+            let valB = Number.parseInt(b.querySelector(".question-pack-question-value").textContent);
 
             return valA < valB ? -1 : valA > valB ? 1 : 0;
         }
@@ -1477,7 +1476,7 @@ function saveQuestion(roundId, categoryId, questionId) {
         let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
         let questionElem = categoryWrapper.querySelector(`.question-pack-question-value-${questionId}`);
 
-        questionElem.value = valueInput.value;
+        questionElem.textContent = valueInput.value;
     }
 
     orderQuestions(roundId, categoryId);
@@ -1522,7 +1521,7 @@ function createQuestionView(roundId, categoryId, isFinale=false) {
         let baseValue = 100 * (roundIndex + 1);
         let questionValue = baseValue;
         questionWrappers.forEach((elem, index) => {
-            let value = elem.querySelector(".question-pack-question-value").value;
+            let value = Number.parseInt(elem.querySelector(".question-pack-question-value").textContent);
             if (value != baseValue * (index + 1)) {
                 return;
             }
@@ -1535,16 +1534,17 @@ function createQuestionView(roundId, categoryId, isFinale=false) {
         // If the question value for this new question is larger
         // than the value for the finale question, update it accordingly
         let finaleValueElem = document.querySelector(".question-pack-finale-wrapper .question-pack-question-value");
-        if (finaleValueElem != null && questionValue > finaleValueElem.value) {
-            finaleValueElem.value = questionValue;
+        if (finaleValueElem != null && questionValue > Number.parseInt(finaleValueElem.textContent)) {
+            finaleValueElem.textContent = questionValue;
         }
     }
     else {
         let allQuestionElems = document.querySelectorAll(".question-pack-question-value");
         let maxQuestionValue = 0;
         allQuestionElems.forEach((elem) => {
-            if (elem.value > maxQuestionValue) {
-                maxQuestionValue = elem.value;
+            let val = Number.parseInt(elem.value);
+            if (val > maxQuestionValue) {
+                maxQuestionValue = val;
             }
         });
 

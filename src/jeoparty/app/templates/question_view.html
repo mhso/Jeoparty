@@ -19,7 +19,7 @@
 <div class="question-view-wrapper">
     <!-- Category header -->
     {% if editable %}
-    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span><br>{{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}"> <span class="question-reward-span">{{ _locale["points"] }}</span> <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}"></h2>
+    <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span><br>{{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}" autocomplete="false"> <span class="question-reward-span">{{ _locale["points"] }}</span> <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}"></h2>
     {% else %}
     <h2 class="question-category-header"><span class="question-category-span">{{ category["name"] }}</span>{% if stage == 'question' %}<br>{% if daily_double %}Daily Double!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">{% endif %}</h2>
     {% endif %}

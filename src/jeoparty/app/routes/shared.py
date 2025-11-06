@@ -200,7 +200,7 @@ def validate_param(
 
     return val, None
 
-def validate_file(file: FileStorage, valid_types: List[str], validate_name: bool = True):
+def validate_file(file: FileStorage, path: str, valid_types: List[str], validate_name: bool = True):
     if not file.filename:
         return False, "File name is empty"
 
@@ -218,6 +218,17 @@ def validate_file(file: FileStorage, valid_types: List[str], validate_name: bool
         if Config.VALID_NAME_CHARACTERS.match(basename(secure_name.split(".")[0])) is None:
             return False, f"Filename contains an invalid character. Must be of the pattern '{str(Config.VALID_NAME_CHARACTERS)}'"
     else:
-        secure_name = None
+        secure_name = None    
 
-    return True, secure_name
+    # Validate that the file doesn't exist, if so add a suffix to make it unique
+    full_path = os.path.join(path, secure_name)
+    suffix = 1
+    while os.path.exists(full_path):
+        split = secure_name.split(".")
+
+        secure_name = f"{split[0]}_{suffix}.{split[1]}"
+        full_path = os.path.join(path, secure_name)
+        suffix += 1
+
+    return True, full_path
+

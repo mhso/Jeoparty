@@ -2,6 +2,8 @@
 <html>
 {% include 'dashboard/head.html' %}
 <body>
+    <script src="{{ url_for('static', _external=True, filename='js/dashboard.js') }}"></script>
+
     {% include 'logo.html' %}
 
     <div id="dashboard-wrapper">
@@ -13,7 +15,7 @@
 
                 <div id="dashboard-games-data">
                     {% for game_data in games %}
-                    <div class="dashboard-game-entry-wrapper"{% if 'url' in game_data %} onclick="window.location.href = '{{ game_data['url'] }}'"{% endif %}>
+                    <div class="dashboard-game-entry-wrapper {% if 'url' in game_data %}game-active{% endif %} dashboard-entry-wrapper"{% if 'url' in game_data %} onclick="window.location.href = '{{ game_data['url'] }}'"{% endif %}>
                         <h3>{{ game_data['title'] }}</h3>
                         <div class="dashboard-game-entry-question">Question Pack: {{ game_data['pack']['name'] }}</div>
                         <div class="dashboard-game-entry-rounds">Round {{ game_data['round'] }} / {{ game_data['regular_rounds'] + 1 }}</div>
@@ -43,12 +45,16 @@
 
                 <div id="dashboard-questions-data">
                     {% for question_data in questions %}
-                    <div class="dashboard-questions-entry-wrapper" onclick="window.location.href = '{{ url_for('dashboard.question_pack', pack_id=question_data['id'] ) }}'">
+                    <div class="dashboard-questions-entry-wrapper dashboard-entry-wrapper" onclick="window.location.href = '{{ url_for('dashboard.question_pack', pack_id=question_data['id'] ) }}'">
                         <h3>{{ question_data['name'] }}</h3>
                         <div class="dashboard-question-entry-questions">Questions: {{ question_data['total_questions'] }}</div>
                         <div class="dashboard-question-entry-created">Created: {{ question_data['created_at'] }}</div>
                         <div class="dashboard-question-entry-changed">Changed: {{ question_data['changed_at'] }}</div>
                         <div class="dashboard-question-entry-public {% if question_data['public'] %}pack-public{% else %}pack-private{% endif %}">{% if question_data['public'] %}Public{% else %}Private{% endif %}</div>
+
+                        <button class="dashboard-delete-btn" onclick="deletePack(event, '{{ question_data['id'] }}')">
+                            <img src="{{ url_for('static', filename='img/trash.png') }}">
+                        </button>
                     </div>
                     {% endfor %}
                 </div>

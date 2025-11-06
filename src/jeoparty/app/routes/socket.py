@@ -369,6 +369,7 @@ class GameSocketHandler(Namespace):
     @_presenter_event
     def on_undo_answer(self, user_id: str, value: int):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+        contestant_metadata = self.contestant_metadata[user_id]
 
         if value < 0:
             contestant_data.hits -= 1
@@ -378,6 +379,8 @@ class GameSocketHandler(Namespace):
         contestant_data.score += value
 
         self.database.save_models(contestant_data)
+
+        self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
 
     @_contestants_event
     def on_ping_request(self, user_id: str, timestamp: float):

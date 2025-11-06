@@ -1,6 +1,8 @@
 import asyncio
 import pytest
 
+from playwright.async_api import Dialog
+
 from jeoparty.api.enums import StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 
@@ -618,9 +620,70 @@ async def test_daily_double_valid(database, locales):
             assert active_player.hits == 1
             assert active_player.misses == 0
 
-# @pytest.mark.asyncio
-# async def test_daily_double_invalid(database, locales):
-#     pass
+@pytest.mark.asyncio
+async def test_daily_double_invalid(database, locales):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name, daily_doubles=True))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+            language_locale = locales[game_data.pack.language.value]
+            locale = language_locale["pages"]["contestant/game"]
+            locale.update(language_locale["pages"]["global"])
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            await context.start_game()
+            session.refresh(game_data)
+
+            active_player = game_data.game_contestants[-1]
+
+            active_player.has_turn = True
+            active_player.score = 700
+            database.save_models(active_player)
+
+            session.refresh(game_data)
+
+            # Set daily double question as active
+            active_question = next(filter(lambda q: q.daily_double, game_data.game_questions))
+            active_question.active = True
+
+            database.save_models(active_question)
+
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            # Make a wager that is too high
+            async def on_dialog(dialog: Dialog):
+                await dialog.dismiss()
+                assert dialog.message == f"{locale['invalid_wager']} 100 {locale['and']} {active_player.score}"
+                await dialog.page.evaluate("dialog = true")
+
+            await context.make_wager(active_player.contestant_id, 800, on_dialog)
+
+            # Make a wager that is too low
+            async def on_dialog(dialog: Dialog):
+                await dialog.dismiss()
+                assert dialog.message == f"{locale['invalid_wager']} 100 {locale['and']} {active_player.score}"
+                await dialog.page.evaluate("dialog = true")
+
+            await context.make_wager(active_player.contestant_id, 0, on_dialog)
 
 # @pytest.mark.asyncio
 # async def test_freeze_power(database, locales):

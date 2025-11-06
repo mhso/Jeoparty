@@ -202,14 +202,12 @@ def _save_pack_media_file(pack_id: str, data: Dict[str, Any], file_key: str, fil
 
     if (file := files.get(file_name)):
         allowed_types = ["webm", "mp4"] if file_key == "video" else ["png", "jpg", "jpeg", "webp"]
-        success, error_or_name = validate_file(file, allowed_types)
+        success, error_or_name = validate_file(file, get_question_pack_data_path(pack_id), allowed_types)
         if not success:
             return f"Could not save question image '{file.filename}': {error_or_name}"
 
-        path = os.path.join(get_question_pack_data_path(pack_id), error_or_name)
-        file.save(path)
-
-        data[file_key] = error_or_name
+        file.save(error_or_name)
+        data[file_key] = os.path.basename(error_or_name)
 
         return None
 
@@ -328,6 +326,26 @@ def save_pack(pack_id: str):
         return make_json_response("Unknown error when saving question pack", 500)
 
     return make_json_response({"response": "Question pack saved successfully.", "ids": new_ids}, 200)
+
+@dashboard_page.route("/pack/<pack_id>/delete", methods=["POST"])
+def delete_pack(pack_id: str):
+    user_details = get_user_details()
+    if user_details is None:
+        return make_json_response("You are not logged in!", 401)
+
+    database: Database = flask.current_app.config["DATABASE"]
+    user_id = user_details[0]
+
+    if database.get_question_packs_for_user(user_id, pack_id) is None:
+        return make_json_response("You are not authorized to delete this question package", 401)
+
+    try:
+        database.delete_question_pack(pack_id)
+    except Exception:
+        logger.exception("Error when saving question pack")
+        return make_json_response("Unknown error when deleting question pack", 500)
+
+    return make_json_response("Question pack was successfully deleted", 200)
 
 @dashboard_page.route("/pack/<pack_id>")
 def question_pack(pack_id: str):

@@ -417,3 +417,10 @@ class Database(SQLAlchemyDatabase):
             session.commit()
 
             return new_ids
+
+    def delete_question_pack(self, pack_id: str):
+        with self as session:
+            stmt = delete(QuestionPack).where(QuestionPack.id == pack_id)
+            session.execute(stmt)
+
+            session.commit()
