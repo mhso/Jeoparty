@@ -78,7 +78,7 @@
                     {% if "question_image" in extra %}
                     <img class="question-media question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                     {% else %}
-                    <video class="question-media question-question-video question-editable{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" controls style="height: {{ extra['height'] }}px;">
+                    <video class="question-media question-question-video question-editable" controls style="height: {{ extra['height'] }}px;"{% if 'volume' in extra %} data-volume="{{ extra['volume'] }}"{% endif %}>
                         <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
                     </video>
                     {% endif %}

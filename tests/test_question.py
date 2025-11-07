@@ -685,9 +685,67 @@ async def test_daily_double_invalid(database, locales):
 
             await context.make_wager(active_player.contestant_id, 0, on_dialog)
 
-# @pytest.mark.asyncio
-# async def test_freeze_power(database, locales):
-#     pass
+@pytest.mark.asyncio
+async def test_freeze_power(database, locales):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            await context.start_game()
+
+            session.refresh(game_data)
+
+            # Set player 1 as having the turn and question 1 as the active question
+            active_player = next(filter(lambda c: c.contestant.name == contestant_names[1], game_data.game_contestants))
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("choices"), game_data.game_questions))
+
+            active_player.has_turn = True
+            active_question.active = True
+
+            database.save_models(active_player, active_question)
+
+            # Open question page and show question
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            await context.show_question()
+
+            # Buzz in and use freeze
+            await context.hit_buzzer(active_player.contestant_id)
+
+            await asyncio.sleep(1)
+
+            power_id = "freeze"
+            await context.use_power_up(active_player.contestant_id, power_id)
+            video = await context.presenter_page.query_selector(f"question-power-up-video-{power_id}")
+
+            async def power_video_done():
+                return await video.evaluate("(e) => e.opacity == 0")
+
+            await context.wait_for_event(power_video_done)
+
+            await context.screenshot_views()
 
 # @pytest.mark.asyncio
 # async def test_rewind_power(database, locales):

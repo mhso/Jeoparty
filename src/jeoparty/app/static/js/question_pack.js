@@ -219,7 +219,7 @@ function syncQuestionData(round, category, question) {
         }
     
         if (key != null) {
-            data["extra"][key] = questionMediaFile.name.split(".")[0];
+            data["extra"][key] = questionMediaFile.name;
             questionMedia[data["extra"][key]] = questionMediaFile;
 
             let name = key == "question_image" ? ".question-question-image" : ".question-question-video";
@@ -233,17 +233,28 @@ function syncQuestionData(round, category, question) {
             if (questionMediaPreview.style.borderColor) {
                 data["extra"]["border"] = questionMediaPreview.style.borderColor;
             }
+            
+            // Save video volume
+            if (key == "video") {
+                data["extra"]["volme"] = questionMediaPreview.volume;
+            }
         }
     }
     else {
-        // Save height of existing image/video
+        // Save height, border, and volume of existing image/video
         if (Object.hasOwn(data, "extra") && (Object.hasOwn(data["extra"], "question_image") || Object.hasOwn(data["extra"], "video"))) {
             let name = Object.hasOwn(data["extra"], "question_image") ? ".question-question-image" : ".question-question-video";
             let questionMediaPreview = wrapper.querySelector(name);
             let height = window.getComputedStyle(questionMediaPreview).height;
+
             data["extra"]["height"] = Number.parseInt(height.replace("px", ""));
+
             if (questionMediaPreview.style.borderColor) {
                 data["extra"]["border"] = questionMediaPreview.style.borderColor;
+            }
+
+            if (Object.hasOwn(data["extra"], "video")) {
+                data["extra"]["volme"] = questionMediaPreview.volume;
             }
         }
     }
@@ -252,7 +263,7 @@ function syncQuestionData(round, category, question) {
     if (answerMediaInput.files.length == 1) {
         let answerMediaFile = answerMediaInput.files[0];
         if (imageFileTypes.includes(answerMediaFile.type)) {
-            data["extra"]["answer_image"] = answerMediaFile.name.split(".")[0];
+            data["extra"]["answer_image"] = answerMediaFile.name;
             questionMedia[data["extra"]["answer_image"]] = answerMediaFile;
         }
     }
@@ -427,7 +438,7 @@ function syncCategoryData(roundId, categoryId) {
     if (bgImageInput != null && bgImageInput.files.length == 1) {
         let bgMediaFile = bgImageInput.files[0];
         if (imageFileTypes.includes(bgMediaFile.type)) {
-            data["bg_image"] = bgMediaFile.name.split(".")[0];
+            data["bg_image"] = bgMediaFile.name;
             questionMedia[data["bg_image"]] = bgMediaFile;
         }
     }
@@ -1604,8 +1615,14 @@ document.addEventListener("DOMContentLoaded", function() {
         if (media != null) {
             let prevHeight = Number.parseInt(window.getComputedStyle(media).height.replace("px", ""));
 
+            // Maximize relevant media
             if (prevHeight > REGULAR_MEDIA_HEIGHT) {
                 _maximizeMedia(elem, media);
+            }
+
+            // Set volume of potential video
+            if (media.classList.contains("question-question-video") && media.dataset.volume != null) {
+                media.volume = Number.parseFloat(media.datase.volume);
             }
         }
     });

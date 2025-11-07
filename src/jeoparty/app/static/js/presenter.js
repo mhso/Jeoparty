@@ -1337,6 +1337,11 @@ function setVolume() {
             elems.item(i).volume = parseFloat("0." + volume);
         }
     }
+
+    let questionVideo = document.querySelector(".question-question-video");
+    if (questionVideo != null && questionVideo.dataset.volume != null) {
+        questionVideo.volume = Number.parseFloat(questionVideo.datase.volume);
+    }
 }
 
 function champOPGG() {
