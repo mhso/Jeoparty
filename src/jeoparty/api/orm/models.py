@@ -32,9 +32,10 @@ class PowerUp(Base):
 
     @property
     def extra_fields(self):
+        language = self.pack.language.value if self.pack else Language.ENGLISH.value
         return {
             "icon": f"img/{self.type.value}_power.png" if not self.icon else f"{get_question_pack_data_path(self.pack_id, False)}/{self.icon}",
-            "video": f"img/{self.type.value}_power_used.webm" if not self.icon else f"{get_question_pack_data_path(self.pack_id, False)}/{self.video}",
+            "video": f"img/{self.type.value}_power_used_{language}.webm" if not self.icon else f"{get_question_pack_data_path(self.pack_id, False)}/{self.video}",
         }
 
 class QuestionPack(Base):

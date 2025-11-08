@@ -132,9 +132,7 @@ function disablePowerUp(playerId=null, powerId=null) {
     socket.emit("disable_powerup", playerId, powerId);
 }
 
-function disableFreeze(playerId) {
-    disablePowerUp(playerId, "freeze");
-
+function hideFreezeAnimation() {
     let freezeWrapper = document.querySelector(".question-countdown-frozen");
     freezeWrapper.style.transition = "opacity 2s";
     freezeWrapper.style.opacity = 0;
@@ -341,7 +339,7 @@ function wrongAnswer(reason, questionOver=false) {
     if (answeringPlayer != null) {
         if (freezeTimeout != null) {
             clearTimeout(freezeTimeout);
-            disableFreeze(answeringPlayer);
+            hideFreezeAnimation();
         }
 
         // Deduct points from player if someone buzzed in
@@ -544,14 +542,17 @@ function startAnswerCountdown(duration) {
     // Disable 'freeze' power-up one second before time expires
     freezeTimeout = setTimeout(function() {
         freezeTimeout = null;
-        disableFreeze(answeringPlayer);
+        disablePowerUp(answeringPlayer, "freeze");
+        hideFreezeAnimation();
     }, (duration - 1) * 1000);
 
     // Action key has to be pressed before an answer can be given (for safety)
     window.onkeydown = function(e) {
         if (e.code == PRESENTER_ACTION_KEY) {
-            // Disable 'hijack' power-up after an answer has been given
+            // Disable 'hijack' power-up for all and 'freeze' for the answering player
+            // after an answer has been given
             disablePowerUp(null, "hijack");
+            disablePowerUp(answeringPlayer, "freeze");
 
             // Pause video if one is playing
             pauseVideo();
@@ -671,24 +672,30 @@ function onFreezeUsed() {
 }
 
 function afterFreezeUsed() {
-    let opacity = 0.85;
+    const opacity = 0.9;
+
+    const fadeInDuration = 2;
 
     let freezeWrapper = document.querySelector(".question-countdown-frozen");
     freezeWrapper.classList.remove("d-none");
-    freezeWrapper.style.transition = "opacity 2s";
+    freezeWrapper.style.transition = `opacity ${fadeInDuration}s`;
     freezeWrapper.style.opacity = opacity;
 
-    let duration = 38;
-
-    freezeWrapper.style.transition = `opacity ${duration}s`;
-    freezeWrapper.style.opacity = 0;
-
     setTimeout(function() {
-        if (answeringPlayer != null) {
-            freezeWrapper.classList.add("d-none");
-            pauseCountdown(false);
-        }
-    }, duration * 1000)
+        const duration = 38;
+    
+        freezeWrapper.offsetHeight; // Trigger reflow
+        freezeWrapper.style.transition = `opacity ${duration}s`;
+        freezeWrapper.style.opacity = 0;
+    
+        setTimeout(function() {
+            if (answeringPlayer != null) {
+                freezeWrapper.classList.add("d-none");
+                pauseCountdown(false);
+            }
+        }, duration * 1000)
+    }, fadeInDuration * 1000);
+
 }
 
 function onRewindUsed(playerId) {
@@ -758,6 +765,11 @@ function powerUpUsed(playerId, powerId) {
     showPowerUpVideo(powerId, playerId).then(() => {
         if (callback) callback();
     });
+    
+    let powerIcon = document.querySelector(
+        `.footer-contestant-${playerId} .footer-contestant-power-${powerId} > .footer-contestant-entry-power-used`
+    );
+    powerIcon.classList.remove("d-none");
 }
 
 function hideTips() {

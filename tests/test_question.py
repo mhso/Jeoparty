@@ -738,12 +738,16 @@ async def test_freeze_power(database, locales):
 
             power_id = "freeze"
             await context.use_power_up(active_player.contestant_id, power_id)
-            video = await context.presenter_page.query_selector(f"question-power-up-video-{power_id}")
+
+            video = await context.presenter_page.query_selector(f"#question-power-up-video-{power_id}")
 
             async def power_video_done():
-                return await video.evaluate("(e) => e.opacity == 0")
+                return await video.evaluate("(e) => e.ended")
 
             await context.wait_for_event(power_video_done)
+
+            frozenCountdownElem = await context.presenter_page.query_selector(".question-countdown-frozen")
+            assert int(await frozenCountdownElem.evaluate("(e) => window.getComputedStyle(e).opacity")) > 0
 
             await context.screenshot_views()
 

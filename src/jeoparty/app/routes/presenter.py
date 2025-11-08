@@ -150,6 +150,7 @@ def question(game_data: Game):
         **game_json,
         **question_json,
     )
+    
 
 @presenter_page.route("/<game_id>/selection")
 @_request_decorator

@@ -3,6 +3,8 @@ from typing import Any, Dict, Tuple
 
 import flask
 
+from mhooge_flask.routing import make_template_context
+
 from jeoparty.api.database import Database
 from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Contestant, GameContestant
@@ -136,7 +138,7 @@ def game_view(game_id: str):
     with database:
         game_data = database.get_game_from_id(game_id)
         if game_data is None:
-            return render_locale_template("contestant/nogame.html", game_data.pack.language, status=404)
+            return make_template_context("contestant/nogame.html", status=404)
 
         # Validate that user_id is saved as a cookie
         if user_id is None:
