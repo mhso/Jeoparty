@@ -44,11 +44,11 @@
             <div class="input-field">
                 <label for="lobby-music">Lobby Music</label>
                 {% if lobby_music %}
-                <audio>
-                    <source>
+                <audio id="question-pack-lobby-music">
+                    <source src="{{ url_for('static', _external=True, filename=lobby_music) }}" type="audio/mpeg">
                 </audio>
                 {% endif %}
-                <input id="question-pack-music" name="lobby-music" type="file">
+                <input id="question-pack-music-input" name="lobby-music" type="file" accept=".mp3" onchange="syncLobbyMusic();">
             </div>
 
             <div id="question-pack-data-wrapper">
@@ -70,6 +70,10 @@
                             <label for="round-name-{{ round_num }}" class="question-pack-round-name-label">Round Name</label>
                             <input class="question-pack-round-name" name="round-name-{{ round_num }}" value="{{ round_data['name'] }}" onchange="syncRoundData({{ round_num }}); dataChanged();">
                         </div>
+
+                        <button class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}" onclick="addCategory({{ round_num }}, {{ is_finale | tojson }});">
+                            {% if is_finale %}Click here to add the finale question!{% else %}Click here to add a category{% endif %}
+                        </button>
 
                         <div class="question-pack-round-body">
                             {% for category in round_data["categories"] %}
@@ -100,14 +104,11 @@
                                     </div>
                                     {% endfor %}
                                 </div>
+
                                 <button class="question-pack-add-question-btn" onclick="createQuestionView({{ round_num }}, {{ category_num }})">+</button>
                             </div>
                             {% endfor -%}
                         </div>
-
-                        <button class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}" onclick="addCategory({{ round_num }}, {{ is_finale | tojson }});">
-                            {% if is_finale %}Click here to add the finale question!{% else %}Click here to add a category{% endif %}
-                        </button>
 
                         <button class="question-pack-add-category-btn{% if not round_data['categories'] or is_finale %} d-none{% endif %}" onclick="addCategory({{ round_num }});">+</button>
                     </div>

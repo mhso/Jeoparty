@@ -200,7 +200,13 @@ def validate_param(
 
     return val, None
 
-def validate_file(file: FileStorage, path: str, valid_types: List[str], validate_name: bool = True):
+def validate_file(
+    file: FileStorage,
+    path: str,
+    valid_types: List[str],
+    validate_name: bool = True,
+    allow_overwrite: bool = False,
+):
     if not file.filename:
         return False, "File name is empty"
 
@@ -221,14 +227,15 @@ def validate_file(file: FileStorage, path: str, valid_types: List[str], validate
         secure_name = None    
 
     # Validate that the file doesn't exist, if so add a suffix to make it unique
-    full_path = os.path.join(path, secure_name)
-    suffix = 1
-    while os.path.exists(full_path):
-        split = secure_name.split(".")
-
-        secure_name = f"{split[0]}_{suffix}.{split[1]}"
+    if not allow_overwrite:
         full_path = os.path.join(path, secure_name)
-        suffix += 1
+        suffix = 1
+        while os.path.exists(full_path):
+            split = secure_name.split(".")
+
+            secure_name = f"{split[0]}_{suffix}.{split[1]}"
+            full_path = os.path.join(path, secure_name)
+            suffix += 1
 
     return True, full_path
 

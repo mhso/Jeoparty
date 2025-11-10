@@ -24,6 +24,10 @@ const videoFileTypes = [
     "video/mp4",
 ];
 
+const audioFileTypes = [
+    "audio/mp3",
+]
+
 function isMediaValidType(file) {
     if (imageFileTypes.includes(file.type)) {
         return true;
@@ -487,6 +491,7 @@ function addCategory(roundId, isFinale) {
 
     let input = document.createElement("input");
     input.classList.add("question-pack-category-name");
+    input.placeholder = "Category Name"
     input.onchange = function() {
         syncCategoryData(roundId, category);
         dataChanged();
@@ -498,8 +503,9 @@ function addCategory(roundId, isFinale) {
     let dataDiv = document.createElement("div");
     dataDiv.className = "question-pack-category-body";
 
+    let addQuestionBtn;
     if (!isFinale) {
-        let addQuestionBtn = document.createElement("button");
+        addQuestionBtn = document.createElement("button");
         addQuestionBtn.textContent = "+";
         addQuestionBtn.classList.add("question-pack-add-question-btn");
         addQuestionBtn.onclick = function() {
@@ -740,6 +746,28 @@ function syncPackFinale() {
 function syncPackLanguage() {
     let language = document.getElementById("question-pack-language").value;
     questionData["language"] = language;
+}
+
+function syncLobbyMusic() {
+    let input = document.getElementById("question-pack-music-input");
+
+    if (input.files.length == 1 && audioFileTypes.includes(input.files[0].type)) {
+        let audioElem = document.querySelector("#question-pack-lobby-music");
+        let sourceElem;
+        if (audioElem == null) {
+            let audioElem = document.createElement("audio");
+            audioElem.id = "question-pack-lobby-music";
+
+            sourceElem = document.createElement("source");
+            sourceElem.type = "audio/mpeg";
+        }
+        else {
+            sourceElem = audioElem.children[0];
+        }
+
+        sourceElem.src = URL.createObjectURL(input.files[0]);
+        questionMedia["lobby_music"] = input.files[0];
+    }
 }
 
 function getBaseURL() {

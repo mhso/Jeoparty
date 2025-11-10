@@ -103,7 +103,7 @@ def create_pack():
         data_path = get_question_pack_data_path(pack_model_or_error.id)
         os.mkdir(data_path)
 
-        if "music" in flask.request.files:
+        if "music" in flask.request.files and flask.request.files["music"].filename:
             file = flask.request.files["music"]
 
             path = os.path.join(data_path, "lobby_music.mp3")
@@ -232,6 +232,18 @@ def _save_pack_files(pack_data:  Dict[str, Any], files: Dict[str, FileStorage]):
                     error_or_name = _save_pack_media_file(pack_data["id"], question_data.get("extra", {}), file_key, files)
                     if error_or_name:
                         return error_or_name
+
+    # Save lobby music, if any is given
+    if "lobby_music" in files:
+        success, error_or_name = validate_file(
+            files["lobby_music"],
+            get_question_pack_data_path(pack_data["id"]),
+            ["mp3"],
+            allow_overwrite=True,
+        )
+
+        if not success:
+            return error_or_name
 
     return None
 
