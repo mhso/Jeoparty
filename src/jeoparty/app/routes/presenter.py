@@ -22,7 +22,7 @@ presenter_page = flask.Blueprint("presenter", __name__, template_folder="templat
 
 def _is_lan_active(game_data: Game):
     return (
-        game_data.pack.name.startswith("LoL Jeopardy")
+        game_data.pack.theme == "lan"
         and game_data.created_by == Config.ADMIN_ID
     )
 

@@ -747,9 +747,17 @@ async def test_freeze_power(database, locales):
             await context.wait_for_event(power_video_done)
 
             frozenCountdownElem = await context.presenter_page.query_selector(".question-countdown-frozen")
-            assert int(await frozenCountdownElem.evaluate("(e) => window.getComputedStyle(e).opacity")) > 0
+            assert float(await frozenCountdownElem.evaluate("(e) => window.getComputedStyle(e).opacity")) > 0
 
-            await context.screenshot_views()
+            await context.assert_question_values(
+                active_question,
+                game_feed=[
+                    f"{contestant_names[1]} {locale['game_feed_buzz_1']} " + r"\d{1,3}\.\d{2} " + locale['game_feed_buzz_2'],
+                    f"{contestant_names[1]} {locale['game_feed_power_1']} freeze {locale['game_feed_power_2']}!",
+                ]
+            )
+
+            assert await context.presenter_page.evaluate("countdownPaused")
 
 # @pytest.mark.asyncio
 # async def test_rewind_power(database, locales):

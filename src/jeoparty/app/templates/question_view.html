@@ -9,7 +9,7 @@
 <div class="bg-image"{% if category['bg_image'] %} style="background-image: url({{ url_for('static', _external=True, filename=category['bg_image']) }});"{% endif %}></div>
 {% if editable %}
 <button class="question-bg-image-btn" onclick="openBackgroundImageInput(event);">
-    <img src="{{ url_for('static', filename='img/bg_image_icon.png') }}">
+    <img src="{{ url_for('static', _external=True, filename='img/bg_image_icon.png') }}">
 </button>
 
 <!-- Background image picker -->
@@ -67,8 +67,8 @@
                 {% else %}
                 {% set isMaximized = false %}
                 {% endif %}
-                <img src="{{ url_for('static', filename='img/pop_out.png') }}" class="media-maximize-icon{% if isMaximized %} d-none{% endif %}">
-                <img src="{{ url_for('static', filename='img/pop_in.png') }}" class="media-minimize-icon{% if not isMaximized %} d-none{% endif %}">
+                <img src="{{ url_for('static', _external=True, filename='img/pop_out.png') }}" class="media-maximize-icon{% if isMaximized %} d-none{% endif %}">
+                <img src="{{ url_for('static', _external=True, filename='img/pop_in.png') }}" class="media-minimize-icon{% if not isMaximized %} d-none{% endif %}">
             </button>
 
             <input class="media-color-btn media-control-btn{% if not has_media %} d-none{% endif %}" type="color" onchange="setMediaBorderColor(event);"{% if 'border' in extra %} value="{{ extra['border'] }}"{% endif %}>
@@ -171,7 +171,7 @@
     <!-- Countdown wrapper -->
     <div class="question-countdown-wrapper{% if editable %} question-editable{% endif %}">
         <div class="question-countdown-frozen d-none">
-            <img src="{{ url_for('static', filename='img/frozen.png') }}">
+            <img src="{{ url_for('static', _external=True, filename='img/frozen.png') }}">
         </div>
         <div class="question-countdown-filled{% if editable %} question-editable{% endif %}"></div>
         {% if category['buzz_time'] > 0 %}{% set extra_args = {} %}{% else %}{% set extra_args = {'disabled': true} %}{% endif %}

@@ -10,10 +10,11 @@ from mhooge_flask.database import Base
 from jeoparty.api.enums import StageType, PowerUpType, Language
 from jeoparty.api.config import (
     Config, 
+    get_theme_path,
     get_avatar_path,
     get_bg_image_path,
     get_buzz_sound_path,
-    get_question_pack_data_path
+    get_question_pack_data_path,
 )
 
 power_up_order_case = {power_up.name: index for index, power_up in enumerate(PowerUpType)}
@@ -49,6 +50,7 @@ class QuestionPack(Base):
     public: Mapped[bool] = mapped_column(Boolean, default=False)
     include_finale: Mapped[bool] = mapped_column(Boolean, default=True)
     language: Mapped[Language] = mapped_column(Enum(Language), default=Language.ENGLISH)
+    theme: Mapped[Optional[str]] = mapped_column(String(64))
     created_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
@@ -296,6 +298,8 @@ class Game(Base):
             "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
             "question_num": sum(1 if gq.used else 0 for gq in self.game_questions) + 1,
+            "theme": self.pack.theme,
+            "theme_bg_img": None if self.pack.theme is None else f"{get_theme_path(self.pack.theme, False)}/presenter_background.jpg",
         }
 
     def get_contestant(self, *, contestant_id: str | None = None, game_contestant_id: str | None = None) -> GameContestant | None:

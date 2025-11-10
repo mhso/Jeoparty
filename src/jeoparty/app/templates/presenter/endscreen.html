@@ -3,7 +3,7 @@
     {% include 'presenter/head.html' %}
 
     <body>
-        <div id="bg-fill"></div>
+        <div class="bg-fill{% theme_bg_img %} bg-image" style="background-image: url({{ url_for('static', _external=True, filename=theme_bg_img) }}); {% endif %}"></div>
         <div id="endscreen-techno-overlay" class="d-none"></div>
 
         <div id="endscreen-wrapper">
@@ -18,7 +18,7 @@
                 {% for winner in winners %}
                 <div class="endscreen-avatars-entry">
                     <img src="{{ url_for('static', _external=True, filename='img/crown.png') }}" class="endscreen-crown">
-                    <img src="{{ url_for('static', filename=winner['avatar']) }}" class="endscreen-avatar">
+                    <img src="{{ url_for('static', _external=True, filename=winner['avatar']) }}" class="endscreen-avatar">
                 </div>
                 {% endfor %}
             </div>

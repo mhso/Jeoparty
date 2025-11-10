@@ -2,7 +2,7 @@
 <html>
 {% include 'dashboard/head.html' %}
 <body>
-    <script src="{{ url_for('static', filename='js/question_pack.js') }}"></script>
+    <script src="{{ url_for('static', _external=True, filename='js/question_pack.js') }}"></script>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/question_style.css') }}">
     
     <!-- Variables for 'question_view' template -->
@@ -112,10 +112,10 @@
                     <div class="loading-icon"></div>
                 </div>
                 <div class="save-btn-success d-none">
-                    <img src="{{ url_for('static', filename='img/success.png') }}">
+                    <img src="{{ url_for('static', _external=True, filename='img/success.png') }}">
                 </div>
                 <div class="save-btn-fail d-none">
-                    <img src="{{ url_for('static', filename='img/error.png') }}">
+                    <img src="{{ url_for('static', _external=True, filename='img/error.png') }}">
                 </div>
             </button>
         </div>

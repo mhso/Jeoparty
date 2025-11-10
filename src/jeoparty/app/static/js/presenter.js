@@ -1178,6 +1178,7 @@ function addContestantDiv(id, name, avatar, color) {
     if (existingDiv == null) {
         let avatarElem = document.createElement("img");
         avatarElem.className = "menu-contestant-avatar";
+        avatarElem.style.border = "2px solid " + color;
         avatarElem.src = `${getBaseURL()}/static/${avatar}`;
     
         let nameElem = document.createElement("div");

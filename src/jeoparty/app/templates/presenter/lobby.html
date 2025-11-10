@@ -5,7 +5,7 @@
     <body>
         {% include 'presenter/connection_status.html' %}
 
-        <div id="bg-fill"></div>
+        <div class="bg-fill{% if theme_bg_img %} bg-image" style="background-image: url({{ url_for('static', _external=True, filename=theme_bg_img) }}); {% endif %}"></div>
 
         <div id="menu-wrapper">
             {% include 'logo.html' %}
@@ -30,15 +30,8 @@
                 {% endif %}
             </div>
 
-            {% if lan_mode %}
-            <img id="menu-naafiri" src="{{ url_for('static', _external=True, filename='img/naafiri_dance.gif') }}">
-            <img id="menu-alistar" src="{{ url_for('static', _external=True, filename='img/alistar_dance.gif') }}">
-            <img id="menu-teemo" src="{{ url_for('static', _external=True, filename='img/teemo_dance.gif') }}">
-            <img id="menu-ivern" src="{{ url_for('static', _external=True, filename='img/ivern_dance.gif') }}">
-            <img id="menu-brand" src="{{ url_for('static', _external=True, filename='img/brand_dance.gif') }}">
-            <img id="menu-nidalee" src="{{ url_for('static', _external=True, filename='img/nidalee_dance.gif') }}">
-            <img id="menu-quinn" src="{{ url_for('static', _external=True, filename='img/quinn_thonk.gif') }}">
-            <img id="menu-vi" src="{{ url_for('static', _external=True, filename='img/vi_point.gif') }}">
+            {% if theme %}
+            {% include 'themes/' + theme + '/lobby.html'  %}
             {% endif %}
         </div>
 

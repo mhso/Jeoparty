@@ -1,3 +1,4 @@
+from glob import glob
 import os
 from typing import Any, Dict, Tuple
 
@@ -9,7 +10,7 @@ from jeoparty.api.database import Database
 from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Contestant, GameContestant
 from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template
-from jeoparty.api.config import get_avatar_path
+from jeoparty.api.config import get_avatar_path, get_theme_path, get_bg_image_path
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
 
@@ -38,8 +39,19 @@ def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | st
 
     return create_and_validate_model(Contestant, params, "joining lobby")
 
-def _get_random_bg_image(index):
-    return None # TODO: Make this sometime
+def _get_contestant_bg_image(index: int, theme: str | None):
+    files = []
+    if theme:
+        # Return random image from theme folder
+        files = glob(f"{get_theme_path(theme)}/contestant_backgrounds/*")
+
+    if files == []:
+        files = glob(f"{get_bg_image_path()}/*")
+
+    if index < len(files):
+        return files[index].split("static/")[-1]
+
+    return None
 
 def _save_contestant_avatar(file, user_id):
     file_split = file.filename.split(".")
@@ -99,10 +111,12 @@ def join_lobby():
                     break
 
         # Get or set background image
-        contestant_model_or_error.bg_image = flask.request.form.get("bg_image")
+        bg_image = flask.request.form.get("bg_image")
 
-        if contestant_model_or_error.bg_image is None:
-            contestant_model_or_error.bg_image = _get_random_bg_image(index)
+        if bg_image is None:
+            bg_image = _get_contestant_bg_image(index, game_data.pack.theme)
+
+        contestant_model_or_error.bg_image = bg_image
 
         # Set buzz sound, if given
         contestant_model_or_error.buzz_sound = flask.request.form.get("buzz_sound")

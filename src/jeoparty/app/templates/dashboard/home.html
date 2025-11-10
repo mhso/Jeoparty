@@ -53,7 +53,7 @@
                         <div class="dashboard-question-entry-public {% if question_data['public'] %}pack-public{% else %}pack-private{% endif %}">{% if question_data['public'] %}Public{% else %}Private{% endif %}</div>
 
                         <button class="dashboard-delete-btn" onclick="deletePack(event, '{{ question_data['id'] }}')">
-                            <img src="{{ url_for('static', filename='img/trash.png') }}">
+                            <img src="{{ url_for('static', _external=True, filename='img/trash.png') }}">
                         </button>
                     </div>
                     {% endfor %}
