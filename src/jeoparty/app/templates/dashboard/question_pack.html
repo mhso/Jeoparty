@@ -41,6 +41,16 @@
                 </select>
             </div>
 
+            <div class="input-field">
+                <label for="lobby-music">Lobby Music</label>
+                {% if lobby_music %}
+                <audio>
+                    <source>
+                </audio>
+                {% endif %}
+                <input id="question-pack-music" name="lobby-music" type="file">
+            </div>
+
             <div id="question-pack-data-wrapper">
                 <div id="question-pack-data-header">
                     <div>
@@ -60,7 +70,6 @@
                             <label for="round-name-{{ round_num }}" class="question-pack-round-name-label">Round Name</label>
                             <input class="question-pack-round-name" name="round-name-{{ round_num }}" value="{{ round_data['name'] }}" onchange="syncRoundData({{ round_num }}); dataChanged();">
                         </div>
-
 
                         <div class="question-pack-round-body">
                             {% for category in round_data["categories"] %}

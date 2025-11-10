@@ -997,7 +997,7 @@ function setBackgroundImage(event, roundId, categoryId) {
         const fileSrc = URL.createObjectURL(file);
         let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
         let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
-        let bgImageElements = categoryWrapper.querySelectorAll(".bg-image");
+        let bgImageElements = categoryWrapper.querySelectorAll(".bg-fill");
         bgImageElements.forEach(elem => {
             elem.style.backgroundImage = `url(${fileSrc})`;
         });
@@ -1510,7 +1510,7 @@ function createQuestionView(roundId, categoryId, isFinale=false) {
     wrapper.classList.remove("question-pack-question-view-placeholder");
     wrapper.classList.add(`question-pack-question-view-${questionId}`);
 
-    let bgImageElem = wrapper.querySelector(".bg-image");
+    let bgImageElem = wrapper.querySelector(".bg-fill");
     let categoryData = questionData["rounds"][roundId]["categories"][categoryId];
     if (Object.hasOwn(categoryData, "bg_image")) {
         bgImageElem.style.backgroundImage = `url(/static/${categoryData["bg_image"]})`;

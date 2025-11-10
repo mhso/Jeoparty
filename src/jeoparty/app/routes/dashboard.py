@@ -376,11 +376,17 @@ def question_pack(pack_id: str):
 
         base_entries = {k: v for k, v in pack_json.items() if not isinstance(v, list)}
 
+    if os.path.exists(f"{get_question_pack_data_path(pack_id)}/lobby_music.mp3"):
+        lobby_music = f"{get_question_pack_data_path(pack_id, False)}/lobby_music.mp3"
+    else:
+        lobby_music = None
+
     return render_locale_template(
         "dashboard/question_pack.html",
         pack_data.language,
         user_name=user_name,
         languages=[(lang.value, lang.value.capitalize()) for lang in Language],
         base_entries=base_entries,
+        lobby_music=lobby_music,
         **pack_json,
     )

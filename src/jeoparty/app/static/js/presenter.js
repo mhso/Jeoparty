@@ -11,6 +11,7 @@ const TIME_FOR_WAGERING = 60;
 const TIME_FOR_FINAL_ANSWER = 40;
 const TIME_BEFORE_FIRST_TIP = 4;
 const TIME_BEFORE_EXTRA_TIPS = 4;
+const TIME_FOR_FREEZE = 40;
 const IMG_MAX_HEIGHT = 420;
 const PRESENTER_ACTION_KEY = "Space"
 
@@ -155,8 +156,6 @@ function undoAnswer(playerId, currAnswer=null) {
 
     if (currAnswer != null) {
         activeAnswer = currAnswer;
-
-        enabl
     }
 
     let value;
@@ -496,6 +495,10 @@ function startCountdown(duration, callback=null) {
 
     countdownPaused = false;
 
+    if (countdownInterval) {
+        stopCountdown();
+    }
+
     countdownInterval = setInterval(function() {
         if (countdownPaused) {
             return;
@@ -682,8 +685,6 @@ function afterFreezeUsed() {
     freezeWrapper.style.opacity = opacity;
 
     setTimeout(function() {
-        const duration = 38;
-    
         freezeWrapper.offsetHeight; // Trigger reflow
         freezeWrapper.style.transition = `opacity ${duration}s`;
         freezeWrapper.style.opacity = 0;
@@ -693,7 +694,7 @@ function afterFreezeUsed() {
                 freezeWrapper.classList.add("d-none");
                 pauseCountdown(false);
             }
-        }, duration * 1000)
+        }, (TIME_FOR_FREEZE - fadeInDuration) * 1000)
     }, fadeInDuration * 1000);
 
 }

@@ -369,8 +369,11 @@ class ContextHandler:
                 if text.split(":")[1].strip() == choice:
                     await self.presenter_page.press("body", str(i))
                     break
-        else:
+        elif key is not None:
             await self.presenter_page.press("body", str(key))
+        else:
+            await self.screenshot_views("answer_error")
+            raise ValueError("Invalid arguments for answer_question")
 
         answer_correct = await self.presenter_page.query_selector("#question-answer-correct")
         answer_wrong = await self.presenter_page.query_selector("#question-answer-wrong")
@@ -568,10 +571,11 @@ class ContextHandler:
 
         # Assert that used power-ups are correct
         if used_power_ups is not None:
+            wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
             for power_up in used_power_ups:
-                wrapper_element = await self.presenter_page.query_selector(f".footer-contestant-power-{power_up}")
-                used_icon = await wrapper_element.query_selector(".footer-contestant-entry-power-used")
-                assert (used_icon is not None) is used_power_ups[power_up], f"Correct used {power_up}"
+                power_element = await wrapper_elem.query_selector(f".footer-contestant-power-{power_up}")
+                used_icon = await power_element.query_selector(".footer-contestant-entry-power-used")
+                assert await used_icon.is_visible() is used_power_ups[power_up], f"Correct used {power_up}"
 
         # Assert that ready-state are correct
         if ready is not None:
@@ -626,27 +630,29 @@ class ContextHandler:
         elem_opacity = await question_header.evaluate("(el) => window.getComputedStyle(el).getPropertyValue('opacity')")
         if question_visible is not None:
             assert int(elem_opacity) == int(question_visible)
-    
+
+        pack_id = question.question.category.round.pack.id
+
         # Assert that question image is correct if it exists
         if (question_image := question.question.extra.get("question_image")):
             image_elem = await self.presenter_page.query_selector(".question-question-image")
 
             assert image_elem is not None
-            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/{question_image}")
+            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/{pack_id}/{question_image}")
 
         # Assert that answer image is correct if it exists
         if (answer_image := question.question.extra.get("answer_image")):
             image_elem = await self.presenter_page.query_selector(".question-answer-image")
 
             assert image_elem is not None
-            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/{answer_image}")
+            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/{pack_id}/{answer_image}")
 
         # Assert that question video is correct if it exists
         if (video := question.question.extra.get("video")):
             video_elem = await self.presenter_page.query_selector(".question-question-video")
 
             assert video_elem is not None
-            assert (await video_elem.get_attribute("src")).endswith(f"/static/data/{video}")
+            assert (await video_elem.get_attribute("src")).endswith(f"/static/data/{pack_id}/{video}")
 
         # Assert that question choices are correct if they exist
         if (choices := question.question.extra.get("choices")):

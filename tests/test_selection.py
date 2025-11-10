@@ -378,8 +378,6 @@ async def test_finale_wager_invalid(database, locales):
 
             await asyncio.sleep(4)
 
-            await context.screenshot_views()
-
             # Make a wager that is too high
             async def on_dialog(dialog: Dialog):
                 await dialog.dismiss()

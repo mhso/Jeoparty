@@ -90,7 +90,7 @@ def _create_question_packs(database: Database):
             question="What is time?",
             answer="An emergent property of entropy, maybe? Who knows, man",
             value=200,
-            extra={"image": "clock.png", "height": 420}
+            extra={"question_image": "clock.png", "height": 420}
         )
 
         question_model_2_1_1 = Question(

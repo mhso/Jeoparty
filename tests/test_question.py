@@ -39,7 +39,7 @@ async def test_first_round(database, locales):
 
             # Set player 1 as having the turn and question 1 as the active question
             active_player = next(filter(lambda c: c.contestant.name == contestant_names[0], game_data.game_contestants))
-            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("choices"), game_data.game_questions))
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("choices"), game_data.get_questions_for_round()))
 
             active_player.has_turn = True
             active_question.active = True
@@ -131,6 +131,7 @@ async def test_first_round(database, locales):
             )
 
             # Have the player answer the question wrong
+            await asyncio.sleep(1)
             await context.answer_question(choice="Eggs")
 
             await context.assert_contestant_values(
@@ -212,6 +213,7 @@ async def test_first_round(database, locales):
             )
 
             # Have the player answer the question correctly
+            await asyncio.sleep(1)
             await context.answer_question(choice="42")
 
             await context.assert_contestant_values(
@@ -249,11 +251,10 @@ async def test_first_round(database, locales):
                 await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
             session.refresh(game_data)
+            session.refresh(active_question)
 
             assert game_data.stage == StageType.SELECTION
             assert context.presenter_page.url.endswith("/selection")
-
-            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("choices"), game_data.game_questions))
 
             assert not active_question.active
             assert active_question.used
@@ -329,7 +330,7 @@ async def test_all_wrong_buzzes(database, locales):
             session.refresh(game_data)
 
             # Set question 2 as the active question
-            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.game_questions))
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.get_questions_for_round()))
 
             active_question.active = True
 
@@ -431,7 +432,7 @@ async def test_time_runs_out(database, locales):
             session.refresh(game_data)
 
             # Set question 2 as the active question
-            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.game_questions))
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.get_questions_for_round()))
             active_question.active = True
 
             database.save_models(active_question)
@@ -497,7 +498,7 @@ async def test_question_aborted(database, locales):
             session.refresh(game_data)
 
             # Set question 2 as the active question
-            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.game_questions))
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.get_questions_for_round()))
             active_question.active = True
             active_question.question.category.buzz_time = 0
 
@@ -578,7 +579,7 @@ async def test_daily_double_valid(database, locales):
             session.refresh(game_data)
 
             # Set daily double question as active
-            active_question = next(filter(lambda q: q.daily_double, game_data.game_questions))
+            active_question = next(filter(lambda q: q.daily_double, game_data.get_questions_for_round()))
             active_question.active = True
 
             database.save_models(active_question)
@@ -661,7 +662,7 @@ async def test_daily_double_invalid(database, locales):
             session.refresh(game_data)
 
             # Set daily double question as active
-            active_question = next(filter(lambda q: q.daily_double, game_data.game_questions))
+            active_question = next(filter(lambda q: q.daily_double, game_data.get_questions_for_round()))
             active_question.active = True
 
             database.save_models(active_question)
@@ -718,7 +719,7 @@ async def test_freeze_power(database, locales):
 
             # Set player 1 as having the turn and question 1 as the active question
             active_player = next(filter(lambda c: c.contestant.name == contestant_names[1], game_data.game_contestants))
-            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("choices"), game_data.game_questions))
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
 
             active_player.has_turn = True
             active_question.active = True
@@ -757,7 +758,48 @@ async def test_freeze_power(database, locales):
                 ]
             )
 
+            # Assert countdown is paused
             assert await context.presenter_page.evaluate("countdownPaused")
+
+            countdown_elem = await context.presenter_page.query_selector(".question-countdown-text")
+            seconds_before = await countdown_elem.text_content()
+
+            await asyncio.sleep(1.5)
+
+            seconds_now = await countdown_elem.text_content()
+
+            assert seconds_before == seconds_now
+
+            await context.assert_presenter_values(
+                active_player.id,
+                used_power_ups={"hijack": False, "freeze": True, "rewind": False},
+            )
+
+            await context.assert_contestant_values(
+                active_player.contestant_id,
+                buzzer_status="inactive",
+                used_power_ups={"hijack": False, "freeze": True, "rewind": False},
+                enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
+            )
+
+            # Answer the question
+            await context.answer_question(key=1)
+
+            await context.assert_presenter_values(
+                active_player.id,
+                score=200,
+                hits=1,
+                misses=0,
+            )
+
+            # Assert that we go back to selection page after everyone answered wrong
+            async with context.presenter_page.expect_navigation():
+                await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            session.refresh(game_data)
+
+            assert context.presenter_page.url.endswith("/selection")
+            assert game_data.stage == StageType.SELECTION
 
 # @pytest.mark.asyncio
 # async def test_rewind_power(database, locales):

@@ -26,7 +26,7 @@ async def test_finale_result(database, locales):
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
-        with database as session:
+        with database:
             game_data = database.get_game_from_id(game_id)
             language_locale = locales[game_data.pack.language.value]
             locale = language_locale["pages"]["presenter/endscreen"]

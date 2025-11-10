@@ -6,7 +6,7 @@
 {% endif %}
 {%- endmacro %}
 
-<div class="bg-image"{% if category['bg_image'] %} style="background-image: url({{ url_for('static', _external=True, filename=category['bg_image']) }});"{% endif %}></div>
+<div class="bg-fill{% if category['bg_image'] %} bg-image" style="background-image: url({{ url_for('static', _external=True, filename=category['bg_image']) }});{% endif %}"></div>
 {% if editable %}
 <button class="question-bg-image-btn" onclick="openBackgroundImageInput(event);">
     <img src="{{ url_for('static', _external=True, filename='img/bg_image_icon.png') }}">
