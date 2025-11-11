@@ -204,7 +204,7 @@ def validate_file(
     file: FileStorage,
     path: str,
     valid_types: List[str],
-    validate_name: bool = True,
+    default_name: str | None = None,
     allow_overwrite: bool = False,
 ):
     if not file.filename:
@@ -215,7 +215,7 @@ def validate_file(
     if file_type not in valid_types:
         return False, f"File is not a valid type (must be one of: {valid_types})"
 
-    if validate_name:
+    if default_name is None:
         filename = f"{file_type_split[0]}.{file_type_split[-1].lower()}"
         secure_name = secure_filename(filename)
         if secure_name == "":
@@ -224,11 +224,11 @@ def validate_file(
         if Config.VALID_NAME_CHARACTERS.match(basename(secure_name.split(".")[0])) is None:
             return False, f"Filename contains an invalid character. Must be of the pattern '{str(Config.VALID_NAME_CHARACTERS)}'"
     else:
-        secure_name = None    
+        secure_name = default_name    
 
     # Validate that the file doesn't exist, if so add a suffix to make it unique
+    full_path = os.path.join(path, secure_name)
     if not allow_overwrite:
-        full_path = os.path.join(path, secure_name)
         suffix = 1
         while os.path.exists(full_path):
             split = secure_name.split(".")
@@ -238,4 +238,3 @@ def validate_file(
             suffix += 1
 
     return True, full_path
-

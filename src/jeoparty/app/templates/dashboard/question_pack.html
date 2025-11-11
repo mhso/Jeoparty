@@ -44,11 +44,11 @@
             <div class="input-field">
                 <label for="lobby-music">Lobby Music</label>
                 {% if lobby_music %}
-                <audio id="question-pack-lobby-music">
+                <audio id="question-pack-lobby-music" controls>
                     <source src="{{ url_for('static', _external=True, filename=lobby_music) }}" type="audio/mpeg">
                 </audio>
                 {% endif %}
-                <input id="question-pack-music-input" name="lobby-music" type="file" accept=".mp3" onchange="syncLobbyMusic();">
+                <input id="question-pack-music-input" name="lobby-music" type="file" accept=".mp3" onchange="syncLobbyMusic(event);">
             </div>
 
             <div id="question-pack-data-wrapper">

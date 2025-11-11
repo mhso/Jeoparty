@@ -25,7 +25,7 @@ const videoFileTypes = [
 ];
 
 const audioFileTypes = [
-    "audio/mp3",
+    "audio/mpeg",
 ]
 
 function isMediaValidType(file) {
@@ -59,7 +59,7 @@ function showRoundView(round) {
 
 function dataChanged() {
     let saveBtn = document.getElementById("question-pack-save-btn");
-    saveBtn.disabled = JSON.stringify(questionData) == lastSaveState
+    saveBtn.disabled = JSON.stringify(questionData) == lastSaveState && questionMedia.length == 0;
 }
 
 function parseURLHash() {
@@ -731,35 +731,43 @@ function toggleFinale() {
 function syncPackName() {
     let name = document.getElementById("question-pack-name").value;
     questionData["name"] = name;
+    dataChanged();
 }
 
 function syncPackPublic() {
     let public = document.getElementById("question-pack-public").checked;
     questionData["public"] = public;
+    dataChanged();
 }
 
 function syncPackFinale() {
     let finale = document.getElementById("question-pack-finale").checked;
     questionData["include_finale"] = finale;
+    dataChanged();
 }
 
 function syncPackLanguage() {
     let language = document.getElementById("question-pack-language").value;
     questionData["language"] = language;
+    dataChanged();
 }
 
-function syncLobbyMusic() {
-    let input = document.getElementById("question-pack-music-input");
+function syncLobbyMusic(event) {
+    let input = event.target;
 
     if (input.files.length == 1 && audioFileTypes.includes(input.files[0].type)) {
-        let audioElem = document.querySelector("#question-pack-lobby-music");
+        let audioElem = document.getElementById("question-pack-lobby-music");
         let sourceElem;
         if (audioElem == null) {
             let audioElem = document.createElement("audio");
             audioElem.id = "question-pack-lobby-music";
+            audioElem.controls = true;
 
             sourceElem = document.createElement("source");
             sourceElem.type = "audio/mpeg";
+
+            audioElem.appendChild(sourceElem);
+            input.parentElement.insertBefore(audioElem, input.parentElement.lastElementChild);
         }
         else {
             sourceElem = audioElem.children[0];
@@ -768,6 +776,8 @@ function syncLobbyMusic() {
         sourceElem.src = URL.createObjectURL(input.files[0]);
         questionMedia["lobby_music"] = input.files[0];
     }
+
+    dataChanged();
 }
 
 function getBaseURL() {

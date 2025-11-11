@@ -1,0 +1,16 @@
+<style>
+    #menu-snow {
+        position: fixed;
+        pointer-events: none;
+        overflow: hidden;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 90;
+    }
+</style>
+
+<video id="menu-snow" autoplay loop muted>
+    <source src="{{ url_for('static', filename='data/themes/' + theme + '/snow.webm') }}" type="video/webm">    
+</video>

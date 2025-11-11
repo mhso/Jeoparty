@@ -235,15 +235,20 @@ def _save_pack_files(pack_data:  Dict[str, Any], files: Dict[str, FileStorage]):
 
     # Save lobby music, if any is given
     if "lobby_music" in files:
+        file = files["lobby_music"]
+
         success, error_or_name = validate_file(
-            files["lobby_music"],
+            file,
             get_question_pack_data_path(pack_data["id"]),
             ["mp3"],
+            default_name="lobby_music.mp3",
             allow_overwrite=True,
         )
 
         if not success:
             return error_or_name
+
+        file.save(error_or_name)
 
     return None
 

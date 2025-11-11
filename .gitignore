@@ -5,7 +5,6 @@ __pypackages__
 log
 resources/*.db
 src/jeoparty/app/static/*
-src/jeoparty/app/static/*/bootstrap/
 !src/jeoparty/app/static/js/
 !src/jeoparty/app/static/css/
 *.png
