@@ -2,7 +2,7 @@
 <html>
     {% include 'presenter/head.html' %}
     <body>
-        <div class="bg-fill{% if theme_bg_img %} bg-image" style="background-image: url({{ url_for('static', _external=True, filename=theme_bg_img) }}); {% endif %}"></div>
+        <div class="bg-fill{% if theme and theme['bg_image'] %} bg-image" style="background-image: url({{ url_for('static', _external=True, filename=theme['bg_image']) }}); {% endif %}"></div>
 
         <div id="selection-wrapper">
             <!-- Logo -->

@@ -201,7 +201,13 @@ def _save_pack_media_file(pack_id: str, data: Dict[str, Any], file_key: str, fil
         return None
 
     if (file := files.get(file_name)):
-        allowed_types = ["webm", "mp4"] if file_key == "video" else ["png", "jpg", "jpeg", "webp"]
+        if file_key == "video":
+            allowed_types = ["webm", "mp4"]
+        elif file_key == "lobby_music":
+            allowed_types = ["mp3", "wav"]
+        else:
+            allowed_types = ["png", "jpg", "jpeg", "webp"]
+
         success, error_or_name = validate_file(file, get_question_pack_data_path(pack_id), allowed_types)
         if not success:
             return f"Could not save question image '{file.filename}': {error_or_name}"
@@ -233,22 +239,10 @@ def _save_pack_files(pack_data:  Dict[str, Any], files: Dict[str, FileStorage]):
                     if error_or_name:
                         return error_or_name
 
-    # Save lobby music, if any is given
-    if "lobby_music" in files:
-        file = files["lobby_music"]
-
-        success, error_or_name = validate_file(
-            file,
-            get_question_pack_data_path(pack_data["id"]),
-            ["mp3"],
-            default_name="lobby_music.mp3",
-            allow_overwrite=True,
-        )
-
-        if not success:
-            return error_or_name
-
-        file.save(error_or_name)
+    # Save/update lobby music
+    error_or_name = _save_pack_media_file(pack_data["id"], pack_data, "lobby_music", files)
+    if error_or_name:
+        return error_or_name
 
     return None
 
@@ -393,17 +387,11 @@ def question_pack(pack_id: str):
 
         base_entries = {k: v for k, v in pack_json.items() if not isinstance(v, list)}
 
-    if os.path.exists(f"{get_question_pack_data_path(pack_id)}/lobby_music.mp3"):
-        lobby_music = f"{get_question_pack_data_path(pack_id, False)}/lobby_music.mp3"
-    else:
-        lobby_music = None
-
     return render_locale_template(
         "dashboard/question_pack.html",
         pack_data.language,
         user_name=user_name,
         languages=[(lang.value, lang.value.capitalize()) for lang in Language],
         base_entries=base_entries,
-        lobby_music=lobby_music,
         **pack_json,
     )

@@ -59,7 +59,7 @@ function showRoundView(round) {
 
 function dataChanged() {
     let saveBtn = document.getElementById("question-pack-save-btn");
-    saveBtn.disabled = JSON.stringify(questionData) == lastSaveState && questionMedia.length == 0;
+    saveBtn.disabled = JSON.stringify(questionData) == lastSaveState;
 }
 
 function parseURLHash() {
@@ -752,6 +752,12 @@ function syncPackLanguage() {
     dataChanged();
 }
 
+function syncLobbyVolume() {
+    let volume = document.getElementById("question-pack-lobby-music").volume;
+    questionData["lobby_volume"] = volume;
+    dataChanged();
+}
+
 function syncLobbyMusic(event) {
     let input = event.target;
 
@@ -773,8 +779,11 @@ function syncLobbyMusic(event) {
             sourceElem = audioElem.children[0];
         }
 
-        sourceElem.src = URL.createObjectURL(input.files[0]);
-        questionMedia["lobby_music"] = input.files[0];
+        let file = input.files[0];
+
+        sourceElem.src = URL.createObjectURL(file);
+        questionData["lobby_music"] = file.name;
+        questionMedia[questionData["lobby_music"]] = file;
     }
 
     dataChanged();
@@ -1664,6 +1673,12 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         }
     });
+
+    // Set volume of lobby music
+    let lobbyMusic = document.getElementById("question-pack-lobby-music");
+    if (lobbyMusic.dataset.volume != null) {
+        lobbyMusic.volume = lobbyMusic.dataset.volume;
+    }
 
     let roundWrappers = document.querySelectorAll(".question-pack-round-wrapper");
     roundWrappers.forEach((elem) => {

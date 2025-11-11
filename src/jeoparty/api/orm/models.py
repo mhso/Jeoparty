@@ -1,8 +1,9 @@
 from datetime import datetime
+import os
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from sqlalchemy import String, Integer, Boolean, DateTime, Enum, JSON, ForeignKey, case
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, Enum, JSON, ForeignKey, case
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from mhooge_flask.database import Base
@@ -51,6 +52,8 @@ class QuestionPack(Base):
     include_finale: Mapped[bool] = mapped_column(Boolean, default=True)
     language: Mapped[Language] = mapped_column(Enum(Language), default=Language.ENGLISH)
     theme: Mapped[Optional[str]] = mapped_column(String(64))
+    lobby_music: Mapped[Optional[str]] = mapped_column(String(128))
+    lobby_volume: Mapped[Optional[float]] = mapped_column(Float)
     created_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
@@ -62,6 +65,10 @@ class QuestionPack(Base):
     power_ups = relationship("PowerUp", back_populates="pack", cascade="all, delete-orphan", order_by="PowerUp.pack_id.asc()")
 
     __serialize_relationships__ = [creator, rounds, buzzer_sounds, power_ups]
+
+    @property
+    def extra_fields(self):
+        return {"lobby_music": f"{get_question_pack_data_path(self.id, False)}/{self.lobby_music}" if self.lobby_music else None}
 
     def get_all_questions(self):
         questions = []
@@ -293,13 +300,25 @@ class Game(Base):
         player_with_turn = self.get_contestant_with_turn()
         questions_for_round = self.get_questions_for_round()
 
+        theme_dict = {}
+        if self.pack.theme:
+            data_path = f"{get_theme_path(self.pack.theme, False)}"
+            bg_image = f"{data_path}/presenter_background.jpg"
+            logo = f"{data_path}/logo.webp"
+
+            theme_dict = {
+                "data_path": data_path,
+                "template_path": f"themes/{self.pack.theme}",
+                "bg_image": bg_image if os.path.exists(f"{Config.STATIC_FOLDER}/{bg_image}") else None,
+                "logo": logo if os.path.exists(f"{Config.STATIC_FOLDER}/{logo}") else None,
+            }
+
         return {
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
             "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
             "question_num": sum(1 if gq.used else 0 for gq in self.game_questions) + 1,
-            "theme": self.pack.theme,
-            "theme_bg_img": None if self.pack.theme is None else f"{get_theme_path(self.pack.theme, False)}/presenter_background.jpg",
+            "theme": theme_dict,
         }
 
     def get_contestant(self, *, contestant_id: str | None = None, game_contestant_id: str | None = None) -> GameContestant | None:

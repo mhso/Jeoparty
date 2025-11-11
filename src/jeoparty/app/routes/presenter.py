@@ -78,12 +78,6 @@ def _request_decorator(func):
 def lobby(game_data: Game):
     join_url = f"mhooge.com/jeoparty/{game_data.join_code}"
 
-    data_path = get_question_pack_data_path(game_data.pack_id, False)
-    if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "lobby_music.mp3")):
-        lobby_music_path = f"{data_path}/lobby_music.mp3"
-    else:
-        lobby_music_path = None
-
     game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
 
     return render_locale_template(
@@ -91,7 +85,6 @@ def lobby(game_data: Game):
         game_data.pack.language,
         join_url=join_url,
         lan_mode=_is_lan_active(game_data),
-        lobby_music=lobby_music_path,
         **game_json,
     )
 

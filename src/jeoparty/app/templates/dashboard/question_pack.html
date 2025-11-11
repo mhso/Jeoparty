@@ -44,7 +44,7 @@
             <div class="input-field">
                 <label for="lobby-music">Lobby Music</label>
                 {% if lobby_music %}
-                <audio id="question-pack-lobby-music" controls>
+                <audio id="question-pack-lobby-music" controls{% if lobby_volume %} data-volume="{{ lobby_volume }}"{% endif %} onvolumechange="syncLobbyVolume()">
                     <source src="{{ url_for('static', _external=True, filename=lobby_music) }}" type="audio/mpeg">
                 </audio>
                 {% endif %}

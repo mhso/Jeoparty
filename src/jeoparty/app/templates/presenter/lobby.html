@@ -5,7 +5,7 @@
     <body>
         {% include 'presenter/connection_status.html' %}
 
-        <div class="bg-fill{% if theme_bg_img %} bg-image" style="background-image: url({{ url_for('static', _external=True, filename=theme_bg_img) }}); {% endif %}"></div>
+        <div class="bg-fill{% if theme and theme['bg_image'] %} bg-image" style="background-image: url({{ url_for('static', _external=True, filename=theme['bg_image']) }}); {% endif %}"></div>
 
         <div id="menu-wrapper">
             {% include 'logo.html' %}
@@ -31,13 +31,13 @@
             </div>
 
             {% if theme %}
-            {% include 'themes/' + theme + '/lobby.html'  %}
+            {% include theme['template_path'] + '/lobby.html' ignore missing %}
             {% endif %}
         </div>
 
-        {% if lobby_music %}
-        <audio id="menu-lobby-music" loop>
-            <source src="{{ url_for('static', _external=True, filename=lobby_music) }}" type="audio/mpeg">
+        {% if pack['lobby_music'] %}
+        <audio id="menu-lobby-music" loop{% if pack['lobby_volume'] %} data-volume="{{ pack['lobby_volume'] }}"{% endif %}>
+            <source src="{{ url_for('static', _external=True, filename=pack['lobby_music']) }}" type="audio/mpeg">
         </audio>
         {% endif %}
     </body>
@@ -60,7 +60,10 @@
             if (e.code == PRESENTER_ACTION_KEY) {
                 let audio = document.getElementById("menu-lobby-music");
                 if (audio != null) {
-                    audio.volume = 0.1;
+                    if (audio.dataset.volume != null) {
+                        audio.volume = audio.dataset.volume;
+                    }
+
                     audio.play();
 
                     setTimeout(function() {

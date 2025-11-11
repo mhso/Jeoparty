@@ -295,15 +295,12 @@ class Database(SQLAlchemyDatabase):
 
         with self as session:
             pack_model = session.execute(select(QuestionPack).where(QuestionPack.id == data["id"])).scalar_one()
+            pack_data = {
+                k: v for k, v in data.items() if not isinstance(v, list) and k != "id"
+            }
+            pack_data["created_at"] = pack_model.created_at
 
-            update_stmt = update(QuestionPack).where(QuestionPack.id == pack_model.id).values(
-                public=data["public"],
-                include_finale=data["include_finale"],
-                language=data.get("language"),
-                created_by=data["created_by"],
-                created_at=pack_model.created_at,
-                changed_at=data["changed_at"],
-            )
+            update_stmt = update(QuestionPack).where(QuestionPack.id == pack_model.id).values(**pack_data)
 
             session.execute(update_stmt)
 

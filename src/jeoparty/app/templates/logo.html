@@ -1,5 +1,11 @@
+{% if theme and theme['logo'] %}
+{% set logo_image = theme['logo'] %}
+{% else %}
+{% set logo_image = 'img/jeoparty_logo.webp' %}
+{% endif %}
+
 <div id="logo-wrapper">
     <a href="{{ url_for('dashboard.home') }}">
-        <img id="jeopardy-logo" src="{{ url_for('static', _external=True, filename='img/jeopardy_logo.webp') }}">
+        <img id="jeopardy-logo" src="{{ url_for('static', _external=True, filename=logo_image) }}">
     </a>
 </div>

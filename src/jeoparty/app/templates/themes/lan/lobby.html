@@ -54,13 +54,11 @@
     }
 </style>
 
-{% set file_path = 'data/themes/' + theme %}
-
-<img id="menu-naafiri" src="{{ url_for('static', _external=True, filename=file_path + '/naafiri_dance.gif') }}">
-<img id="menu-alistar" src="{{ url_for('static', _external=True, filename=file_path + '/alistar_dance.gif') }}">
-<img id="menu-teemo" src="{{ url_for('static', _external=True, filename=file_path + '/teemo_dance.gif') }}">
-<img id="menu-ivern" src="{{ url_for('static', _external=True, filename=file_path + '/ivern_dance.gif') }}">
-<img id="menu-brand" src="{{ url_for('static', _external=True, filename=file_path + '/brand_dance.gif') }}">
-<img id="menu-nidalee" src="{{ url_for('static', _external=True, filename=file_path + '/nidalee_dance.gif') }}">
-<img id="menu-quinn" src="{{ url_for('static', _external=True, filename=file_path + '/quinn_thonk.gif') }}">
-<img id="menu-vi" src="{{ url_for('static', _external=True, filename=file_path + '/vi_point.gif') }}">
+<img id="menu-naafiri" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/naafiri_dance.gif') }}">
+<img id="menu-alistar" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/alistar_dance.gif') }}">
+<img id="menu-teemo" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/teemo_dance.gif') }}">
+<img id="menu-ivern" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/ivern_dance.gif') }}">
+<img id="menu-brand" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/brand_dance.gif') }}">
+<img id="menu-nidalee" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/nidalee_dance.gif') }}">
+<img id="menu-quinn" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/quinn_thonk.gif') }}">
+<img id="menu-vi" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/vi_point.gif') }}">
