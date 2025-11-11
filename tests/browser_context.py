@@ -3,6 +3,8 @@ from glob import glob
 import os
 import re
 import shutil
+import numpy as np
+import cv2
 from io import BytesIO
 from multiprocessing import Process
 from typing import Dict, List, Literal, Tuple
@@ -40,6 +42,7 @@ BROWSER_OPTIONS = {
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
 PRESENTER_ACTION_KEY = "Space"
+VIDEO_RECORD_PATH = "tests/videos"
 
 def _to_hex(r: str):
     hex_num = hex(int(r))
@@ -59,8 +62,9 @@ class ContextHandler:
     BASE_URL = "http://localhost:5006/jeoparty"
     PRESENTER_URL = f"{BASE_URL}/presenter"
 
-    def __init__(self, database: Database):
+    def __init__(self, database: Database, video: bool = False):
         self.database = database
+        self.record_video = video
 
         self.playwright_contexts = []
         self.flask_process = None
@@ -111,7 +115,7 @@ class ContextHandler:
 
     async def _socket_connected(self):
         status_elem = await self.presenter_page.query_selector("#connection-status")
-        return await self.presenter_page.evaluate("socket.connected") and (status_elem is None or await status_elem.is_hidden())
+        return await self.presenter_page.evaluate("socket && socket.connected") and (status_elem is None or await status_elem.is_hidden())
 
     async def create_game(
         self,
@@ -215,7 +219,13 @@ class ContextHandler:
         playwright_context = self.playwright_contexts[0]
 
         browser = await self._create_browser(playwright_context)
-        browser_context = await browser.new_context(viewport=CONTESTANT_VIEWPORT, is_mobile=True, has_touch=True)
+        browser_context = await browser.new_context(
+            viewport=CONTESTANT_VIEWPORT,
+            is_mobile=True,
+            has_touch=True,
+            record_video_dir=None if not self.record_video else VIDEO_RECORD_PATH,
+        )
+
         page = await browser_context.new_page()
         page.on("console", self._print_console_output)
 
@@ -833,14 +843,83 @@ class ContextHandler:
 
         self.screenshots += 1
 
-        combined_image.save(f"jeoparty_test_{suffix}.png")
+        combined_image.save(f"tests/screenshots/{suffix}.png")
+
+    async def tile_videos(self):
+        presenter_video = self.presenter_page.video
+        if presenter_video is None:
+            return
+
+        readers = [cv2.VideoCapture(await presenter_video.path())]
+        readers += [
+            cv2.VideoCapture(await page.video.path())
+            for page in self.contestant_pages.values()
+        ]
+
+        output_frames = [[] for _ in readers]
+        readers_done = {index: False for index in range(len(readers))}
+
+        # Read all videos to 'output_frames'
+        while not all(readers_done.values()):
+            for index, reader in enumerate(readers):
+                if readers_done[index]:
+                    continue
+
+                ret, frame = reader.read()
+                if not ret:
+                    readers_done[index] = True
+                    continue
+
+                output_frames[index].append(frame)
+
+        for reader in readers:
+            reader.release()
+
+        presenter_width = 800
+        presenter_height = 450
+        contestant_width = 368
+        contestant_height = 800
+
+        width = contestant_width * 4
+        height = presenter_height + contestant_height
+        offset_x = (width - presenter_width) // 2
+        writer = cv2.VideoWriter("tests/videos/combined.mp4", cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (width, height), True)
+
+        for index, presenter_frame in enumerate(output_frames[0]):
+            final_frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+            # Copy presenter frame to final frame
+            final_frame[:presenter_frame.shape[0], offset_x:-offset_x, :] = presenter_frame
+
+            # Copy contestant frames
+            for x_index, frame_list in enumerate(output_frames[1:]):
+                offset = len(output_frames[0]) - len(frame_list)
+                if index <= offset:
+                    continue
+
+                contestant_frame = frame_list[index - offset]
+                x = x_index * contestant_frame.shape[1]
+                y = presenter_height
+                final_frame[y:, x:x + contestant_frame.shape[1], :] = contestant_frame
+
+            writer.write(final_frame)
+
+        writer.release()
 
     async def __aenter__(self):
         self.playwright_contexts = [await async_playwright().__aenter__()]
 
-        old_screenshots = glob("jeoparty_test_*.png")
+        # Clean up old screenshots and videos
+        old_screenshots = glob(f"tests/screenshots/*.png")
         for screenshot in old_screenshots:
             os.remove(screenshot)
+
+        old_videos = glob(f"{VIDEO_RECORD_PATH}/*.webm")
+        for video in old_videos:
+            os.remove(video)
+
+        if os.path.exists(f"{VIDEO_RECORD_PATH}/combined.mp4"):
+            os.remove(f"{VIDEO_RECORD_PATH}/combined.mp4")
 
         cwd = os.getcwd()
         new_cwd = os.path.join(cwd, "src")
@@ -853,7 +932,10 @@ class ContextHandler:
 
         # Create presenter browser and context
         presenter_browser = await self._create_browser(self.playwright_contexts[0])
-        self.presenter_context = await presenter_browser.new_context(viewport=PRESENTER_VIEWPORT)
+        self.presenter_context = await presenter_browser.new_context(
+            viewport=PRESENTER_VIEWPORT,
+            record_video_dir=None if not self.record_video else VIDEO_RECORD_PATH,
+        )
 
         self.presenter_page = await self._login_to_dashboard()
         self.presenter_page.on("console", self._print_console_output)
@@ -873,7 +955,15 @@ class ContextHandler:
         self.flask_process.close()
 
         await self.presenter_context.browser.close()
+
+        for context in self.contestant_contexts.values():
+            await context.close()
+
         await self.playwright_contexts[0].stop()
+
+        if self.record_video:
+            # Splice videos of presenter and contestants together
+            await self.tile_videos()
 
         for pack_folder in self.pack_folders:
             shutil.rmtree(get_question_pack_data_path(pack_folder), True)

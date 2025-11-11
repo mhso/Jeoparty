@@ -274,7 +274,7 @@ function correctAnswer() {
     activeValue *= (1 / 2 ** wrongAnswers);
 
     if (hijackBonus) {
-        activeValue *= 2;
+        activeValue *= 1.5;
     }
 
     activeValue = Math.ceil(activeValue);

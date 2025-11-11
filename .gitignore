@@ -7,7 +7,8 @@ resources/*.db
 src/jeoparty/app/static/*
 !src/jeoparty/app/static/js/
 !src/jeoparty/app/static/css/
-*.png
+tests/videos
+tests/screenshots
 
 .pdm-python
 .pdm-config

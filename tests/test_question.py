@@ -1,4 +1,5 @@
 import asyncio
+import re
 import pytest
 
 from playwright.async_api import Dialog
@@ -296,6 +297,96 @@ async def test_first_round(database, locales):
                     misses=misses,
                     has_turn=has_turn,
                     used_power_ups={"hijack": False, "freeze": False, "rewind": False}
+                )
+
+@pytest.mark.asyncio
+async def test_simultaneous_buzzes(database, locales):
+    pack_name = "Test Pack"
+    contestant_names = [
+        "Contesto Uno",
+        "Contesto Dos",
+        "Contesto Tres",
+        "Contesto Quatro",
+    ]
+    contestant_colors = [
+        "#1FC466",
+        "#1155EE",
+        "#BD1D1D",
+        "#CA12AF",
+    ]
+
+    async with ContextHandler(database) as context:
+        game_id = (await context.create_game(pack_name))[1]
+
+        with database as session:
+            game_data = database.get_game_from_id(game_id)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+            # Add contestants to the game
+            for name, color in zip(contestant_names, contestant_colors):
+                await context.join_lobby(game_data.join_code, name, color)
+
+            await context.start_game()
+
+            session.refresh(game_data)
+
+            # Set question 2 as the active question
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.get_questions_for_round()))
+            active_question.active = True
+
+            database.save_models(active_question)
+
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            await context.show_question()
+
+            await asyncio.sleep(2)
+
+            # Try to buzz in at the same time
+            pending = (
+                await asyncio.wait(
+                    [
+                        asyncio.create_task(context.hit_buzzer(contestant.contestant_id))
+                        for contestant in game_data.game_contestants
+                    ],
+                    timeout=10
+                )
+            )[1]
+
+            assert len(pending) == 0
+
+            # Find who buzzed the fastest
+            part_1 = r"\s".join(locale['game_feed_buzz_1'].split(" "))
+            part_2 = r"\s".join(locale['game_feed_buzz_2'].split(" "))
+            regex = re.compile(r"(.+)\s" + part_1 + r"\s(\d{1,3}\.\d{2})\s" + part_2)
+
+            buzz_feed_elem = await context.presenter_page.query_selector_all("#question-game-feed > ul > li")
+            fastest_contestant = None
+            fastest_duration = 100
+            for entry in buzz_feed_elem:
+                text = await entry.text_content()
+                match = regex.match(text.strip())
+                name = match[1]
+                duration = float(match[2])
+
+                for contestant in game_data.game_contestants:
+                    if contestant.contestant.name == match[1] and duration < fastest_duration:
+                        fastest_contestant = contestant
+                        fastest_duration = duration
+
+            # Assert that the fastest contestant won the buzz
+            for contestant in game_data.game_contestants:
+                is_fastest = contestant.id == fastest_contestant.id
+                await context.assert_presenter_values(
+                    contestant.id,
+                    has_turn=is_fastest,
+                )
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    buzzer_status="inactive",
+                    enabled_power_ups={"hijack": True, "freeze": is_fastest, "rewind": False}
                 )
 
 @pytest.mark.asyncio
