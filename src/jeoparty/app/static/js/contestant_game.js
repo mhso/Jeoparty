@@ -187,6 +187,41 @@ function monitorGame(userId, localeData) {
         }
     });
 
+    // Called when game values for this contestant has changed
+    socket.on("contestant_info_changed", function(jsonStr) {
+        let data = JSON.parse(jsonStr);
+
+        let keys = ["hits", "misses", "score"];
+        keys.forEach((k) => {
+            if (Object.hasOwn(data, k)) {
+                document.getElementById(`contestant-game-${k}`).textContent = data[k];
+            }
+        });
+        
+        if (Object.hasOwn(data, "powers")) {
+            let usedPowers = data["powers"];
+            let powerElements = document.querySelectorAll("#contestant-power-ups > button");
+            powerElements.forEach((elem) => {
+                let powerIcon = elem.querySelector(".contestant-power-icon");
+                let usedIcon = elem.querySelector(".contestant-power-used");
+                let split = elem.id.split("-");
+                let powerId = split[split.length - 1];
+                if (Object.hasOwn(usedPowers, powerId)) {
+                    if (usedPowers[powerId]) {
+                        elem.disabled = true;
+                        usedIcon.classList.remove("d-none");
+                        powerIcon.classList.add("power-disabled");
+                    }
+                    else {
+                        elem.disabled = false;
+                        usedIcon.classList.add("d-none");
+                        powerIcon.classList.remove("power-disabled");
+                    }
+                }
+            });
+        }
+    });
+
     // Called whenever the server has received our ping request.
     socket.on("ping_response", function(userId, timeSent) {
         let timeReceived = (new Date()).getTime();

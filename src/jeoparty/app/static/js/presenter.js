@@ -29,6 +29,7 @@ var isDailyDouble = false;
 var activePowerUp = null;
 var hijackBonus = false;
 var freezeTimeout = null;
+var revealEditBtnTimeout = null;
 
 let playerTurn = null;
 var playerIds = [];
@@ -1343,6 +1344,98 @@ function startWinnerParty() {
     }
 }
 
+function revealContestantEditBtn(playerId) {
+    let editBtn = document.querySelector(`.footer-contestant-${playerId} > .footer-contestant-edit-btn`);
+    let saveImage = editBtn.querySelector(".footer-contestant-edit-save");
+    if (!saveImage.classList.contains("d-none") && !editBtn.classList.contains("d-none")) {
+        return;
+    }
+
+    revealEditBtnTimeout = setTimeout(function() {
+        revealEditBtnTimeout = null;
+        editBtn.classList.remove("d-none");
+    }, 1500);
+}
+
+function hideContestantEditBtn(playerId) {
+    let editBtn = document.querySelector(`.footer-contestant-${playerId} > .footer-contestant-edit-btn`);
+    let saveImage = editBtn.querySelector(".footer-contestant-edit-save");
+    if (!saveImage.classList.contains("d-none") && !editBtn.classList.contains("d-none")) {
+        return;
+    }
+
+    if (revealEditBtnTimeout != null) {
+        clearTimeout(revealEditBtnTimeout);
+    }
+    editBtn.classList.add("d-none");
+}
+
+function toggleEditContestantInfo(playerId) {
+    let wrapper = document.querySelector(`.footer-contestant-${playerId}`);
+    let editBtn = wrapper.querySelector(".footer-contestant-edit-btn");
+
+    let saveImage = editBtn.querySelector(".footer-contestant-edit-save");
+    let editImage = editBtn.querySelector(".footer-contestant-edit-edit");
+
+    let editable;
+
+    if (saveImage.classList.contains("d-none")) {
+        editImage.classList.add("d-none");
+        saveImage.classList.remove("d-none");
+        editable = true;
+    }
+    else {
+        editImage.classList.remove("d-none");
+        saveImage.classList.add("d-none");
+        editable = false;
+    }
+
+    let hitsElem = wrapper.querySelector(".footer-contestant-entry-hits");
+    let missesElem = wrapper.querySelector(".footer-contestant-entry-misses");
+    let scoreElem = wrapper.querySelector(".footer-contestant-entry-score");
+    let powersWrapper = wrapper.querySelectorAll(".footer-contestant-entry-powers > div");
+
+    hitsElem.contentEditable = editable;
+    missesElem.contentEditable = editable;
+    scoreElem.contentEditable = editable;
+
+    powersWrapper.forEach((elem) => {
+        if (editable) {
+            let usedIcon = elem.querySelector(".footer-contestant-entry-power-used");
+            elem.onclick = function() {
+                if (usedIcon.classList.contains("d-none")) {
+                    usedIcon.classList.remove("d-none");
+                }
+                else {
+                    usedIcon.classList.add("d-none");
+                }
+            };
+        }
+        else {
+            elem.onclick = null;
+        }
+    });
+
+    if (!editable) {
+        let hits = Number.parseInt(hitsElem.textContent);
+        let misses = Number.parseInt(missesElem.textContent);
+        let score = Number.parseInt(scoreElem.textContent);
+
+        let powersUsed = {};
+        powersWrapper.forEach((elem) => {
+            let classSplit = elem.className.split("-");;
+            let powerId = classSplit[classSplit.length - 1];
+            let used = !elem.querySelector(".footer-contestant-entry-power-used").classList.contains("d-none");
+            powersUsed[powerId] = used;
+        });
+
+        let data = {"hits": hits, "misses": misses, "score": score, "powers": powersUsed};
+
+        socket.emit("edit_contestant_info", playerId, JSON.stringify(data));
+        editBtn.classList.add("d-none");
+    }
+}
+
 function setVolume() {
     for (let volume = 1; volume <= 10; volume++) {
         let className = "volume-" + volume;
@@ -1356,46 +1449,4 @@ function setVolume() {
     if (questionVideo != null && questionVideo.dataset.volume != null) {
         questionVideo.volume = Number.parseFloat(questionVideo.datase.volume);
     }
-}
-
-function champOPGG() {
-    let tableRows = document.querySelector(".content > table").getElementsByTagName("tr");
-    let playedDict = {};
-
-    for (let i = 0; i < tableRows.length; i++) {
-        let row = tableRows.item(i);
-        let tdEntries = row.getElementsByTagName("td");
-        if (tdEntries.length == 0) {
-            continue;
-        }
-
-        let champName = tdEntries.item(1).getElementsByClassName("summoner-name").item(0).children[0].textContent;
-
-        let playedEntry = tdEntries.item(2);
-        let winRatioElem = playedEntry.getElementsByClassName("win-ratio");
-        if (winRatioElem.length == 0) {
-            playedDict[champName.replace('"', "").replace('"', "").trim()] = parseInt(playedEntry.textContent.replace("Played", ""));
-        }
-        else {
-            let played = 0;
-            let left = winRatioElem.item(0).getElementsByClassName("winratio-graph__text left");
-            if (left.length != 0) {
-                played += parseInt(left.item(0).textContent.replace("W", ""));
-            }
-            let right = winRatioElem.item(0).getElementsByClassName("winratio-graph__text right");
-            if (right.length != 0) {
-                played += parseInt(right.item(0).textContent.replace("L", ""));
-            }
-
-            playedDict[champName] = played;
-        }
-    }
-
-    return playedDict;
-}
-
-function mergeOPGG(stats) {
-    let playedDict = champOPGG();
-    for (var champ in playedDict) { stats[champ] = playedDict[champ] + (stats[champ] || 0); }
-    return stats;
 }

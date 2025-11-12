@@ -883,7 +883,7 @@ class ContextHandler:
         width = contestant_width * 4
         height = presenter_height + contestant_height
         offset_x = (width - presenter_width) // 2
-        writer = cv2.VideoWriter("tests/videos/combined.mp4", cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (width, height), True)
+        writer = cv2.VideoWriter(f"{VIDEO_RECORD_PATH}/combined.mp4", cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (width, height), True)
 
         for index, presenter_frame in enumerate(output_frames[0]):
             final_frame = np.zeros((height, width, 3), dtype=np.uint8)

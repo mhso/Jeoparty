@@ -1561,6 +1561,7 @@ function createQuestionView(roundId, categoryId, isFinale=false) {
     let categoryData = questionData["rounds"][roundId]["categories"][categoryId];
     if (Object.hasOwn(categoryData, "bg_image")) {
         bgImageElem.style.backgroundImage = `url(/static/${categoryData["bg_image"]})`;
+        bgImageElem.classList.add("bg-image");
     }
 
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);

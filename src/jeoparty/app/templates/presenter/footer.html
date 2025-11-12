@@ -1,7 +1,7 @@
 <div id="contestants-footer">
     <div id="footer-contestants">
         {% for contestant in game_contestants %}
-        <div class="footer-contestant-entry footer-contestant-{{ contestant['id'] }}" style="background-color: {{ contestant['color'] }};">
+        <div class="footer-contestant-entry footer-contestant-{{ contestant['id'] }}" style="background-color: {{ contestant['color'] }};" onmouseenter="revealContestantEditBtn('{{ contestant['id'] }}');" onmouseleave="hideContestantEditBtn('{{ contestant['id'] }}');">
             <div class="footer-contestant-buzzes">
                 <div class="footer-contestant-entry-hits">{{ contestant["hits"] }}</div>
                 <div class="footer-contestant-entry-misses">{{ contestant["misses"] }}</div>
@@ -10,8 +10,14 @@
                 <div class="footer-contestant-entry-name">{{ contestant["name"] }}</div>
                 <div class="footer-contestant-entry-score">{{ contestant["score"] }} {{ _locale["points"] }}</div>
             </div>
+
+            <button class="footer-contestant-edit-btn d-none" onclick="toggleEditContestantInfo('{{ contestant['id'] }}');">
+                <img src="{{ url_for('static', filename='img/edit.png') }}" class="footer-contestant-edit-edit">
+                <img src="{{ url_for('static', filename='img/save.png') }}" class="footer-contestant-edit-save d-none">
+            </button>
             <img class="footer-contestant-entry-avatar" src="{{ url_for('static', _external=True, filename=contestant['avatar']) }}">
             <img class="footer-contestant-entry-ready" src="{{ url_for('static', _external=True, filename='img/check.png') }}">
+
             <div class="footer-contestant-entry-powers">
                 {% for power_up in contestant['power_ups'] %}
                 <div class="footer-contestant-power-{{ power_up['type'] }}">

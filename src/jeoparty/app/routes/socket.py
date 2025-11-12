@@ -222,6 +222,7 @@ class GameSocketHandler(Namespace):
     @_presenter_event
     def on_correct_answer(self, user_id: str, value: int):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+        contestant_metadata = self.contestant_metadata[user_id]
 
         player_with_turn = self.game_data.get_contestant_with_turn()
 
@@ -236,14 +237,27 @@ class GameSocketHandler(Namespace):
 
         self.database.save_models(*models_to_save)
 
+        contestant_info = {
+            "hits": contestant_data.hits,
+            "score": contestant_data.score,
+        }
+        self.emit("contestant_info_changed", json.dumps(contestant_info), to=contestant_metadata.sid)
+
     @_presenter_event
     def on_wrong_answer(self, user_id: int, value: int):
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+        contestant_metadata = self.contestant_metadata[user_id]
 
         contestant_data.misses += 1
         contestant_data.score -= value
 
         self.database.save_models(contestant_data)
+
+        contestant_info = {
+            "misses": contestant_data.misses,
+            "score": contestant_data.score,
+        }
+        self.emit("contestant_info_changed", json.dumps(contestant_info), to=contestant_metadata.sid)
 
     @_presenter_event
     def on_disable_buzz(self):
@@ -381,6 +395,27 @@ class GameSocketHandler(Namespace):
         self.database.save_models(contestant_data)
 
         self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
+
+    @_presenter_event
+    def on_edit_contestant_info(self, user_id: str, json_str: str):
+        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+        contestant_metadata = self.contestant_metadata[user_id]
+        data = json.loads(json_str)
+
+        keys = ["hits", "misses", "score"]
+        for key in keys:
+            if key in data:
+                setattr(contestant_data, key,  data[key])
+
+        if (powers := data.get("powers")):
+            for power in contestant_data.power_ups:
+                used = powers.get(power.type.value)
+                if used is not None:
+                    power.used = used
+
+        self.database.save_models(contestant_data)
+
+        self.emit("contestant_info_changed", json_str, to=contestant_metadata.sid)
 
     @_contestants_event
     def on_ping_request(self, user_id: str, timestamp: float):

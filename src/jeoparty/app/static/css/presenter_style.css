@@ -11,23 +11,6 @@ body {
     overflow: hidden;
 }
 
-.bg-fill {
-    position: absolute;
-    z-index: -1;
-    background: linear-gradient(to bottom, #2525c6, #1d1939);
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-    top: 0;
-    left: 0;
-}
-
-.bg-fill.bg-image {
-    background: none;
-    background-size: cover;
-    filter: blur(5px) brightness(0.75);
-}
-
 p {
     text-align: center;
 }
@@ -612,6 +595,24 @@ h3 {
     left: calc(50% - 32px);
     border-radius: 32px;
     background: #00000075;
+}
+
+.footer-contestant-edit-btn {
+    position: absolute;
+    cursor: pointer;
+    background-color: #0000008e;
+    width: 64px;
+    top: -32px;
+    left: calc(50% - 32px);
+    z-index: 10;
+    height: 64px;
+    border: none;
+    border-radius: 32px;
+}
+
+.footer-contestant-edit-btn > img {
+    width: 60%;
+    height: auto;
 }
 
 /****************##############****************\

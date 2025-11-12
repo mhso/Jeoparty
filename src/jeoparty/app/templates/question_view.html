@@ -98,7 +98,7 @@
         </div>
 
         <div class="media-drag-target{% if 'answer_image' not in extra %} target-empty{% endif %}" onclick="openMediaInput(event);" ondragover="event.preventDefault();" ondragenter="mediaDragEnter(event);" ondragleave="mediaDragLeave(event);" ondragend="mediaDragLeave(event);" ondrop="mediaDragDropped(event, 'answer');">
-            <button class="media-delete-btn delete-button{% if 'answer_image' not in extra %} d-none{% endif %}" onclick="deleteMedia(event)">&times;</button>
+            <button class="media-delete-btn delete-button media-control-btn{% if 'answer_image' not in extra %} d-none{% endif %}" onclick="deleteMedia(event)">&times;</button>
 
             <div class="drag-target-preview-wrapper{% if 'answer_image' not in extra %} d-none{% endif %}">
                 {% if "answer_image" in extra %}
