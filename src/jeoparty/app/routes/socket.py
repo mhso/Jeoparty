@@ -343,6 +343,8 @@ class GameSocketHandler(Namespace):
         contestant_data.buzzes += 1
 
         self.emit("buzz_received", (user_id, time_taken), to="presenter")
+        self.emit("buzz_received", to=contestant_metadata.sid)
+
         print(
             f"Buzz from {contestant_data.contestant.name} ({contestant_metadata.sid}):",
             f"{contestant_metadata.latest_buzz}, ping: {contestant_metadata.ping}",

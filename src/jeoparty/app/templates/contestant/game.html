@@ -69,7 +69,7 @@
 
                     {% else %}
                     <!-- Question screen -->
-                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "question" %}<br>{% if question["daily_double"] %}Daily Double!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ question["value"] }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
+                    <h2 id="question-category-header"><span id="question-category-name">{{ question["category"]["name"] }}</span>{% if stage == "question" %}<br>{% if question["daily_double"] %}{{ _locale['daily_double'] }}!{% else %}{{ _locale["for"] }} <span id="question-reward-span">{{ question["value"] }} {{ _locale["points"] }}</span>{% endif %}{% if "choices" in question %} <img src="{{ url_for('static', _external=True, filename='img/list.png') }}" id="question-choices-indicator">{% endif %}{% endif %}</h2>
 
                     {% if question["daily_double"] %}
 
@@ -81,7 +81,7 @@
                             <button id="contestant-wager-btn" onclick="makeDailyDoubleWager('{{ user_id }}');">OK</button>
 
                         {% else %}
-                            <h3>Waiting for <strong>{{ player_with_turn["name"] }}</strong> to answer the Daily Double...</h3>
+                            <h3>{{ _locale["waiting_turn_1"] }} <strong>{{ player_with_turn["name"] }}</strong> {{ _locale["waiting_double"] }}</h3>
                         {% endif %}
                     
                     {% else %}

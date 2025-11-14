@@ -162,7 +162,7 @@ def selection(game_data: Game):
 
     # Check if we are done with all questions in the current round
     questions = game_data.get_questions_for_round()
-    end_of_round = all(question.used for question in questions)
+    end_of_round = questions != [] and all(question.used for question in questions)
 
     is_finale = False
     if end_of_round:

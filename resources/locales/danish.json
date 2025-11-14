@@ -67,6 +67,7 @@
             "waiting_turn_1": "Venter på at",
             "waiting_turn_2": "vælger et spørgsmål...",
             "waiting_turn_3": "Venter på at en anden spiller vælger et spørgsmål...",
+            "waiting_double": "svarer på Bonus Spørgsmålet...",
             "invalid_wager": "Ugyldig mængde point, skal være mellem"
         },
         "global": {
@@ -74,7 +75,8 @@
             "contestants": "deltagere",
             "for": "til",
             "and": "og",
-            "connecting": "Forbinder til serveren" 
+            "daily_double": "Bonus Spørgsmål!",
+            "connecting": "Forbinder til serveren"
         }
     }
 }

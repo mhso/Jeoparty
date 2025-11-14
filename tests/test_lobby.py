@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 import pytest
@@ -48,9 +49,9 @@ async def test_join_lobby_defaults(database, locales):
 
                 assert contestant.contestant_id == contestant_id
 
-                await context.screenshot_views(index)
+                await context.screenshot_views()
 
-                assert not await placeholder_elem.is_visible()
+                assert await placeholder_elem.is_hidden()
                 contestants_wrapper = await context.presenter_page.query_selector("#menu-contestants")
 
                 presenter_contestant_entries = await contestants_wrapper.query_selector_all(".menu-contestant-entry")

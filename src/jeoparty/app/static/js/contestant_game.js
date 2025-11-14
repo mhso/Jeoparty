@@ -2,6 +2,8 @@
 // 'game_id' is defined before this JS file is imported
 const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true});
 
+requestWakeLock();
+
 var pingActive = true;
 
 function makeDailyDoubleWager(playerId) {
@@ -134,6 +136,12 @@ function monitorGame(userId, localeData) {
         }
     });
 
+    socket.on("buzz_received", function() {
+        let buzzesElem = document.getElementById("contestant-game-buzzes");
+        let buzzes = Number.parseInt(buzzesElem.textContent.replace("buzzes", "").trim());
+        buzzesElem.textContent = `${buzzes + 1} buzzes`;
+    });
+
     socket.on("buzz_disabled", function() {
         buzzerActive.classList.add("d-none");
         buzzerPressed.classList.add("d-none");
@@ -190,6 +198,9 @@ function monitorGame(userId, localeData) {
     // Called when game values for this contestant has changed
     socket.on("contestant_info_changed", function(jsonStr) {
         let data = JSON.parse(jsonStr);
+        if (Object.hasOwn(data, "score")) {
+            data["score"] = data["score"] + " " + localeData["points"];
+        }
 
         let keys = ["hits", "misses", "score"];
         keys.forEach((k) => {

@@ -30,18 +30,20 @@
                 {% endif %}
             </div>
 
-            {% if theme %}
-            {% include theme['template_path'] + '/lobby.html' ignore missing %}
-            {% endif %}
         </div>
-
+        
         {% if pack['lobby_music'] %}
         <audio id="menu-lobby-music" loop{% if pack['lobby_volume'] %} data-volume="{{ pack['lobby_volume'] }}"{% endif %}>
             <source src="{{ url_for('static', _external=True, filename=pack['lobby_music']) }}" type="audio/mpeg">
         </audio>
         {% endif %}
-    </body>
 
+        {% if theme %}
+        {% include theme['template_path'] + '/lobby.html' ignore missing %}
+        {% include theme['template_path'] + '/global.html' ignore missing %}
+        {% endif %}
+    </body>
+    
     <script>
         socket.on("connect", function() {
             socket.on("presenter_joined", function() {
@@ -68,7 +70,8 @@
 
                     setTimeout(function() {
                         window.onkeydown = function(e) {
-                            if (e.code == PRESENTER_ACTION_KEY) {
+                            let contestants = document.querySelectorAll(".menu-contestant-entry");
+                            if (contestants.length > 0 && e.code == PRESENTER_ACTION_KEY) {
                                 beginJeopardy();
                             }
                         }

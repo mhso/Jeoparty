@@ -60,6 +60,8 @@ function getRenderedColor(color) {
 }
 
 function validateForm() {
+    requestWakeLock();
+
     let color = document.getElementById("contestant-lobby-color").value;
 
     if (!getRenderedColor(color)) {

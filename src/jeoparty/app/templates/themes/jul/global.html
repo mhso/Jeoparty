@@ -1,0 +1,26 @@
+<style>
+    #jul-corner-decoration-1 {
+        position: fixed;
+        pointer-events: none;
+        top: 65px;
+        left: -30px;
+        width: 400px;
+        height: auto;
+        z-index: 85;
+        transform: rotate(-45deg);
+    }
+
+    #jul-corner-decoration-2 {
+        position: fixed;
+        pointer-events: none;
+        top: 75px;
+        right: -45px;
+        width: 400px;
+        height: auto;
+        z-index: 85;
+        transform: rotate(45deg);
+    }
+</style>
+
+<img id="jul-corner-decoration-1" src="{{ url_for('static', filename=theme['data_path'] + '/decoration_1.png') }}">
+<img id="jul-corner-decoration-2" src="{{ url_for('static', filename=theme['data_path'] + '/decoration_2.png') }}">

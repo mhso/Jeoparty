@@ -1677,7 +1677,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Set volume of lobby music
     let lobbyMusic = document.getElementById("question-pack-lobby-music");
-    if (lobbyMusic.dataset.volume != null) {
+    if (lobbyMusic != null && lobbyMusic.dataset.volume != null) {
         lobbyMusic.volume = lobbyMusic.dataset.volume;
     }
 

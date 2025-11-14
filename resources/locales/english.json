@@ -67,6 +67,7 @@
             "waiting_turn_1": "Waiting for",
             "waiting_turn_2": "to pick a question...",
             "waiting_turn_3": "Waiting for another player to pick a question...",
+            "waiting_double": "to answer the Daily Double...",
             "invalid_wager": "Invalid amount of points, must be between"
         },
         "global": {
@@ -74,7 +75,8 @@
             "contestants": "contestants",
             "for": "for",
             "and": "and",
-            "connecting": "Connecting to server"  
+            "daily_double": "Daily Double!",
+            "connecting": "Connecting to server"
         }
     }
 }

@@ -106,7 +106,7 @@ async def test_first_round(database, locales):
                 contestant_names[2],
                 contestant_colors[2],
                 score=0,
-                buzzes=0, # Buzzes only update on page refresh, so here it's still 0
+                buzzes=1,
                 hits=0,
                 misses=0,
                 used_power_ups={"hijack": False, "freeze": False, "rewind": False},
@@ -130,19 +130,21 @@ async def test_first_round(database, locales):
                 answer_visible=False,
                 game_feed=[f"{contestant_names[2]} {locale['game_feed_buzz_1']} " + r"\d{1,3}\.\d{2} " + locale['game_feed_buzz_2']]
             )
-
+    
             # Have the player answer the question wrong
             await asyncio.sleep(1)
-            await context.answer_question(choice="Eggs")
+            await context.answer_question(wrong_buzz_player.contestant_id, choice="Eggs")
+
+            await context.screenshot_views()
 
             await context.assert_contestant_values(
                 wrong_buzz_player.contestant_id,
                 contestant_names[2],
                 contestant_colors[2],
-                score=0,
-                buzzes=0,
+                score=-active_question.question.value,
+                buzzes=1,
                 hits=0,
-                misses=0, # Misses only update on page refresh, so here it's still 0
+                misses=1,
                 used_power_ups={"hijack": False, "freeze": False, "rewind": False},
                 enabled_power_ups={"hijack": False, "freeze": False, "rewind": True},
             )
@@ -153,7 +155,7 @@ async def test_first_round(database, locales):
                 wrong_buzz_player.contestant.color,
                 score=-active_question.question.value,
                 hits=0,
-                misses=0, # Misses only update on page refresh, so here it's still 0
+                misses=1,
                 has_turn=False,
                 used_power_ups={"hijack": False, "freeze": False, "rewind": False}
             )
@@ -175,7 +177,7 @@ async def test_first_round(database, locales):
                 correct_buzz_player.contestant.name,
                 correct_buzz_player.contestant.color,
                 score=0,
-                buzzes=0, # Buzzes only update on page refresh, so here it's still 0
+                buzzes=1,
                 hits=0,
                 misses=0,
                 used_power_ups={"hijack": False, "freeze": False, "rewind": False},
@@ -187,10 +189,10 @@ async def test_first_round(database, locales):
                 wrong_buzz_player.contestant_id,
                 wrong_buzz_player.contestant.name,
                 wrong_buzz_player.contestant.color,
-                score=0,
-                buzzes=0, # Buzzes only update on page refresh, so here it's still 0
+                score=-active_question.question.value,
+                buzzes=1,
                 hits=0,
-                misses=0,
+                misses=1,
                 used_power_ups={"hijack": False, "freeze": False, "rewind": False},
                 enabled_power_ups={"hijack": False, "freeze": False, "rewind": True},
             )
@@ -215,15 +217,15 @@ async def test_first_round(database, locales):
 
             # Have the player answer the question correctly
             await asyncio.sleep(1)
-            await context.answer_question(choice="42")
+            await context.answer_question(correct_buzz_player.contestant_id, choice="42")
 
             await context.assert_contestant_values(
                 correct_buzz_player.contestant_id,
                 contestant_names[1],
                 contestant_colors[1],
-                score=0,
-                buzzes=0,
-                hits=0,
+                score=active_question.question.value // 2,
+                buzzes=1,
+                hits=1,
                 misses=0,
                 used_power_ups={"hijack": False, "freeze": False, "rewind": False},
                 enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
@@ -234,7 +236,7 @@ async def test_first_round(database, locales):
                 correct_buzz_player.contestant.name,
                 correct_buzz_player.contestant.color,
                 score=active_question.question.value // 2,
-                hits=0,
+                hits=1,
                 misses=0,
                 has_turn=False,
                 used_power_ups={"hijack": False, "freeze": False, "rewind": False}
@@ -462,6 +464,10 @@ async def test_all_wrong_buzzes(database, locales):
                     contestant.contestant_id,
                     contestant.contestant.name,
                     contestant.contestant.color,
+                    score=-active_question.question.value,
+                    buzzes=1,
+                    hits=0,
+                    misses=1,
                     buzzer_status="inactive"
                 )
 
@@ -605,12 +611,8 @@ async def test_question_aborted(database, locales):
 
             await asyncio.sleep(2)
 
-            await context.screenshot_views()
-
             await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
             await asyncio.sleep(1)
-
-            await context.screenshot_views()
 
             assert await wrong_answer_elem.is_visible()
 
@@ -647,7 +649,7 @@ async def test_daily_double_valid(database, locales):
         "#CA12AF",
     ]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=True))[1]
 
         with database as session:
@@ -688,9 +690,19 @@ async def test_daily_double_valid(database, locales):
 
             # Have the contestant answer correctly
             if active_question.question.extra and "choices" in active_question.question.extra:
-               await context.answer_question(choice="42")
+               await context.answer_question(active_player.contestant_id, choice="42")
             else:
-               await context.answer_question(key=1)
+               await context.answer_question(active_player.contestant_id, key=1)
+
+            await context.assert_contestant_values(
+                active_player.contestant_id,
+                active_player.contestant.name,
+                active_player.contestant.color,
+                score=active_player.score + 600,
+                buzzes=0,
+                hits=1,
+                misses=0,
+            )
 
             await context.assert_presenter_values(
                 active_player.id,
@@ -874,7 +886,7 @@ async def test_freeze_power(database, locales):
             )
 
             # Answer the question
-            await context.answer_question(key=1)
+            await context.answer_question(active_player.contestant_id, key=1)
 
             await context.assert_presenter_values(
                 active_player.id,

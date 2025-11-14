@@ -29,7 +29,7 @@ class PowerUp(Base):
     icon: Mapped[Optional[str]] = mapped_column(String(128))
     video: Mapped[Optional[str]] = mapped_column(String(128))
 
-    game_power_ups = relationship("GamePowerUp", back_populates="power_up", cascade="all, delete-orphan", order_by="GamePowerUp.id.asc()")
+    game_power_ups = relationship("GamePowerUp", back_populates="power_up", cascade="all, delete", order_by="GamePowerUp.id.asc()")
     pack = relationship("QuestionPack", back_populates="power_ups")
 
     @property
@@ -59,10 +59,10 @@ class QuestionPack(Base):
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
 
     creator = relationship("User")
-    rounds = relationship("QuestionRound", back_populates="pack", cascade="all, delete-orphan", order_by="QuestionRound.round.asc()")
+    rounds = relationship("QuestionRound", back_populates="pack", cascade="all, delete", order_by="QuestionRound.round.asc()")
     games = relationship("Game", back_populates="pack", cascade="all, delete-orphan", order_by="Game.started_at.asc()")
-    buzzer_sounds = relationship("BuzzerSound", back_populates="pack", cascade="all, delete-orphan", order_by="BuzzerSound.id.asc()")
-    power_ups = relationship("PowerUp", back_populates="pack", cascade="all, delete-orphan", order_by="PowerUp.pack_id.asc()")
+    buzzer_sounds = relationship("BuzzerSound", back_populates="pack", cascade="all, delete", order_by="BuzzerSound.id.asc()")
+    power_ups = relationship("PowerUp", back_populates="pack", cascade="all, delete", order_by="PowerUp.pack_id.asc()")
 
     __serialize_relationships__ = [creator, rounds, buzzer_sounds, power_ups]
 
@@ -92,7 +92,7 @@ class QuestionRound(Base):
     round: Mapped[int] = mapped_column(Integer)
 
     pack = relationship("QuestionPack", back_populates="rounds")
-    categories = relationship("QuestionCategory", back_populates="round", cascade="all, delete-orphan", order_by="QuestionCategory.order.asc()")
+    categories = relationship("QuestionCategory", back_populates="round", cascade="all, delete", order_by="QuestionCategory.order.asc()")
 
     __serialize_relationships__ = [categories]
 
@@ -111,7 +111,7 @@ class QuestionCategory(Base):
     bg_image: Mapped[Optional[str]] = mapped_column(String(128))
 
     round = relationship("QuestionRound", back_populates="categories")
-    questions = relationship("Question", back_populates="category", cascade="all, delete-orphan", order_by="Question.value.asc()")
+    questions = relationship("Question", back_populates="category", cascade="all, delete", order_by="Question.value.asc()")
 
     __serialize_relationships__ = [questions]
 
@@ -137,7 +137,7 @@ class Question(Base):
     extra: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
 
     category = relationship("QuestionCategory", back_populates="questions")
-    game_questions = relationship("GameQuestion", back_populates="question", cascade="all, delete-orphan", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
+    game_questions = relationship("GameQuestion", back_populates="question", cascade="all, delete", order_by="GameQuestion.game_id.asc(), GameQuestion.question_id.asc()")
 
     @property
     def extra_fields(self):
@@ -175,7 +175,7 @@ class Contestant(Base):
     buzz_sound: Mapped[Optional[str]] = mapped_column(String(128))
     bg_image: Mapped[Optional[str]] = mapped_column(String(128))
 
-    game_contestants = relationship("GameContestant", back_populates="contestant", cascade="all, delete-orphan", order_by="GameContestant.game_id.asc(), GameContestant.contestant_id.asc()")
+    game_contestants = relationship("GameContestant", back_populates="contestant", cascade="all, delete", order_by="GameContestant.game_id.asc(), GameContestant.contestant_id.asc()")
 
     @property
     def extra_fields(self):
@@ -230,7 +230,7 @@ class GameContestant(Base):
 
     game = relationship("Game", back_populates="game_contestants")
     contestant = relationship("Contestant", back_populates="game_contestants")
-    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete-orphan", order_by=case(power_up_order_case, value=GamePowerUp.type))
+    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete", order_by=case(power_up_order_case, value=GamePowerUp.type))
 
     __serialize_relationships__ = [contestant, power_ups]
 
@@ -290,8 +290,8 @@ class Game(Base):
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     pack = relationship("QuestionPack", back_populates="games")
-    game_questions = relationship("GameQuestion", back_populates="game", cascade="all, delete-orphan", order_by="GameQuestion.question_id.asc()")
-    game_contestants = relationship("GameContestant", back_populates="game", cascade="all, delete-orphan", order_by="GameContestant.joined_at.asc()")
+    game_questions = relationship("GameQuestion", back_populates="game", cascade="all, delete", order_by="GameQuestion.question_id.asc()")
+    game_contestants = relationship("GameContestant", back_populates="game", cascade="all, delete", order_by="GameContestant.joined_at.asc()")
 
     __serialize_relationships__ = [pack, game_questions, game_contestants]
 

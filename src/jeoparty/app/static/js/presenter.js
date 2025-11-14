@@ -1022,7 +1022,7 @@ function goToQuestion(div, questionId, isDouble) {
     div.style.zIndex = 999;
 
     if (isDouble) {
-        div.getElementsByTagName("span").item(0).textContent = "Daily Double!";
+        div.getElementsByTagName("span").item(0).textContent = `${localeStrings["daily_double"]}!`;
         div.style.animationName = "dailyDouble";
     }
 

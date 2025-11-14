@@ -100,7 +100,7 @@ class ContextHandler:
 
     async def wait_for_event(self, event_func, condition=None, timeout=10):
         time_slept = 0
-        sleep_interval = 1
+        sleep_interval = 0.5
         while time_slept < timeout:
             result = await event_func()
             if (condition is None and result) or (condition is not None and result == condition):
@@ -215,6 +215,9 @@ class ContextHandler:
     async def _print_console_output(self, msg: ConsoleMessage):
         print("Message from console:", msg.text)
 
+    async def _print_unhandled_error(self, error):
+        print("Unhandled error in page:", error.message)
+
     async def _setup_contestant_browser(self):
         playwright_context = self.playwright_contexts[0]
 
@@ -228,6 +231,7 @@ class ContextHandler:
 
         page = await browser_context.new_page()
         page.on("console", self._print_console_output)
+        page.on("pageerror", self._print_unhandled_error)
 
         return browser_context, page
 
@@ -265,7 +269,7 @@ class ContextHandler:
         # Join the lobby
         join_button = await contestant_page.query_selector("#contestant-lobby-join")
 
-        # # Wait for the lobby page to load
+        # Wait for the lobby page to load
         async with contestant_page.expect_navigation(wait_until="domcontentloaded"):
             await join_button.click()
 
@@ -368,10 +372,18 @@ class ContextHandler:
         elif question_image is not None or question_video is not None:
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-    async def answer_question(self, *, key: int | None = None, choice: str | None = None):
+    async def answer_question(self, contestant_id: str, *, key: int | None = None, choice: str | None = None):
+        contestant_page = self.contestant_pages[contestant_id]
+
+        hits_elem = await contestant_page.query_selector("#contestant-game-hits")
+        misses_elem = await contestant_page.query_selector("#contestant-game-misses")
+
+        hits_then = int(await hits_elem.text_content())
+        misses_then = int(await misses_elem.text_content())
+
         await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
         await asyncio.sleep(0.5)
-    
+
         answer_choices = await self.presenter_page.query_selector_all(".question-choices-wrapper > .question-choice-entry")
         if answer_choices != []:
             for i, c in enumerate(answer_choices, start=1):
@@ -385,22 +397,30 @@ class ContextHandler:
             await self.screenshot_views("answer_error")
             raise ValueError("Invalid arguments for answer_question")
 
-        answer_correct = await self.presenter_page.query_selector("#question-answer-correct")
-        answer_wrong = await self.presenter_page.query_selector("#question-answer-wrong")
+        async def hits_or_misses_incremented():
+            hits_now = int(await hits_elem.text_content())
+            misses_now = int(await misses_elem.text_content())
+            return hits_now == hits_then + 1 or misses_now == misses_then + 1
 
-        async def wait_for_answer():
-            return (
-                await answer_correct.is_visible()
-                or await answer_wrong.is_visible()
-            )
-
-        await self.wait_for_event(wait_for_answer)
+        await self.wait_for_event(hits_or_misses_incremented)
 
     async def hit_buzzer(self, contestant_id: str):
-        await self.contestant_pages[contestant_id].click("#buzzer-wrapper")
+        page = self.contestant_pages[contestant_id]
+
+        await page.click("#buzzer-wrapper")
 
         # Wait for buzz to register on presenter page
         await self.presenter_page.wait_for_selector(".active-contestant-entry")
+
+        buzz_winner_img = await page.query_selector("#buzzer-winner")
+        buzz_loser_img = await page.query_selector("#buzzer-loser")
+
+        async def buzzes_incremented():
+            return await buzz_winner_img.is_visible() or await buzz_loser_img.is_visible()
+
+        await self.presenter_page.wait_for_selector(".active-contestant-entry")
+        await self.wait_for_event(buzzes_incremented)
+
         await asyncio.sleep(1)
 
     async def use_power_up(self, contestant_id: str, power_id: str):
@@ -510,10 +530,10 @@ class ContextHandler:
         # Validate remaining fields
         header_data = [
             ("name", name),
-            ("score", f"{score} points" if score else None),
-            ("buzzes", f"{buzzes} buzzes" if buzzes else None),
-            ("hits", str(hits) if hits else None),
-            ("misses", str(misses) if misses else None),
+            ("score", f"{score} points" if score is not None else None),
+            ("buzzes", f"{buzzes} buzzes" if buzzes is not None else None),
+            ("hits", str(hits) if hits is not None else None),
+            ("misses", str(misses) if misses is not None else None),
         ]
 
         for elem, value in header_data:
@@ -595,9 +615,9 @@ class ContextHandler:
         # Validate remaining fields
         header_data = [
             ("name", name),
-            ("score", f"{score} points" if score else None),
-            ("hits", str(hits) if hits else None),
-            ("misses", str(misses) if misses else None),
+            ("score", f"{score} points" if score is not None else None),
+            ("hits", str(hits) if hits is not None else None),
+            ("misses", str(misses) if misses is not None else None),
         ]
 
         for elem, value in header_data:
