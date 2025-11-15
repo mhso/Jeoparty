@@ -39,6 +39,7 @@ BROWSER_OPTIONS = {
     "headless": True
 }
 
+BROWSER = "chromium"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
 PRESENTER_ACTION_KEY = "Space"
@@ -68,8 +69,8 @@ class ContextHandler:
 
         self.playwright_contexts = []
         self.flask_process = None
-        self.presenter_context: BrowserContext = None
-        self.presenter_page: Page = None
+        self.presenter_context: BrowserContext | None = None
+        self.presenter_page: Page | None = None
         self.contestant_contexts: Dict[str, BrowserContext] = {}
         self.contestant_pages: Dict[str, Page] = {}
         self.screenshots = 0
@@ -78,7 +79,7 @@ class ContextHandler:
         self._browser_tasks = []
 
     async def _create_browser(self, context: Playwright):
-        return await context.chromium.launch(**BROWSER_OPTIONS)
+        return await getattr(context, BROWSER).launch(**BROWSER_OPTIONS)
 
     async def _login_to_dashboard(self):
         page = await self.presenter_context.new_page()
@@ -500,15 +501,23 @@ class ContextHandler:
 
         # Assert that contestant avatar is correct
         if avatar is not None:
-            avatar_elem = await page.query_selector("#contestant-game-avatar")
+            expected_filename = os.path.basename(avatar)
+            file_split = expected_filename.split(".")
+            expected_ext = file_split[-1]
+            expected_dirname = os.path.dirname(avatar).split("static/")[1]
 
+            avatar_elem = await page.query_selector("#contestant-game-avatar")
             src_path = await avatar_elem.get_attribute("src")
-            if len(src_path) > len(avatar):
-                assert src_path.endswith(avatar)
-            elif len(src_path) < len(avatar):
-                assert avatar.endswith(src_path)
+
+            filename = os.path.basename(src_path)
+            ext = filename.split(".")[-1]
+            dirname = os.path.dirname(src_path).split("static/")[1]
+
+            if file_split[0] == "*":
+                assert dirname == expected_dirname
+                assert ext == expected_ext
             else:
-                assert src_path == avatar
+                assert f"{dirname}/{filename}" == f"{expected_dirname}/{expected_filename}"
 
         # Assert that buzzer status is correct
         if buzzer_status is not None:
@@ -586,13 +595,22 @@ class ContextHandler:
             else:
                 avatar_elem = await self.presenter_page.query_selector(f"#player_{contestant_id} > .menu-contestant-avatar")
 
+            expected_filename = os.path.basename(avatar)
+            file_split = expected_filename.split(".")
+            expected_ext = file_split[-1]
+            expected_dirname = os.path.dirname(avatar).split("static/")[1]
+
             src_path = await avatar_elem.get_attribute("src")
-            if len(src_path) > len(avatar):
-                assert src_path.endswith(avatar)
-            elif len(src_path) < len(avatar):
-                assert avatar.endswith(src_path)
+
+            filename = os.path.basename(src_path)
+            ext = filename.split(".")[-1]
+            dirname = os.path.dirname(src_path).split("static/")[1]
+
+            if file_split[0] == "*":
+                assert dirname == expected_dirname
+                assert ext == expected_ext
             else:
-                assert src_path == avatar
+                assert f"{dirname}/{filename}" == f"{expected_dirname}/{expected_filename}"
 
         # Assert that contestant having turn is correct
         if has_turn is not None:

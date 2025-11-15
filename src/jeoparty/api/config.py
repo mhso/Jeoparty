@@ -53,7 +53,7 @@ def get_bg_image_path(full: bool = True):
 
 def get_theme_path(theme: str, full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""
-    return f"{prefix}data/themes/{theme}"
+    return f"{prefix}img/themes/{theme}"
 
 def get_locale_data():
     locale_data = {}

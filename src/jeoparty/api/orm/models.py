@@ -12,9 +12,6 @@ from jeoparty.api.enums import StageType, PowerUpType, Language
 from jeoparty.api.config import (
     Config, 
     get_theme_path,
-    get_avatar_path,
-    get_bg_image_path,
-    get_buzz_sound_path,
     get_question_pack_data_path,
 )
 
@@ -177,15 +174,6 @@ class Contestant(Base):
 
     game_contestants = relationship("GameContestant", back_populates="contestant", cascade="all, delete", order_by="GameContestant.game_id.asc(), GameContestant.contestant_id.asc()")
 
-    @property
-    def extra_fields(self):
-        avatar = self.avatar if self.avatar else Config.DEFAULT_AVATAR
-        return {
-            "avatar": f"{get_avatar_path(False)}/{avatar}",
-            "buzz_sound": None if not self.buzz_sound else f"{get_buzz_sound_path(False)}/{self.buzz_sound}",
-            "bg_image": None if not self.bg_image else f"{get_bg_image_path(False)}/{self.bg_image}",
-        }
-
 class GamePowerUp(Base):
     __tablename__ = "game_power_ups"
 
@@ -239,7 +227,9 @@ class GameContestant(Base):
         return {
             "name": self.contestant.name,
             "color": self.contestant.color,
-            **self.contestant.extra_fields,
+            "avatar": self.contestant.avatar,
+            "buzz_sound": self.contestant.buzz_sound,
+            "bg_image": self.contestant.bg_image,
             "finale_wager": self.finale_wager,
             "finale_answer": self.finale_answer,
         }

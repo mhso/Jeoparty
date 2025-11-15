@@ -126,11 +126,6 @@ def _create_question_packs(database: Database):
 
         return [pack_model_1.id, pack_model_2.id]
 
-        # category_model_2_1 = QuestionCategory(
-        #     round_id=pack_model_2.rounds[0].id,
-
-        # )
-
 @pytest.fixture(scope="session")
 def locales():
     # Load locale data

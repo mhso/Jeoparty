@@ -23,7 +23,7 @@ async def test_first_round(database, locales):
         "#CA12AF",
     ]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database as session:

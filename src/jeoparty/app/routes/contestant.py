@@ -1,8 +1,11 @@
 from glob import glob
 import os
+import random
 from typing import Any, Dict, Tuple
+from uuid import uuid4
 
 import flask
+from werkzeug.datastructures import FileStorage
 
 from mhooge_flask.routing import make_template_context
 
@@ -10,7 +13,7 @@ from jeoparty.api.database import Database
 from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Contestant, GameContestant
 from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template
-from jeoparty.api.config import get_avatar_path, get_theme_path, get_bg_image_path
+from jeoparty.api.config import get_avatar_path, get_theme_path, get_bg_image_path, get_buzz_sound_path
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
 
@@ -39,28 +42,47 @@ def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | st
 
     return create_and_validate_model(Contestant, params, "joining lobby")
 
-def _get_contestant_bg_image(index: int, theme: str | None):
+def _get_default_bg_image(index: int, theme: str | None):
     files = []
     if theme:
-        # Return random image from theme folder
         files = glob(f"{get_theme_path(theme)}/contestant_backgrounds/*")
 
     if files == []:
-        files = glob(f"{get_bg_image_path()}/*")
+        files = glob(f"{get_bg_image_path()}/default/*")
+
+    if files == []:
+        return None
+
+    files.sort()
+    if index < len(files):
+        file = files[index]
+    else:
+        file = files[random.randint(0, len(files) - 1)]
+
+    return file.split("static/")[-1]
+
+def _get_default_avatar(index: int, theme: str | None):
+    files = []
+    if theme:
+        files = glob(f"{get_theme_path(theme)}/avatars/*")
+
+    if files == []:
+        files = glob(f"{get_avatar_path()}/default/*")
 
     if index < len(files):
+        files.sort()
         return files[index].split("static/")[-1]
 
     return None
 
-def _save_contestant_avatar(file, user_id):
+def _save_contestant_avatar(file: FileStorage):
     file_split = file.filename.split(".")
-    filename = f"{user_id}.{file_split[1]}"
+    filename = f"{str(uuid4())}.{file_split[1]}"
     path = os.path.join(get_avatar_path(), filename)
 
     file.save(path)
 
-    return filename
+    return f"{get_avatar_path(False)}/{filename}"
 
 @contestant_page.route("/join", methods=["POST"])
 def join_lobby():
@@ -113,17 +135,25 @@ def join_lobby():
         # Get or set background image
         bg_image = flask.request.form.get("bg_image")
 
-        if bg_image is None:
-            bg_image = _get_contestant_bg_image(index, game_data.pack.theme)
+        if bg_image is not None:
+            bg_image = f"{get_bg_image_path(False)}/{bg_image}"
+        else:
+            bg_image = _get_default_bg_image(index, game_data.pack.theme)
 
         contestant_model_or_error.bg_image = bg_image
 
         # Set buzz sound, if given
-        contestant_model_or_error.buzz_sound = flask.request.form.get("buzz_sound")
+        buzz_sound = flask.request.form.get("buzz_sound")
+        if buzz_sound is not None:
+           contestant_model_or_error.buzz_sound = f"{get_buzz_sound_path(False)}/{buzz_sound}"
 
         # Update or save contestant info
         if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
-            contestant_model_or_error.avatar = _save_contestant_avatar(flask.request.files["avatar"], user_id)
+            avatar = _save_contestant_avatar(flask.request.files["avatar"])
+        else:
+            avatar = _get_default_avatar(index, game_data.pack.theme)
+
+        contestant_model_or_error.avatar = avatar
 
         model: Contestant = database.save_or_update(contestant_model_or_error, existing_model)
 

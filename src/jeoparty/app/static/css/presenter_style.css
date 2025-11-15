@@ -63,7 +63,7 @@ h3 {
 }
 
 #connection-status-wrapper {
-    position: absolute;
+    position: fixed;
     z-index: 100;
     background-color: rgba(0, 0, 0, 0.4);
     display: flex;
@@ -471,6 +471,7 @@ h3 {
 
 #contestants-footer {
     position: absolute;
+    z-index: 90;
     width: 100%;
     bottom: 0;
 }
@@ -485,7 +486,7 @@ h3 {
 }
 
 .footer-contestant-entry {
-    width: 220px;
+    width: 180px;
     height: 65%;
     position: relative;
     border: 2px solid black;
@@ -528,24 +529,22 @@ h3 {
 .footer-contestant-header {
     display: flex;
     justify-content: center;
-    align-items: baseline;
-    margin-top: 10px;
+    align-items: center;
+    margin-top: 6px;
+    line-height: 1;
 }
 
 .footer-contestant-entry-name {
     font-size: 1.3rem;
-    line-height: 1;
     font-weight: 1000;
     margin-right: 15px;
     max-width: 45%;
     max-height: 22px;
-    overflow: hidden;
 }
 
 .footer-contestant-entry-score {
     font-size: 1.2rem;
     text-align: right;
-    line-height: 1;
 }
 
 .footer-contestant-entry-score > img {

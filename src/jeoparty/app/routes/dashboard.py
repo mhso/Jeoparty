@@ -336,6 +336,9 @@ def save_pack(pack_id: str):
         logger.exception("Error when saving question pack")
         return make_json_response("Unknown error when saving question pack", 500)
 
+    # Create backup of database for safety
+    database.create_backup()
+
     return make_json_response({"response": "Question pack saved successfully.", "ids": new_ids}, 200)
 
 @dashboard_page.route("/pack/<pack_id>/delete", methods=["POST"])

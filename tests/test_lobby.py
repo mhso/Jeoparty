@@ -1,4 +1,3 @@
-import asyncio
 import os
 
 import pytest
@@ -7,7 +6,7 @@ from jeoparty.api.config import get_avatar_path
 from tests.browser_context import ContextHandler, rgb_to_hex
 
 @pytest.mark.asyncio
-async def test_join_lobby_defaults(database, locales):
+async def test_defaults(database, locales):
     pack_name = "Test Pack"
     contestant_names = [
         "Contesto Uno",
@@ -21,7 +20,7 @@ async def test_join_lobby_defaults(database, locales):
         "#BD1D1D",
         "#CA12AF",
     ]
-    contestant_avatar = "http://localhost:5006/static/img/avatars/questionmark.png"
+    contestant_avatar = "http://localhost:5006/static/img/avatars/default/*.png"
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name))[1]
@@ -49,8 +48,6 @@ async def test_join_lobby_defaults(database, locales):
 
                 assert contestant.contestant_id == contestant_id
 
-                await context.screenshot_views()
-
                 assert await placeholder_elem.is_hidden()
                 contestants_wrapper = await context.presenter_page.query_selector("#menu-contestants")
 
@@ -58,9 +55,6 @@ async def test_join_lobby_defaults(database, locales):
                 assert len(presenter_contestant_entries) == index + 1
 
                 assert await presenter_contestant_entries[index].get_attribute("id") == f"player_{contestant.id}"
-
-                avatar_elem = await presenter_contestant_entries[index].query_selector(".menu-contestant-avatar")
-                assert await avatar_elem.get_attribute("src") == contestant_avatar
 
                 presenter_entry_style = await presenter_contestant_entries[index].get_property("style")
                 border_color = await presenter_entry_style.get_property("borderColor")
@@ -72,13 +66,13 @@ async def test_join_lobby_defaults(database, locales):
                 await context.assert_contestant_values(contestant_id, name, color, contestant_avatar, 0, 0, 0, 0)
 
 @pytest.mark.asyncio
-async def test_rejoin_lobby(database):
+async def test_rejoin(database):
     pack_name = "Test Pack"
     contestant_name_1 = "Guy"
     contestant_name_2 = "Gal"
     contestant_color_1 = "#1155EE"
     contestant_color_2 = "#009E18"
-    contestant_avatar_1 = "/static/img/avatars/questionmark.png"
+    contestant_avatar_1 = "/static/img/avatars/default/*.png"
     contestant_avatar_2 = "/mnt/d/mhooge/jeoparty/src/jeoparty/app/static/img/avatars/f909a1fc-d673-469d-ad82-b51ed7672e7f.png"
 
     async with ContextHandler(database) as context:

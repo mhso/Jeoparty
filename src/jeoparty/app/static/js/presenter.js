@@ -1096,10 +1096,13 @@ function tabulateCategorySelection(key, cols) {
     boxes.item(selectedIndex).classList.add("selected");
 }
 
-function setContestantTextColors() {
+function setContestantTextSizeAndColors() {
     let contestantEntries = document.getElementsByClassName("footer-contestant-entry");
     for (let i = 0; i < contestantEntries.length; i++) {
-        let bgColor = contestantEntries.item(i).style.backgroundColor;
+        let entry = contestantEntries.item(i);
+
+        // Set color of text that achieves most contrast with background color
+        let bgColor = entry.style.backgroundColor;
         let split = bgColor.replace("rgb(", "").replace(")", "").split(",");
 
         let red = parseInt(split[0]).toString(16);  
@@ -1107,7 +1110,15 @@ function setContestantTextColors() {
         let blue = parseInt(split[2]).toString(16); 
 
         let fgColor = red * 0.299 + green * 0.587 + blue * 0.114 > 160 ? "black" : "white";
-        contestantEntries.item(i).style.color = fgColor;
+        entry.style.color = fgColor;
+
+        // Set dynamic font size of player name
+        let baseWidth = 184;
+        let scale = (entry.getBoundingClientRect().width * 2) / (baseWidth * 2);
+
+        let playerName = entry.querySelector(".footer-contestant-entry-name");
+        let fontSize = scale * Math.max(25 - playerName.textContent.length, 20);
+        playerName.style.fontSize = Math.round(fontSize) + "px";
     }
 }
 
