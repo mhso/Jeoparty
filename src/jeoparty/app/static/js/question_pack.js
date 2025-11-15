@@ -1168,7 +1168,7 @@ function mediaFileSelected(event, mediaKey) {
         showMediaPreview(event.target.parentElement, file, mediaKey);
     }
     else {
-        event.target.files = new FileList();
+        event.target.files = new DataTransfer().files
     }
 }
 

@@ -211,7 +211,7 @@ def lobby(join_code: str):
     with database:
         game_data = database.get_game_from_code(join_code)
         if game_data is None:
-            return render_locale_template("contestant/nogame.html", game_data.pack.language)
+            return make_template_context("contestant/nogame.html", status=404)
 
         user_id = _get_user_id_from_cookie(flask.request.cookies)
 

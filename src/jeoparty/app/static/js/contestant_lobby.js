@@ -31,6 +31,31 @@ function validFileType(file) {
     return fileTypes.includes(file.type);
 }
 
+async function resizeImage(file, size) {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = size
+    canvas.height = size
+
+    const bitmap = await createImageBitmap(file)
+    const { width, height } = bitmap
+
+    const ratio = Math.max(size / width, size / height)
+
+    const x = (size - (width * ratio)) / 2
+    const y = (size - (height * ratio)) / 2
+
+    ctx.drawImage(bitmap, 0, 0, width, height, x, y, width * ratio, height * ratio)
+
+    return new Promise(resolve => {
+        canvas.toBlob(blob => {
+            let newFile = new File([blob], file.name,  {type: file.type});
+            resolve(newFile)
+        }, "image/webp", 1)
+    });
+}
+
 function updateAvatarImg() {
     let avatarInput = document.getElementById("contestant-lobby-avatar-input");
     let defaultAvatar = document.getElementById("contestant-lobby-default-avatar");
@@ -41,14 +66,22 @@ function updateAvatarImg() {
         let file = files[0];
         if (validFileType(file)) {
             let imageElem = document.getElementById("contestant-lobby-avatar-img");
-            imageElem.src = URL.createObjectURL(file);
-            imageElem.alt = imageElem.title = file.name;
 
-            if (defaultAvatar != null) {
-                wrapper.removeChild(defaultAvatar);
-            }
+            let size = Number.parseInt(window.getComputedStyle(wrapper).width.replace("px", ""));
+            resizeImage(file, size).then((resized) => {
+                imageElem.src = URL.createObjectURL(resized);
+                imageElem.alt = imageElem.title = file.name;
+    
+                let dataTransfer = new DataTransfer();
+                dataTransfer.items.add(resized);
+                avatarInput.files = dataTransfer.files;
+    
+                if (defaultAvatar != null) {
+                    wrapper.removeChild(defaultAvatar);
+                }
+            });
         } else {
-            alert(`${file.name}' is a valid file type.`);
+            alert(`${file.name}' is not a valid file type (should be .png, .gif, .jpg, or .webp).`);
         }
     }
 }

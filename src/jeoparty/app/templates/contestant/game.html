@@ -12,7 +12,7 @@
 
             <div id="contestant-game-header" style="border: 2px solid {{ color }};">
                 <div>
-                    <img id="contestant-game-avatar" src="{{ url_for('static', _external=True, filename=avatar) }}">
+                    <img id="contestant-game-avatar" src="{{ url_for('static', _external=True, filename=avatar) }}" style="border: 2px solid {{ color }};">
                     <div id="contestant-game-name">{{ name }}</div>
                 </div>
                 <div id="contestant-game-info">

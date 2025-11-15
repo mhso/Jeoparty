@@ -65,8 +65,7 @@ h1 {
 
 #contestant-game-header > div > img {
     width: 64px;
-    border-radius: 32px;
-    border: 2px solid white;
+    border-radius: 34px;
 }
 
 #contestant-game-info {
@@ -116,6 +115,11 @@ h1 {
 #contestant-lobby-avatar-wrapper {
     position: relative;
     display: inline-block;
+    overflow: hidden;
+    width: 128px;
+    height: 128px;
+    border: 2px solid white;
+    border-radius: 130px;
 }
 
 #contestant-lobby-avatar-input {
@@ -130,9 +134,7 @@ h1 {
 
 #contestant-lobby-avatar-img {
     display: block;
-    width: 64px;
-    border-radius: 32px;
-    border: 2px solid white;
+    width: 100%;
 }
 
 #contestant-lobby-name {

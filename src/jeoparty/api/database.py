@@ -81,12 +81,7 @@ class Database(SQLAlchemyDatabase):
                 selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
             ).filter(Game.join_code == join_code)
 
-            return session.execute(statement).scalar_one()
-
-    def get_question_from_id(self, question_id: str):
-        with self as session:
-            stmt = select(Question).options(selectinload(Question.category)).filter(Question.id == question_id)
-            return session.execute(stmt).scalar_one()
+            return session.execute(statement).scalar_one_or_none()
 
     def get_unique_join_code(self, join_code: str):
         with self as session:

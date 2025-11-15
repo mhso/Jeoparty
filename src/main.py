@@ -50,12 +50,12 @@ def run_app(args):
 
 @restartable
 def main():
-    gevent.get_hub().NOT_ERROR += (KeyboardInterrupt,)
-    run_app(args)
-
-if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-db", "--database", default="database.db")
     args = parser.parse_args()
 
+    gevent.get_hub().NOT_ERROR += (KeyboardInterrupt,)
+    run_app(args)
+
+if __name__ == "__main__":
     main()
