@@ -24,14 +24,16 @@ from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
 import main
 
 BROWSER_OPTIONS = {
-    "args": [
-        "--disable-gl-drawing-for-tests",
-        "--hide-scrollbars",
+    "args": {
+        "chromium": [
+            "--disable-gl-drawing-for-tests",
+            "--hide-scrollbars",
             "--in-process-gpu",
-        "--disable-gpu",
-        "--no-sandbox",
-        "--headless=new",
-    ],
+            "--disable-gpu",
+            "--no-sandbox",
+            "--headless=new",
+        ],
+    },
     "ignore_default_args": [
         "--enable-automation"
     ],
@@ -39,7 +41,7 @@ BROWSER_OPTIONS = {
     "headless": True
 }
 
-BROWSER = "chromium"
+BROWSER = "webkit"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
 PRESENTER_ACTION_KEY = "Space"
@@ -81,7 +83,9 @@ class ContextHandler:
         self._browser_tasks = []
 
     async def _create_browser(self, context: Playwright):
-        return await getattr(context, BROWSER).launch(**BROWSER_OPTIONS)
+        browser_options = dict(BROWSER_OPTIONS)
+        browser_options["args"] = BROWSER_OPTIONS["args"].get(BROWSER, [])
+        return await getattr(context, BROWSER).launch(**browser_options)
 
     async def _login_to_dashboard(self):
         page = await self.presenter_context.new_page()
@@ -118,7 +122,7 @@ class ContextHandler:
 
     async def _socket_connected(self):
         status_elem = await self.presenter_page.query_selector("#connection-status")
-        return await self.presenter_page.evaluate("socket && socket.connected") and (status_elem is None or await status_elem.is_hidden())
+        return await self.presenter_page.evaluate("typeof(socket) !== 'undefined' && socket.connected") and (status_elem is None or await status_elem.is_hidden())
 
     async def create_game(
         self,

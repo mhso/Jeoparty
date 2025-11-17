@@ -73,7 +73,7 @@ async def test_rejoin(database):
     contestant_color_1 = "#1155EE"
     contestant_color_2 = "#009E18"
     contestant_avatar_1 = "/static/img/avatars/default/*.png"
-    contestant_avatar_2 = "/mnt/d/mhooge/jeoparty/src/jeoparty/app/static/img/avatars/f909a1fc-d673-469d-ad82-b51ed7672e7f.png"
+    contestant_avatar_2 = "src/jeoparty/app/static/img/avatars/f909a1fc-d673-469d-ad82-b51ed7672e7f.png"
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name))[1]
@@ -181,6 +181,8 @@ async def test_errors(database):
 
             error_elem = await page.query_selector("#contestant-lobby-error")
             assert await error_elem.text_content() == "Error when joining lobby: 'Name' contains invalid characters"
+
+            # Try to join a lobby that is full
 
             # # Try to join with an invalid color
             # name = "Regular Name"

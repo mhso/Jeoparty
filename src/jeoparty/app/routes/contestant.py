@@ -75,9 +75,9 @@ def _get_default_avatar(index: int, theme: str | None):
 
     return None
 
-def _save_contestant_avatar(file: FileStorage):
+def _save_contestant_avatar(file: FileStorage, user_id: str):
     file_split = file.filename.split(".")
-    filename = f"{str(uuid4())}.{file_split[1]}"
+    filename = f"{user_id}.{file_split[1]}"
     path = os.path.join(get_avatar_path(), filename)
 
     file.save(path)
@@ -97,6 +97,7 @@ def join_lobby():
 
         return flask.redirect(flask.url_for(".lobby", join_code=join_code, error=contestant_model_or_error, _external=True))
 
+    contestant_model: Contestant = contestant_model_or_error
     user_id = flask.request.form.get("user_id")
 
     with database:
@@ -122,10 +123,10 @@ def join_lobby():
 
         user_already_joined = False
         if existing_model is not None:
-            contestant_model_or_error.id = existing_model.id
-            contestant_model_or_error.avatar = existing_model.avatar
-            contestant_model_or_error.bg_image = existing_model.bg_image
-            contestant_model_or_error.buzz_sound = existing_model.buzz_sound
+            contestant_model.id = existing_model.id
+            contestant_model.avatar = existing_model.avatar
+            contestant_model.bg_image = existing_model.bg_image
+            contestant_model.buzz_sound = existing_model.buzz_sound
 
             for contestant in game_data.game_contestants:
                 if contestant.contestant_id == user_id:
@@ -140,35 +141,40 @@ def join_lobby():
         else:
             bg_image = _get_default_bg_image(index, game_data.pack.theme)
 
-        contestant_model_or_error.bg_image = bg_image
+        contestant_model.bg_image = bg_image
 
         # Set buzz sound, if given
         buzz_sound = flask.request.form.get("buzz_sound")
         if buzz_sound is not None:
-           contestant_model_or_error.buzz_sound = f"{get_buzz_sound_path(False)}/{buzz_sound}"
+           contestant_model.buzz_sound = f"{get_buzz_sound_path(False)}/{buzz_sound}"
 
-        # Update or save contestant info
+        # We need the ID of the user to use in the filename of their avatar,
+        # so we have to save the contestant twice
+        contestant_model = database.save_or_update(contestant_model, existing_model)
+
+        # Update or save contestant avatar
+        new_avatar = None
         if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
-            avatar = _save_contestant_avatar(flask.request.files["avatar"])
-        else:
-            avatar = _get_default_avatar(index, game_data.pack.theme)
+            new_avatar = _save_contestant_avatar(flask.request.files["avatar"], contestant_model.id)
+        elif existing_model is None or existing_model.avatar is None:
+            new_avatar = _get_default_avatar(index, game_data.pack.theme)
 
-        contestant_model_or_error.avatar = avatar
-
-        model: Contestant = database.save_or_update(contestant_model_or_error, existing_model)
+        if new_avatar is not None:
+            contestant_model.avatar = new_avatar
+            database.save_models(contestant_model)
 
         if not user_already_joined:
             # If user isn't already in the game, add them
             game_contestant_model = GameContestant(
                 game_id=game_data.id,
-                contestant_id=model.id
+                contestant_id=contestant_model.id
             )
             database.add_contestant_to_game(game_contestant_model, game_data.use_powerups)
 
         response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
 
         # Save user ID to cookie
-        cookie_id, data, max_age = _save_user_id_to_cookie(str(model.id))
+        cookie_id, data, max_age = _save_user_id_to_cookie(str(contestant_model.id))
         response.set_cookie(cookie_id, data, max_age=max_age)
 
     return response

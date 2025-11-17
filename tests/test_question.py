@@ -6,22 +6,12 @@ from playwright.async_api import Dialog
 
 from jeoparty.api.enums import StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
+from tests import create_contestant_data
 
 @pytest.mark.asyncio
 async def test_first_round(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database, True) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
@@ -304,18 +294,7 @@ async def test_first_round(database, locales):
 @pytest.mark.asyncio
 async def test_simultaneous_buzzes(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name))[1]
@@ -394,18 +373,7 @@ async def test_simultaneous_buzzes(database, locales):
 @pytest.mark.asyncio
 async def test_all_wrong_buzzes(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
@@ -500,18 +468,7 @@ async def test_all_wrong_buzzes(database, locales):
 @pytest.mark.asyncio
 async def test_time_runs_out(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
@@ -566,18 +523,7 @@ async def test_time_runs_out(database, locales):
 @pytest.mark.asyncio
 async def test_question_aborted(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
@@ -636,18 +582,7 @@ async def test_question_aborted(database, locales):
 @pytest.mark.asyncio
 async def test_daily_double_valid(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database, True) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=True))[1]
@@ -727,18 +662,7 @@ async def test_daily_double_valid(database, locales):
 @pytest.mark.asyncio
 async def test_daily_double_invalid(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=True))[1]
@@ -792,18 +716,7 @@ async def test_daily_double_invalid(database, locales):
 @pytest.mark.asyncio
 async def test_freeze_power(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
@@ -915,18 +828,7 @@ async def test_freeze_power(database, locales):
 @pytest.mark.asyncio
 async def test_finale_question(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
     contestant_scores = [
         -500, 300, 1200, 0
     ]
