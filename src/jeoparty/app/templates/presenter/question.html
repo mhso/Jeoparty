@@ -73,10 +73,7 @@
             {{ game_contestants | tojson }},
             "{{ stage | safe }}",
             {{ _locale | tojson }},
-            "{{ answer | safe }}",
-            {{ value }},
-            {{ category["buzz_time"] }},
-            {{ daily_double | tojson }}
+            {{ question_ui_data | tojson }},
         );
 
         socket.on("connect", function() {

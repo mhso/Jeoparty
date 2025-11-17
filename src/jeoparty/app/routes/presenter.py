@@ -103,6 +103,15 @@ def question(game_data: Game):
     question_json["category"] = game_question.question.category.dump(included_relations=[])
     question_json["daily_double"] = game_question.daily_double
 
+    # Data used as variables in JS for controlling presenter UI flow
+    question_ui_data = {
+        "answer": question_json["answer"],
+        "value": question_json["value"],
+        "answer_time": game_data.answer_time,
+        "buzz_time": question_json["category"]["buzz_time"],
+        "daily_double": question_json["daily_double"],
+    }
+
     # If question is multiple-choice, randomize order of choices
     if "choices" in question_json["extra"]:
         random.shuffle(question_json["extra"]["choices"])
@@ -140,6 +149,7 @@ def question(game_data: Game):
         correct_sound=correct_sound,
         wrong_sounds=wrong_sounds,
         round_name=round_name,
+        question_ui_data=question_ui_data,
         **game_json,
         **question_json,
     )

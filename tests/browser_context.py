@@ -43,7 +43,9 @@ BROWSER = "chromium"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
 PRESENTER_ACTION_KEY = "Space"
+
 VIDEO_RECORD_PATH = "tests/videos"
+SCREENSHOT_CAPTURE_PATH = "tests/screenshots"
 
 def _to_hex(r: str):
     hex_num = hex(int(r))
@@ -881,7 +883,7 @@ class ContextHandler:
 
         self.screenshots += 1
 
-        combined_image.save(f"tests/screenshots/{suffix}.png")
+        combined_image.save(f"{SCREENSHOT_CAPTURE_PATH}/{suffix}.png")
 
     async def tile_videos(self):
         presenter_video = self.presenter_page.video
@@ -947,8 +949,14 @@ class ContextHandler:
     async def __aenter__(self):
         self.playwright_contexts = [await async_playwright().__aenter__()]
 
+        if not os.path.exists(SCREENSHOT_CAPTURE_PATH):
+            os.mkdir(SCREENSHOT_CAPTURE_PATH)
+
+        if not os.path.exists(VIDEO_RECORD_PATH):
+            os.mkdir(VIDEO_RECORD_PATH)
+
         # Clean up old screenshots and videos
-        old_screenshots = glob(f"tests/screenshots/*.png")
+        old_screenshots = glob(f"{SCREENSHOT_CAPTURE_PATH}/*.png")
         for screenshot in old_screenshots:
             os.remove(screenshot)
 

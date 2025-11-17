@@ -270,6 +270,7 @@ class Game(Base):
     join_code: Mapped[str] = mapped_column(String(64))
     regular_rounds: Mapped[int] = mapped_column(Integer, default=Config.REGULAR_ROUNDS)
     max_contestants: Mapped[int] = mapped_column(Integer)
+    answer_time: Mapped[int] = mapped_column(Integer, default=Config.DEFAULT_ANSWER_TIME)
     use_daily_doubles: Mapped[bool] = mapped_column(Boolean, default=True)
     use_powerups: Mapped[bool] = mapped_column(Boolean, default=True)
     stage: Mapped[StageType] = mapped_column(Enum(StageType), default=StageType.LOBBY)

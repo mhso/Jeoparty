@@ -5,7 +5,6 @@ socket.on("connect_error", function(err) {
     console.error("Socket connection error:", err);
 });
 
-const TIME_FOR_ANSWERING = 6;
 const TIME_FOR_DOUBLE_ANSWER = 10;
 const TIME_FOR_WAGERING = 60;
 const TIME_FOR_FINAL_ANSWER = 40;
@@ -24,6 +23,7 @@ var activeValue = null;
 var answeringPlayer = null;
 var activePlayers = {};
 var questionAnswered = false;
+var answerTime = 6;
 var buzzInTime = 10;
 var isDailyDouble = false;
 var activePowerUp = null;
@@ -620,7 +620,7 @@ function afterBuzzIn(playerId) {
 
     // Start new countdown for answering after small delay
     setTimeout(function() {
-        startAnswerCountdown(TIME_FOR_ANSWERING);
+        startAnswerCountdown(answerTime);
 
         // Enable 'freeze' for player who buzzed
         enablePowerUp(playerId, "freeze");
@@ -986,7 +986,7 @@ function scaleAnswerChoices() {
     }
 }
 
-function initialize(playerData, stage, localeData, answer=null, value=null, buzzTime=10, dailyDouble=false) {
+function initialize(playerData, stage, localeData, pageSpecificData=null) {
     playerData.forEach((data) => {
         let playerId = data["id"];
         playerIds.push(playerId);
@@ -1001,10 +1001,13 @@ function initialize(playerData, stage, localeData, answer=null, value=null, buzz
 
     localeStrings = localeData;
     activeStage = stage;
-    activeAnswer = answer;
-    activeValue = value;
-    buzzInTime = buzzTime;
-    isDailyDouble = dailyDouble;
+    if (pageSpecificData) {
+        activeAnswer = pageSpecificData["answer"];
+        activeValue = pageSpecificData["value"];
+        answerTime = pageSpecificData["answer_time"];
+        buzzInTime = pageSpecificData["buzz_time"];
+        isDailyDouble = pageSpecificData["daily_double"];
+    }
 }
 
 function goToQuestion(div, questionId, isDouble) {
