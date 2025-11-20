@@ -1,4 +1,3 @@
-import os
 import random
 
 import flask
@@ -7,7 +6,7 @@ from mhooge_flask.logging import logger
 from mhooge_flask.routing import socket_io
 
 from jeoparty.api.database import Database
-from jeoparty.api.config import Config, get_question_pack_data_path
+from jeoparty.api.config import Config
 from jeoparty.api.enums import PowerUpType, StageType
 from jeoparty.api.orm.models import Game, GameQuestion
 from jeoparty.app.routes.socket import GameSocketHandler

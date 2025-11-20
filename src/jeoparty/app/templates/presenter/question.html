@@ -37,6 +37,12 @@
         
         <!-- Contestants -->
         {% include 'presenter/footer.html' %}
+
+        <!-- Import theme, if any is defined -->
+        {% if theme %}
+        {% include theme['template_path'] + '/question.html' ignore missing %}
+        {% include theme['template_path'] + '/global.html' ignore missing %}
+        {% endif %}
     </body>
 
     <!-- Buzzer sound -->

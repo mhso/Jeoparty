@@ -183,11 +183,12 @@ def fetch_resource():
         if content_type not in _VALID_IMAGE_FILETYPES and content_type not in _VALID_VIDEO_FILETYPES:
             return make_text_response("Invalid file type to fetch", 400)
 
-    # If content-type was valid or 'options' request failed, get the full file
+    # If response is invalid, return error
     response = requests.get(url)
     if response.status_code != 200:
         return make_text_response("Could not fetch resources", response.status_code)
 
+    # If content-type was valid or 'options' request failed, get the full file
     if content_type is None:
         content_type = response.headers.get("Content-Type")
         if content_type not in _VALID_IMAGE_FILETYPES and content_type not in _VALID_VIDEO_FILETYPES:

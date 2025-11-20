@@ -23,9 +23,15 @@
 .question-category-header {
     color: white;
     font-family: league;
-    font-size: 4rem;
+    font-size: 3rem;
     margin-top: 25px;
-    width: 900px;
+}
+
+.question-category-header > div {
+    display: inline-block;
+    padding: 5px 15px;
+    background-color: rgba(15, 15, 15, 0.88);
+    border-radius: 10px;
 }
 
 .question-question-header {
@@ -42,8 +48,7 @@
 
 .question-category-span {
     font-weight: 1000;
-    text-decoration: underline;
-    color: rgb(255, 45, 222);
+    color: rgb(53, 141, 255);
 }
 
 .question-choices-wrapper {
@@ -76,7 +81,7 @@
     margin: 0 auto;
 }
 
-.question-question-image.image-border, .question-answer-image.image-border {
+.question-question-image.image-border, .question-answer-image.image-border, .question-question-video.image-border {
     border: 2px solid white;
     border-radius: 10px;
 }

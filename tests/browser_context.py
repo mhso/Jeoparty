@@ -41,7 +41,7 @@ BROWSER_OPTIONS = {
     "headless": True
 }
 
-BROWSER = "webkit"
+BROWSER = "chromium"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
 PRESENTER_ACTION_KEY = "Space"
@@ -368,7 +368,7 @@ class ContextHandler:
 
         await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
 
         # Check if question is multiple choice
         is_multiple_choice = await self.presenter_page.evaluate("() => document.getElementsByClassName('question-choice-entry').length > 0")
@@ -480,6 +480,9 @@ class ContextHandler:
             return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
 
         await self.wait_for_event(wager_accepted)
+
+    def _clean_whitespace(self, text: str):
+        return " ".join(x.strip() for x in text.split(None) if x.strip() != "")
 
     async def assert_contestant_values(
         self,
@@ -670,10 +673,10 @@ class ContextHandler:
         # Assert that category header is correct
         expected_category_text = question.question.category.name
         if not is_finale:
-            expected_category_text = f"{expected_category_text}for {question.question.value} points"
+            expected_category_text = f"{expected_category_text} for {question.question.value} points"
 
         category_header = await self.presenter_page.query_selector(".question-category-header")
-        assert (await category_header.text_content()).strip() == expected_category_text
+        assert self._clean_whitespace(await category_header.text_content()) == expected_category_text
         assert await category_header.is_visible()
 
         # Assert that the question header is correct
@@ -988,6 +991,7 @@ class ContextHandler:
         )
 
         self.presenter_page = await self._login_to_dashboard()
+        self.presenter_page.on("pageerror", self._print_unhandled_error)
         self.presenter_page.on("console", self._print_console_output)
 
         await asyncio.sleep(1)

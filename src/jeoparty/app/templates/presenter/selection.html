@@ -56,7 +56,7 @@
         <!-- Contestants -->
         {% include 'presenter/footer.html' %}
 
-        <!-- Theme, if any -->
+        <!-- Import theme, if any is defined -->
         {% if theme %}
         {% include theme['template_path'] + '/selection.html' ignore missing %}
         {% include theme['template_path'] + '/global.html' ignore missing %}

@@ -4,8 +4,8 @@ var lastSaveState = null;
 var wrapperHeight = 0;
 var wrapperWidth = 0;
 
-const REGULAR_MEDIA_HEIGHT = 420
-const SMALL_MEDIA_HEIGHT = 256
+const REGULAR_MEDIA_HEIGHT = 460
+const SMALL_MEDIA_HEIGHT = 290
 const MAXIMIZED_MEDIA_HEIGHT = 760
 
 const letters = Array.from("abcdefghijklmnopqrstuvwxyz0123456789")
@@ -176,6 +176,12 @@ function syncQuestionData(round, category, question) {
     questionData["rounds"][round]["categories"][category]["buzz_time"] = doBuzzTimer ? buzzTime : 0;
     let questionDataQuestions = questionData["rounds"][round]["categories"][category]["questions"];
 
+    // Synchronize buzz times across other questions in category
+    let countdownElems = document.querySelector(`.question-pack-round-wrapper-${round} .question-pack-category-wrapper-${category} .question-countdown-text`);
+    countdownElems.forEach((elem) => {
+        elem.value = buzzTime;
+    });
+
     let data;
     if (question < questionDataQuestions.length) {
         data = questionDataQuestions[question];
@@ -240,7 +246,7 @@ function syncQuestionData(round, category, question) {
             
             // Save video volume
             if (key == "video") {
-                data["extra"]["volme"] = questionMediaPreview.volume;
+                data["extra"]["volume"] = questionMediaPreview.volume;
             }
         }
     }
@@ -258,7 +264,7 @@ function syncQuestionData(round, category, question) {
             }
 
             if (Object.hasOwn(data["extra"], "video")) {
-                data["extra"]["volme"] = questionMediaPreview.volume;
+                data["extra"]["volume"] = questionMediaPreview.volume;
             }
         }
     }
@@ -919,14 +925,26 @@ function saveData(packId) {
         if (response.status == 404) {
             showPopup("The question pack was not found on the server or you do not have access to it.", true);
         }
+        else if (response.status == 413) {
+            showPopup("Your question pack is too large! Max size is 100 MB.")
+        }
         else if (response.status == 500) {
             showPopup("Internal server error", true);
         }
         else {
+            let message;
             if (error) {
-                data = JSON.parse(response["responseText"]);
+                if (Object.hasOwn(response, "responseJSON")) {
+                    message = JSON.parse(response["responseText"])["response"];
+                }
+                else {
+                    message = "An unknown error occured, try again later."
+                }
             }
-            showPopup(data["response"], error)
+            else {
+                message = data["response"];
+            }
+            showPopup(message, error)
         }
 
         if (!error) {
@@ -1047,6 +1065,7 @@ function setBackgroundImage(event, roundId, categoryId) {
         let bgImageElements = categoryWrapper.querySelectorAll(".bg-fill");
         bgImageElements.forEach(elem => {
             elem.style.backgroundImage = `url(${fileSrc})`;
+            elem.classList.add("bg-image");
         });
     }
 
@@ -1126,7 +1145,7 @@ function showMediaPreview(wrapper, file, mediaKey) {
         wrapperElem = document.createElement("video");
         mediaElem = document.createElement("source");
 
-        wrapperElem.className = "question-question-video question-editable question-media`";
+        wrapperElem.className = "question-question-video question-editable question-media";
         wrapperElem.controls = true;
         mediaElem.type = file.type;
 
@@ -1247,7 +1266,6 @@ function handleURLDataTransfers(event) {
                         const filename = getRandomFilename(contentType);
     
                         if (filename == null) {
-                            console.warn("File extension is null for", contentType);
                             reject();
                             return;
                         }
@@ -1261,6 +1279,9 @@ function handleURLDataTransfers(event) {
                         let validatedFile = validateAndGetMediaFile(fileList);
                         if (validatedFile != null) {
                             resolve(fileList);
+                        }
+                        else {
+                            reject();
                         }
                     }
                 }
@@ -1282,16 +1303,18 @@ function handleURLDataTransfers(event) {
                 item.getAsString((data) => {
                     let dataURL = null;
                     if (isHtml) {
-                        console.log("Trying HTML");
                         let div = document.createElement("div");
                         div.innerHTML = data;
-                        let imgElem = div.querySelector("a > img");
-                        if (imgElem != null) {
-                            dataURL = imgElem.src;
+                        let searchQueries = ["a > img", "img"];
+                        for (let query of searchQueries) {
+                            let imgElem = div.querySelector(query);
+                            if (imgElem != null) {
+                                dataURL = imgElem.src;
+                                break;
+                            }
                         }
                     }
                     else {
-                        console.log("Trying direct URL");
                         dataURL = data;
                     }
 
@@ -1304,6 +1327,9 @@ function handleURLDataTransfers(event) {
                         resolve(result);
                     }, rejectIfDone);
                 });
+            }
+            else {
+                rejectIfDone();
             }
         }
     });
@@ -1334,11 +1360,14 @@ function mediaDragDropped(event, mediaKey) {
         loadingWrapper.classList.add("d-none");
         showMediaPreview(wrapper, fileList[0], mediaKey);
     }, () => {
+        let preview = wrapper.querySelector(".drag-target-preview-wrapper");
+        let header = wrapper.querySelector(".drag-target-tooltip");
+
         loadingWrapper.classList.add("d-none");
         if (preview.classList.contains("d-none")) {
             header.classList.remove("d-none");
         }
-        alert("Invalid file type.");
+        alert("Could not extract the given image.");
     });
 }
 
@@ -1559,7 +1588,7 @@ function createQuestionView(roundId, categoryId, isFinale=false) {
 
     let bgImageElem = wrapper.querySelector(".bg-fill");
     let categoryData = questionData["rounds"][roundId]["categories"][categoryId];
-    if (Object.hasOwn(categoryData, "bg_image")) {
+    if (Object.hasOwn(categoryData, "bg_image") && categoryData["bg_image"] != null) {
         bgImageElem.style.backgroundImage = `url(/static/${categoryData["bg_image"]})`;
         bgImageElem.classList.add("bg-image");
     }
@@ -1670,7 +1699,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
             // Set volume of potential video
             if (media.classList.contains("question-question-video") && media.dataset.volume != null) {
-                media.volume = Number.parseFloat(media.datase.volume);
+                media.volume = Number.parseFloat(media.dataset.volume);
             }
         }
     });

@@ -1,6 +1,8 @@
 <head>
     <title>{{ app_name }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', _external=True, filename='img/favicon-32.ico') }}">
+    <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', _external=True, filename='img/favicon-48.ico') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/style.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/dashboard_style.css') }}">
     <script src="{{ url_for('static', _external=True, filename='js/jquery.min.js') }}"></script>

@@ -1,12 +1,6 @@
 /****************##############****************\
 |                    SHARED                    |
 \****************##############****************/
-
-@font-face {
-    font-family: league;
-    src: url(../fonts/Friz_Quadrata_Bold.otf);
-}
-
 body {
     overflow: hidden;
 }
@@ -45,7 +39,6 @@ h3 {
 }
 
 #jeopardy-logo {
-    width: 460px;
     margin-top: -10px;
     filter: drop-shadow(0 5px 5px black);
 }

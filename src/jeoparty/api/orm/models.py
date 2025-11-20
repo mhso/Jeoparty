@@ -260,8 +260,8 @@ class Game(Base):
     __validate_fields__ = {
         "title": {"min_length": 3, "pattern": Config.VALID_TITLE_CHARACTERS},
         "password": {"min_length": 3, "max_length": 128},
-        "regular_rounds": {"ge": 1, "lt": 10},
-        "max_contestants": {"ge": 1, "le": 10},
+        "regular_rounds": {"gt": 0, "lt": 10},
+        "max_contestants": {"gt": 0, "le": 10},
     }
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))

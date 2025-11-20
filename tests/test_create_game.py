@@ -148,8 +148,8 @@ async def test_errors(database):
         assert await error_elem.text_content() == "Error when creating game: 'Max contestants' - Input should be greater than 0"
 
         # Create game with too many contestants
-        page, game_id = await context.create_game("Test Pack", contestants=10)
+        page, game_id = await context.create_game("Test Pack", contestants=11)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
-        assert await error_elem.text_content() == "Error when creating game: 'Max contestants' - Input should be less than 10"
+        assert await error_elem.text_content() == "Error when creating game: 'Max contestants' - Input should be less than or equal to 10"

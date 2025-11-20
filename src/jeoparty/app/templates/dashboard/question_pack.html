@@ -11,6 +11,8 @@
 
     <div id="question-pack-outer-wrapper">
         <div id="question-pack-wrapper">
+            {% include 'logo.html' %}
+
             <div class="input-field">
                 <label for="pack-name">Pack Name</label>
                 <input id="question-pack-name" name="pack-name" type="text" value="{{ name }}" placeholder="Name of Pack" oninput="syncPackName(); dataChanged();">

@@ -71,5 +71,11 @@
                 startWinnerParty();
             });
         </script>
-    </body>
+
+        <!-- Import theme, if any is defined -->
+        {% if theme %}
+        {% include theme['template_path'] + '/endscreen.html' ignore missing %}
+        {% include theme['template_path'] + '/global.html' ignore missing %}
+        {% endif %}
+</body>
 </html>

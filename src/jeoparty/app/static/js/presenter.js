@@ -11,7 +11,7 @@ const TIME_FOR_FINAL_ANSWER = 40;
 const TIME_BEFORE_FIRST_TIP = 4;
 const TIME_BEFORE_EXTRA_TIPS = 4;
 const TIME_FOR_FREEZE = 40;
-const IMG_MAX_HEIGHT = 420;
+const IMG_MAX_HEIGHT = 460;
 const PRESENTER_ACTION_KEY = "Space"
 
 var countdownInterval = null;
@@ -386,7 +386,7 @@ function hideAnswerIndicator() {
 }
 
 function keyIsNumeric(key, min, max) {
-    let keys = Array.apply(null, Array(max - min + 1)).map(function (x, i) { return "" + (i + min); });
+    let keys = Array.apply(null, Array(max - min + 1)).map(function (x, i) { return (i + min).toString(); });
     return keys.includes(key);
 }
 
@@ -408,13 +408,14 @@ function pauseCountdown(paused) {
     }
 }
 
-function isQuestionMultipleChoice() {
-    return document.getElementsByClassName("question-choice-entry").length > 0;
+function getNumAnswerChoices() {
+    return document.getElementsByClassName("question-choice-entry").length;
 }
 
 function answerQuestion(event) {
-    if (keyIsNumeric(event.key, 1, 4)) {
-        if (isQuestionMultipleChoice()) {
+    let choices = getNumAnswerChoices();
+    if (keyIsNumeric(event.key, 1, Math.max(choices, 2))) {
+        if (choices) {
             // Highlight element as having been selected as the answer.
             const delay = 2500
             const elem = document.querySelector(".question-choice-" + event.key);
@@ -878,7 +879,7 @@ function showAnswerChoice(index) {
 }
 
 function afterShowQuestion() {
-    if (isQuestionMultipleChoice()) {
+    if (getNumAnswerChoices()) {
         window.onkeydown = function(e) {
             if (e.code == PRESENTER_ACTION_KEY) {
                 showAnswerChoice(0);
@@ -940,7 +941,7 @@ function showQuestion() {
     else {
         // If there is no answer image, either show answer choices if question
         // is multiple choice, otherwise show question image/video
-        if (isQuestionMultipleChoice()) {
+        if (getNumAnswerChoices()) {
             if (questionImage != null) {
                 showImageOrVideo(questionImage);
             }

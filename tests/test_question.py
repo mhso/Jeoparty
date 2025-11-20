@@ -422,11 +422,7 @@ async def test_all_wrong_buzzes(database, locales):
                 await context.hit_buzzer(contestant.contestant_id)
                 await asyncio.sleep(0.5)
 
-                await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
-                await asyncio.sleep(0.5)
-
-                await context.presenter_page.press("body", "2")
-                await asyncio.sleep(0.5)
+                await context.answer_question(contestant.contestant_id, key=2)
 
                 await context.assert_contestant_values(
                     contestant.contestant_id,

@@ -35,6 +35,12 @@
 
             <p id="endscreen-teaser">{{ _locale["endscreen_teaser"] }}</p>
         </div>
+
+        <!-- Import theme, if any is defined -->
+        {% if theme %}
+        {% include theme['template_path'] + '/finale.html' ignore missing %}
+        {% include theme['template_path'] + '/global.html' ignore missing %}
+        {% endif %}
     </body>
 
     <script>

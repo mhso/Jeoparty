@@ -1,10 +1,5 @@
-@font-face {
-    font-family: league;
-    src: url(../fonts/Friz_Quadrata_Bold.otf);
-}
-
 h1 {
-    font-family: league;
+    font-family: Garamond, serif;
     font-size: 2.5rem;
     color: #e6d86b;
     text-shadow: 1px 3px 2px rgba(0,0,0,0.75);
@@ -272,7 +267,7 @@ h1 {
 
 .question-category-header {
     color: white;
-    font-family: league;
+    font-family: Garamond, serif;
     font-size: 2.5rem;
     margin-top: 20px;
     margin-bottom: 30px;
