@@ -28,9 +28,9 @@
 
         <!-- Power Up splash video -->
         <div id="question-power-up-splash" class="d-none">
-            {% for power_up in pack['power_ups'] %}
-            <video id="question-power-up-video-{{ power_up['type'] }}" class="d-none">
-                <source src="{{ url_for('static', _external=True, filename=power_up['video']) }}" type="video/webm">
+            {% for power_up in power_ups %}
+            <video id="question-power-up-video-{{ power_up }}" class="d-none">
+                <source src="{{ url_for('static', _external=True, filename=power_ups[power_up]) }}" type="video/webm">
             </video>
             {% endfor %}
         </div>

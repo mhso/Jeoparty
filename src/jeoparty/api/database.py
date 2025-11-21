@@ -27,7 +27,7 @@ class Database(SQLAlchemyDatabase):
     def __init__(self, db_file="database.db"):
         super().__init__(f"{Config.RESOURCES_FOLDER}/{db_file}", "api/orm", True, True)
 
-    def get_question_packs_for_user(self, user_id: str, pack_id: str = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
+    def get_question_packs_for_user(self, user_id: str, pack_id: str | None = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:
             if include_public:
                 filters = [(QuestionPack.created_by == user_id) | (QuestionPack.public == True)]
@@ -41,8 +41,6 @@ class Database(SQLAlchemyDatabase):
                 selectinload(QuestionPack.rounds).
                 selectinload(QuestionRound.categories).
                 selectinload(QuestionCategory.questions)
-            ).options(
-                selectinload(QuestionPack.buzzer_sounds)
             ).filter(*filters)
 
             data = session.execute(statement).scalars().all()
@@ -52,18 +50,38 @@ class Database(SQLAlchemyDatabase):
 
             return data if pack_id is None else data[0]
 
+    def get_themes_for_user(self, user_id: str, theme_id: str | None = None, include_public: bool = False):
+        with self as session:
+            if include_public:
+                filters = [(Theme.created_by == user_id) | (Theme.public == True)]
+            else:
+                filters = [Theme.created_by == user_id]
+
+            if theme_id is not None:
+                filters.append(Theme.id == theme_id)
+
+            statement = select(Theme).options(
+                selectinload(Theme.buzzer_sounds)
+            ).filter(*filters)
+
+            data = session.execute(statement).scalars().all()
+
+            if data == []:
+                return [] if theme_id is None else None
+
+            return data if theme_id is None else data[0]
+
     def get_game_from_id(self, game_id: str):
         with self as session:
             statement = select(Game).options(
                 selectinload(Game.pack).options(
                     selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
-                    selectinload(QuestionPack.buzzer_sounds),
-                    selectinload(QuestionPack.power_ups),
+                    selectinload(QuestionPack.theme).selectinload(Theme.buzzer_sounds)
                 )
             ).options(
                 selectinload(Game.game_questions).selectinload(GameQuestion.question)
             ).options(
-                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups).selectinload(GamePowerUp.power_up)
+                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
             ).filter(Game.id == game_id)
 
             return session.execute(statement).scalar_one_or_none()
@@ -73,7 +91,7 @@ class Database(SQLAlchemyDatabase):
             statement = select(Game).options(
                 selectinload(Game.pack).options(
                     selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
-                    selectinload(QuestionPack.buzzer_sounds)
+                    selectinload(QuestionPack.theme).selectinload(Theme.buzzer_sounds)
                 )
             ).options(
                 selectinload(Game.game_questions).selectinload(GameQuestion.question)
@@ -99,7 +117,7 @@ class Database(SQLAlchemyDatabase):
             ).options(
                 selectinload(Game.game_questions).selectinload(GameQuestion.question)
             ).options(
-                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups).selectinload(GamePowerUp.power_up)
+                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
             ).filter(Game.created_by == user_id)
 
             return session.execute(statement).scalars().all()
@@ -139,9 +157,6 @@ class Database(SQLAlchemyDatabase):
 
             for (round_num, name) in rounds_to_create:
                 session.add(QuestionRound(pack_id=pack_model.id, name=name, round=round_num))
-
-            for power_up_type in PowerUpType:
-                session.add(PowerUp(pack_id=pack_model.id, type=power_up_type))
 
             session.commit()
             session.refresh(pack_model)
@@ -244,10 +259,9 @@ class Database(SQLAlchemyDatabase):
                     GamePowerUp(
                         game_id=game_contestant_model.game_id,
                         contestant_id=game_contestant_model.id,
-                        power_id=power_up.id,
-                        type=power_up.type
+                        type=power_up
                     )
-                    for power_up in game_contestant_model.game.pack.power_ups
+                    for power_up in PowerUpType
                 ]
 
                 session.add_all(power_ups)

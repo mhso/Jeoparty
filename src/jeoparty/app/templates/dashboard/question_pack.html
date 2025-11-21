@@ -44,9 +44,19 @@
             </div>
 
             <div class="input-field">
+                <label for="theme">Theme</label>
+                <select id="question-pack-theme" name="theme" onchange="syncPackTheme(); dataChanged();">
+                    {% for theme_data in themes %}
+                    <option value="{{ theme_data['id'] }}" {% if theme_data['id'] == theme_id %}selected{% endif %}>{{ theme_data['name'] }}</option>
+                    {% endfor %}
+                    <option value="none" {% if not theme_id %}selected{% endif %}>No Theme</option>
+                </select>
+            </div>
+
+            <div class="input-field">
                 <label for="lobby-music">Lobby Music</label>
                 {% if lobby_music %}
-                <audio id="question-pack-lobby-music" controls{% if lobby_volume %} data-volume="{{ lobby_volume }}"{% endif %} onvolumechange="syncLobbyVolume()">
+                <audio id="question-pack-lobby-music" controls preload="metadata"{% if lobby_volume %} data-volume="{{ lobby_volume }}"{% endif %} onvolumechange="syncLobbyVolume()">
                     <source src="{{ url_for('static', _external=True, filename=lobby_music) }}" type="audio/mpeg">
                 </audio>
                 {% endif %}

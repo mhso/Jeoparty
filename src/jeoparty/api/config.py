@@ -44,8 +44,10 @@ def get_avatar_path(full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""
     return f"{prefix}img/avatars"
 
-def get_buzz_sound_path(full: bool = True):
+def get_buzz_sound_path(theme_id: str | None, full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""
+    if theme_id:
+        return f"{prefix}data/themes/{theme_id}/sounds"
     return f"{prefix}data/sounds"
 
 def get_bg_image_path(full: bool = True):
@@ -54,7 +56,7 @@ def get_bg_image_path(full: bool = True):
 
 def get_theme_path(theme: str, full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""
-    return f"{prefix}img/themes/{theme}"
+    return f"{prefix}data/themes/{theme}"
 
 def get_locale_data():
     locale_data = {}

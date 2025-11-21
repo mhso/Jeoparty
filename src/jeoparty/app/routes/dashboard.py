@@ -305,8 +305,6 @@ def save_pack(pack_id: str):
 
     try:
         data: Dict[str, Any] = json.loads(flask.request.form["data"])
-        print(data)
-        print(list(flask.request.files.keys()))
 
         if not data["include_finale"]:
             data["rounds"][-1] = None
@@ -316,6 +314,9 @@ def save_pack(pack_id: str):
         data["changed_at"] = datetime.now()
         if "language" in data:
             data["language"] = Language(data["language"])
+
+        if "theme" in data and data["theme"] == "none":
+            data["theme"] = None
 
         error = _validate_pack_data(data)
         if error:
@@ -377,6 +378,7 @@ def question_pack(pack_id: str):
             return flask.abort(404)
 
         pack_json = pack_data.dump(included_relations=[QuestionPack.rounds])
+        pack_json["theme_id"] = pack_data.theme_id
         if len(pack_data.rounds) == 1 and not pack_data.include_finale:
             # If finale is not included, provide a placeholder round
             # to make UI handling easier
@@ -389,6 +391,8 @@ def question_pack(pack_id: str):
                 }
             )
 
+        themes_json = [theme.dump() for theme in database.get_themes_for_user(user_id, include_public=True)]
+
         base_entries = {k: v for k, v in pack_json.items() if not isinstance(v, list)}
 
     return render_locale_template(
@@ -396,6 +400,8 @@ def question_pack(pack_id: str):
         pack_data.language,
         user_name=user_name,
         languages=[(lang.value, lang.value.capitalize()) for lang in Language],
+        themes=themes_json,
         base_entries=base_entries,
         **pack_json,
     )
+

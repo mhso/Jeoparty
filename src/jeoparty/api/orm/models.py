@@ -13,29 +13,27 @@ from jeoparty.api.config import (
     Config, 
     get_theme_path,
     get_question_pack_data_path,
+    get_buzz_sound_path,
 )
 
 power_up_order_case = {power_up.name: index for index, power_up in enumerate(PowerUpType)}
 
-class PowerUp(Base):
-    __tablename__ = "power_ups"
+class Theme(Base):
+    __tablename__ = "themes"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    pack_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_packs.id"))
-    type: Mapped[PowerUpType] = mapped_column(Enum(PowerUpType))
-    icon: Mapped[Optional[str]] = mapped_column(String(128))
-    video: Mapped[Optional[str]] = mapped_column(String(128))
+    name: Mapped[str] = mapped_column(String(64))
+    public: Mapped[bool] = mapped_column(Boolean, default=False)
+    language: Mapped[Language] = mapped_column(Enum(Language), default=Language.ENGLISH)
+    created_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
+    changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
 
-    game_power_ups = relationship("GamePowerUp", back_populates="power_up", cascade="all, delete", order_by="GamePowerUp.id.asc()")
-    pack = relationship("QuestionPack", back_populates="power_ups")
+    creator = relationship("User")
+    packs = relationship("QuestionPack", back_populates="theme", order_by="QuestionPack.name.asc()")
+    buzzer_sounds = relationship("BuzzerSound", back_populates="theme", cascade="all, delete", order_by="BuzzerSound.id.asc()")
 
-    @property
-    def extra_fields(self):
-        language = self.pack.language.value if self.pack else Language.ENGLISH.value
-        return {
-            "icon": f"img/{self.type.value}_power.png" if not self.icon else f"{get_question_pack_data_path(self.pack_id, False)}/{self.icon}",
-            "video": f"img/{self.type.value}_power_used_{language}.webm" if not self.icon else f"{get_question_pack_data_path(self.pack_id, False)}/{self.video}",
-        }
+    __serialize_relationships__ = [creator, buzzer_sounds]
 
 class QuestionPack(Base):
     __tablename__ = "question_packs"
@@ -48,7 +46,7 @@ class QuestionPack(Base):
     public: Mapped[bool] = mapped_column(Boolean, default=False)
     include_finale: Mapped[bool] = mapped_column(Boolean, default=True)
     language: Mapped[Language] = mapped_column(Enum(Language), default=Language.ENGLISH)
-    theme: Mapped[Optional[str]] = mapped_column(String(64))
+    theme_id: Mapped[Optional[str]] = mapped_column(String(64), ForeignKey("themes.id"))
     lobby_music: Mapped[Optional[str]] = mapped_column(String(128))
     lobby_volume: Mapped[Optional[float]] = mapped_column(Float)
     created_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"))
@@ -56,16 +54,20 @@ class QuestionPack(Base):
     changed_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
 
     creator = relationship("User")
+    theme = relationship("Theme", back_populates="packs")
     rounds = relationship("QuestionRound", back_populates="pack", cascade="all, delete", order_by="QuestionRound.round.asc()")
-    games = relationship("Game", back_populates="pack", cascade="all, delete-orphan", order_by="Game.started_at.asc()")
-    buzzer_sounds = relationship("BuzzerSound", back_populates="pack", cascade="all, delete", order_by="BuzzerSound.id.asc()")
-    power_ups = relationship("PowerUp", back_populates="pack", cascade="all, delete", order_by="PowerUp.pack_id.asc()")
+    games = relationship("Game", back_populates="pack", cascade="all", order_by="Game.started_at.asc()")
 
-    __serialize_relationships__ = [creator, rounds, buzzer_sounds, power_ups]
+    __serialize_relationships__ = [creator, rounds, theme]
 
     @property
     def extra_fields(self):
-        return {"lobby_music": f"{get_question_pack_data_path(self.id, False)}/{self.lobby_music}" if self.lobby_music else None}
+        return {
+            "lobby_music": f"{get_question_pack_data_path(self.id, False)}/{self.lobby_music}" if self.lobby_music else None,
+            "created_by": self.created_by,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "changed_at": self.changed_at.strftime("%Y-%m-%d %H:%M:%S"),
+        }
 
     def get_all_questions(self):
         questions = []
@@ -153,11 +155,15 @@ class BuzzerSound(Base):
     __tablename__ = "buzzer_sounds"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    pack_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_packs.id"), primary_key=True)
+    theme_id: Mapped[str] = mapped_column(String(64), ForeignKey("themes.id"))
     filename: Mapped[str] = mapped_column(String(128))
     correct: Mapped[bool] = mapped_column(Boolean)
 
-    pack = relationship("QuestionPack", back_populates="buzzer_sounds")
+    theme = relationship("Theme", back_populates="buzzer_sounds")
+
+    @property
+    def extra_fields(self):
+        return {"filename": f"{get_buzz_sound_path(self.theme_id, False)}/{self.filename}"}
 
 class Contestant(Base):
     __tablename__ = "contestants"
@@ -180,19 +186,20 @@ class GamePowerUp(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
     game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"))
     contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("game_contestants.id"))
-    power_id: Mapped[str] = mapped_column(String(128), ForeignKey("power_ups.id"))
     type: Mapped[PowerUpType] = mapped_column(Enum(PowerUpType))
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    power_up = relationship("PowerUp", back_populates="game_power_ups")
     contestant = relationship("GameContestant", back_populates="power_ups")
-
-    __serialize_relationships__ = [power_up]
 
     @property
     def extra_fields(self):
-        return self.power_up.extra_fields
+        theme_id = self.contestant.game.pack.theme_id
+        icon = f"{self.type.value}_power.png"
+
+        return {
+            "icon": f"img/{icon}" if not theme_id else f"{get_theme_path(theme_id, False)}/{icon}"
+        }
 
 class GameContestant(Base):
     __tablename__ = "game_contestants"
@@ -276,10 +283,11 @@ class Game(Base):
     stage: Mapped[StageType] = mapped_column(Enum(StageType), default=StageType.LOBBY)
     round: Mapped[int] = mapped_column(Integer, default=1)
     password: Mapped[Optional[str]] = mapped_column(String(64))
-    created_by: Mapped[str] = mapped_column(String(64))
+    created_by: Mapped[str] = mapped_column(String(64), ForeignKey("users.id"))
     started_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
+    creator = relationship("User")
     pack = relationship("QuestionPack", back_populates="games")
     game_questions = relationship("GameQuestion", back_populates="game", cascade="all, delete", order_by="GameQuestion.question_id.asc()")
     game_contestants = relationship("GameContestant", back_populates="game", cascade="all, delete", order_by="GameContestant.joined_at.asc()")
@@ -291,24 +299,37 @@ class Game(Base):
         player_with_turn = self.get_contestant_with_turn()
         questions_for_round = self.get_questions_for_round()
 
+        theme_id = self.pack.theme_id
         theme_dict = {}
-        if self.pack.theme:
-            data_path = f"{get_theme_path(self.pack.theme, False)}"
+        if theme_id:
+            data_path = f"{get_theme_path(theme_id, False)}"
             bg_image = f"{data_path}/presenter_background.jpg"
             logo = f"{data_path}/logo.webp"
 
             theme_dict = {
                 "data_path": data_path,
-                "template_path": f"themes/{self.pack.theme}",
+                "template_path": f"themes/{theme_id}",
                 "bg_image": bg_image if os.path.exists(f"{Config.STATIC_FOLDER}/{bg_image}") else None,
                 "logo": logo if os.path.exists(f"{Config.STATIC_FOLDER}/{logo}") else None,
             }
+
+        # Power-up videos
+        language = self.pack.theme.language.value if theme_id else Language.ENGLISH.value
+
+        power_videos = {}
+        for power_up in PowerUpType:
+            video = f"{power_up.value}_power_used"
+            power_videos[power_up.value] = f"img/{video}_{language}.webm" if not theme_id else f"{get_theme_path(theme_id, False)}/{video}.webm",
 
         return {
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
             "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
             "question_num": sum(1 if gq.used else 0 for gq in self.game_questions) + 1,
+            "created_by": self.created_by,
+            "started_at": self.started_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "ended_at": None if not self.ended_at else self.ended_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "power_ups": power_videos,
             "theme": theme_dict,
         }
 

@@ -21,7 +21,8 @@ presenter_page = flask.Blueprint("presenter", __name__, template_folder="templat
 
 def _is_lan_active(game_data: Game):
     return (
-        game_data.pack.theme == "lan"
+        game_data.pack.theme is not None
+        and game_data.pack.theme.name == "Lan"
         and game_data.created_by == Config.ADMIN_ID
     )
 
@@ -152,7 +153,6 @@ def question(game_data: Game):
         **game_json,
         **question_json,
     )
-    
 
 @presenter_page.route("/<game_id>/selection")
 @_request_decorator
@@ -184,7 +184,7 @@ def selection(game_data: Game):
                 return flask.redirect(flask.url_for(".endscreen", game_id=game_data.id))
 
             is_finale = True
-            
+
         else:
             # The player with the lowest score at the start of a new regular round gets the turn
             lowest_score = 0

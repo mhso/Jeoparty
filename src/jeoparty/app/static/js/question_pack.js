@@ -177,7 +177,7 @@ function syncQuestionData(round, category, question) {
     let questionDataQuestions = questionData["rounds"][round]["categories"][category]["questions"];
 
     // Synchronize buzz times across other questions in category
-    let countdownElems = document.querySelector(`.question-pack-round-wrapper-${round} .question-pack-category-wrapper-${category} .question-countdown-text`);
+    let countdownElems = document.querySelectorAll(`.question-pack-round-wrapper-${round} .question-pack-category-wrapper-${category} .question-countdown-text`);
     countdownElems.forEach((elem) => {
         elem.value = buzzTime;
     });
@@ -755,6 +755,12 @@ function syncPackFinale() {
 function syncPackLanguage() {
     let language = document.getElementById("question-pack-language").value;
     questionData["language"] = language;
+    dataChanged();
+}
+
+function syncPackTheme() {
+    let theme = document.getElementById("question-pack-theme").value;
+    questionData["theme"] = theme;
     dataChanged();
 }
 

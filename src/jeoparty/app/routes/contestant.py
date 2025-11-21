@@ -2,7 +2,6 @@ from glob import glob
 import os
 import random
 from typing import Any, Dict, Tuple
-from uuid import uuid4
 
 import flask
 from werkzeug.datastructures import FileStorage
@@ -42,10 +41,16 @@ def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | st
 
     return create_and_validate_model(Contestant, params, "joining lobby")
 
-def _get_default_bg_image(index: int, theme: str | None):
+def _get_bg_image(index: int, image: str | None = None, theme_id: str | None = None):
+    if image is not None:
+        if theme_id:
+            return f"{get_theme_path(theme_id, False)}/contestant_backgrounds/{image}"
+
+        return f"{get_bg_image_path(False)}/{image}"
+
     files = []
-    if theme:
-        files = glob(f"{get_theme_path(theme)}/contestant_backgrounds/*")
+    if theme_id:
+        files = glob(f"{get_theme_path(theme_id)}/contestant_backgrounds/*")
 
     if files == []:
         files = glob(f"{get_bg_image_path()}/default/*")
@@ -61,10 +66,10 @@ def _get_default_bg_image(index: int, theme: str | None):
 
     return file.split("static/")[-1]
 
-def _get_default_avatar(index: int, theme: str | None):
+def _get_default_avatar(index: int, theme_id: str | None):
     files = []
-    if theme:
-        files = glob(f"{get_theme_path(theme)}/avatars/*")
+    if theme_id:
+        files = glob(f"{get_theme_path(theme_id)}/avatars/*")
 
     if files == []:
         files = glob(f"{get_avatar_path()}/default/*")
@@ -135,18 +140,14 @@ def join_lobby():
 
         # Get or set background image
         bg_image = flask.request.form.get("bg_image")
-
-        if bg_image is not None:
-            bg_image = f"{get_bg_image_path(False)}/{bg_image}"
-        else:
-            bg_image = _get_default_bg_image(index, game_data.pack.theme)
+        bg_image = _get_bg_image(index, bg_image, game_data.pack.theme_id)
 
         contestant_model.bg_image = bg_image
 
         # Set buzz sound, if given
         buzz_sound = flask.request.form.get("buzz_sound")
         if buzz_sound is not None:
-           contestant_model.buzz_sound = f"{get_buzz_sound_path(False)}/{buzz_sound}"
+           contestant_model.buzz_sound = f"{get_buzz_sound_path(game_data.pack.theme_id, False)}/{buzz_sound}"
 
         # We need the ID of the user to use in the filename of their avatar,
         # so we have to save the contestant twice
@@ -157,7 +158,7 @@ def join_lobby():
         if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
             new_avatar = _save_contestant_avatar(flask.request.files["avatar"], contestant_model.id)
         elif existing_model is None or existing_model.avatar is None:
-            new_avatar = _get_default_avatar(index, game_data.pack.theme)
+            new_avatar = _get_default_avatar(index, game_data.pack.theme_id)
 
         if new_avatar is not None:
             contestant_model.avatar = new_avatar

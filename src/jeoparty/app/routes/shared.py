@@ -14,7 +14,7 @@ import flask
 from mhooge_flask.routing import make_template_context
 from mhooge_flask.database import Base
 
-from jeoparty.api.config import Config, get_question_pack_data_path
+from jeoparty.api.config import Config, get_question_pack_data_path, get_theme_path
 from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Game, Question, QuestionPack
 
@@ -46,21 +46,25 @@ def dump_game_to_json(game_data: Game):
     return game_json
 
 def get_question_answer_sounds(pack: QuestionPack, max_contestants: int):
-    correct_sounds = [
-        f"data/sounds/{sound.filename}"
-        for sound in pack.buzzer_sounds if sound.correct
-    ]
-
-    if correct_sounds == []:
+    if pack.theme_id:
+        correct_sounds = [
+            f"{get_theme_path(pack.theme_id, False)}/sounds/{sound.filename}"
+            for sound in pack.theme.buzzer_sounds
+            if sound.correct
+        ]
+        correct_sound = random.choice(correct_sounds)
+    else:
         # Get default correct answer sound
         correct_sound = "data/sounds/correct_answer.mp3"
-    else:
-        correct_sound = random.choice(correct_sounds)
 
-    wrong_sounds = [
-        f"data/sounds/{sound.filename}"
-        for sound in pack.buzzer_sounds if not sound.correct
-    ]
+    if pack.theme_id:
+        wrong_sounds = [
+            f"{get_theme_path(pack.theme_id, False)}/sounds/{sound.filename}"
+            for sound in pack.theme.buzzer_sounds
+            if not sound.correct
+        ]
+    else:
+        wrong_sounds = []
 
     # Get as many wrong sounds as there are contestants, adding in default sounds
     # if we don't have enough custom ones
@@ -73,14 +77,18 @@ def get_question_answer_sounds(pack: QuestionPack, max_contestants: int):
 
     return correct_sound, wrong_sounds
 
-def get_question_answer_images(pack_id: str):
-    data_path = get_question_pack_data_path(pack_id, False)
-    if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "correct_answer.png")):
+def get_question_answer_images(pack: QuestionPack):
+    if pack.theme_id:
+        data_path = get_theme_path(pack.theme_id, False)
+    else:
+        data_path = None
+
+    if data_path is not None and os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "correct_answer.png")):
         correct_image = f"{data_path}/correct_answer.png"
     else:
         correct_image = "img/check.png"
 
-    if os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "wrong_answer.png")):
+    if data_path is not None and os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "wrong_answer.png")):
         wrong_image = f"{data_path}/wrong_answer.png"
     else:
         wrong_image = "img/error.png"
@@ -98,7 +106,7 @@ def render_question_template(game_data: Game, question: Question, daily_double: 
         random.shuffle(question_json["extra"]["choices"])
 
     # Get images for when questiton is answered correctly or wrong
-    correct_image, wrong_image = get_question_answer_images(game_data.pack.id)
+    correct_image, wrong_image = get_question_answer_images(game_data.pack)
 
     # Get random sounds that plays for correct/wrong answers
     correct_sound, wrong_sounds = get_question_answer_sounds(game_data.pack, game_data.max_contestants)
