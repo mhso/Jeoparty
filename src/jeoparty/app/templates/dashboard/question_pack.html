@@ -49,7 +49,7 @@
                     {% for theme_data in themes %}
                     <option value="{{ theme_data['id'] }}" {% if theme_data['id'] == theme_id %}selected{% endif %}>{{ theme_data['name'] }}</option>
                     {% endfor %}
-                    <option value="none" {% if not theme_id %}selected{% endif %}>No Theme</option>
+                    <option value="none" {% if not theme_id %}selected{% endif %}>Default Theme</option>
                 </select>
             </div>
 

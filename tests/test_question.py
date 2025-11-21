@@ -13,7 +13,7 @@ async def test_first_round(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database as session:
@@ -297,7 +297,7 @@ async def test_simultaneous_buzzes(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name))[1]
+        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
@@ -392,7 +392,6 @@ async def test_all_wrong_buzzes(database, locales):
 
             # Set question 2 as the active question
             active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("tips"), game_data.get_questions_for_round()))
-
             active_question.active = True
 
             database.save_models(active_question)
@@ -595,7 +594,6 @@ async def test_daily_double_valid(database, locales):
             session.refresh(game_data)
 
             active_player = game_data.game_contestants[-1]
-
             active_player.has_turn = True
             active_player.score = 700
             database.save_models(active_player)
@@ -714,7 +712,7 @@ async def test_freeze_power(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database as session:

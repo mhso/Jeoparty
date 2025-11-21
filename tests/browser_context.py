@@ -6,7 +6,7 @@ import shutil
 import numpy as np
 import cv2
 from io import BytesIO
-from multiprocessing import Process
+from subprocess import Popen
 from typing import Dict, List, Literal, Tuple
 from argparse import Namespace
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -974,14 +974,9 @@ class ContextHandler:
         if os.path.exists(f"{VIDEO_RECORD_PATH}/combined.mp4"):
             os.remove(f"{VIDEO_RECORD_PATH}/combined.mp4")
 
-        cwd = os.getcwd()
-        new_cwd = os.path.join(cwd, "src")
-        os.chdir(new_cwd)
+        self.flask_process = Popen(["pdm", "run", "main.py", "-db", "test.db"], cwd="src")
 
-        self.flask_process = Process(target=main.run_app, args=(Namespace(database="test.db"),))
-        self.flask_process.start()
-
-        os.chdir(cwd)
+        await asyncio.sleep(3)
 
         # Create presenter browser and context
         presenter_browser = await self._create_browser(self.playwright_contexts[0])
@@ -1003,10 +998,7 @@ class ContextHandler:
             await asyncio.sleep(0.1)
 
         self.flask_process.terminate()
-        while self.flask_process.is_alive():
-            await asyncio.sleep(0.1)
-
-        self.flask_process.close()
+        self.flask_process.wait()
 
         await self.presenter_context.browser.close()
 

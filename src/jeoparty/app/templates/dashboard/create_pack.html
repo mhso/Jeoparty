@@ -24,6 +24,16 @@
             </div>
 
             <div class="input-field">
+                <label for="theme">Theme</label>
+                <select id="create-pack-theme" name="theme">
+                    {% for theme_data in themes %}
+                    <option value="{{ theme_data['id'] }}">{{ theme_data['name'] }}</option>
+                    {% endfor %}
+                    <option value="none">Default Theme</option>
+                </select>
+            </div>
+
+            <div class="input-field">
                 <label for="language">Language</label>
                 <select id="create-pack-language" name="language">
                     {% for language_id, language_name in languages %}

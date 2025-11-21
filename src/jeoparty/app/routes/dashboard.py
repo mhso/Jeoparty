@@ -93,6 +93,9 @@ def create_pack():
     if flask.request.method == "POST":
         data = dict(flask.request.form)
         data["created_by"] = user_id
+        if data["theme"] and data["theme"] == "none":
+            del data["theme"]
+
         success, pack_model_or_error = create_and_validate_model(QuestionPack, data, "creating question pack")
 
         if not success:

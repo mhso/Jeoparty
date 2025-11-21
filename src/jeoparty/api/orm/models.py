@@ -319,7 +319,7 @@ class Game(Base):
         power_videos = {}
         for power_up in PowerUpType:
             video = f"{power_up.value}_power_used"
-            power_videos[power_up.value] = f"img/{video}_{language}.webm" if not theme_id else f"{get_theme_path(theme_id, False)}/{video}.webm",
+            power_videos[power_up.value] = f"img/{video}_{language}.webm" if not theme_id else f"{get_theme_path(theme_id, False)}/{video}.webm"
 
         return {
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
@@ -329,7 +329,7 @@ class Game(Base):
             "created_by": self.created_by,
             "started_at": self.started_at.strftime("%Y-%m-%d %H:%M:%S"),
             "ended_at": None if not self.ended_at else self.ended_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "power_ups": power_videos,
+            "power_up_videos": power_videos,
             "theme": theme_dict,
         }
 

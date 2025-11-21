@@ -22,7 +22,7 @@ presenter_page = flask.Blueprint("presenter", __name__, template_folder="templat
 def _is_lan_active(game_data: Game):
     return (
         game_data.pack.theme is not None
-        and game_data.pack.theme.name == "Lan"
+        and game_data.pack.theme.name == "LAN"
         and game_data.created_by == Config.ADMIN_ID
     )
 
@@ -123,7 +123,7 @@ def question(game_data: Game):
     for contestant in game_data.game_contestants:
         for power_up in contestant.power_ups:
             power_up.enabled = (
-                power_up.power_up.type is PowerUpType.HIJACK
+                power_up.type is PowerUpType.HIJACK
                 and not is_daily_double
                 and game_data.stage is not StageType.FINALE_QUESTION
             )
@@ -133,7 +133,7 @@ def question(game_data: Game):
     database.save_game(game_data)
 
     # Get images and sounds for when questions are answered correctly/wrong
-    correct_image, wrong_image = get_question_answer_images(game_data.pack.id)
+    correct_image, wrong_image = get_question_answer_images(game_data.pack)
     correct_sound, wrong_sounds = get_question_answer_sounds(game_data.pack, game_data.max_contestants)
 
     round_name = game_data.pack.rounds[game_data.round - 1].name
