@@ -44,8 +44,8 @@
             </div>
 
             <div class="input-field">
-                <label for="theme">Theme</label>
-                <select id="question-pack-theme" name="theme" onchange="syncPackTheme(); dataChanged();">
+                <label for="theme_id">Theme</label>
+                <select id="question-pack-theme" name="theme_id" onchange="syncPackTheme(); dataChanged();">
                     {% for theme_data in themes %}
                     <option value="{{ theme_data['id'] }}" {% if theme_data['id'] == theme_id %}selected{% endif %}>{{ theme_data['name'] }}</option>
                     {% endfor %}

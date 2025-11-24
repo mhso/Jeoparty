@@ -93,8 +93,8 @@ def create_pack():
     if flask.request.method == "POST":
         data = dict(flask.request.form)
         data["created_by"] = user_id
-        if data["theme"] and data["theme"] == "none":
-            del data["theme"]
+        if data["theme_id"] and data["theme_id"] == "none":
+            data["theme_id"] = None
 
         success, pack_model_or_error = create_and_validate_model(QuestionPack, data, "creating question pack")
 
@@ -181,20 +181,20 @@ def fetch_resource():
     response = requests.options(url)
     content_type = None
 
+    all_valid_types = _VALID_IMAGE_FILETYPES + _VALID_VIDEO_FILETYPES
+
     if response.status_code == 200:
         content_type = response.headers.get("Content-Type")
-        if content_type not in _VALID_IMAGE_FILETYPES and content_type not in _VALID_VIDEO_FILETYPES:
-            return make_text_response("Invalid file type to fetch", 400)
 
-    # If response is invalid, return error
-    response = requests.get(url)
-    if response.status_code != 200:
-        return make_text_response("Could not fetch resources", response.status_code)
+    if content_type is None or content_type not in all_valid_types:
+        # If response is invalid, return error
+        response = requests.get(url)
+        if response.status_code != 200:
+            return make_text_response("Could not fetch resources", response.status_code)
 
-    # If content-type was valid or 'options' request failed, get the full file
-    if content_type is None:
+        # If content-type was valid or 'options' request failed, get the full file
         content_type = response.headers.get("Content-Type")
-        if content_type not in _VALID_IMAGE_FILETYPES and content_type not in _VALID_VIDEO_FILETYPES:
+        if content_type not in all_valid_types:
             return make_text_response("Invalid file type to fetch", 400)
 
     return flask.Response(response.content, 200, headers={"Content-Type": content_type}, mimetype=content_type)
@@ -318,8 +318,8 @@ def save_pack(pack_id: str):
         if "language" in data:
             data["language"] = Language(data["language"])
 
-        if "theme" in data and data["theme"] == "none":
-            data["theme"] = None
+        if "theme_id" in data and data["theme_id"] == "none":
+            data["theme_id"] = None
 
         error = _validate_pack_data(data)
         if error:

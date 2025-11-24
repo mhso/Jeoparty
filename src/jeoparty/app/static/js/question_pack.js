@@ -760,7 +760,7 @@ function syncPackLanguage() {
 
 function syncPackTheme() {
     let theme = document.getElementById("question-pack-theme").value;
-    questionData["theme"] = theme;
+    questionData["theme_id"] = theme;
     dataChanged();
 }
 
