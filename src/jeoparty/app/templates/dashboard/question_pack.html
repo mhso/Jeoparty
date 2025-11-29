@@ -18,39 +18,47 @@
                 <input id="question-pack-name" name="pack-name" type="text" value="{{ name }}" placeholder="Name of Pack" oninput="syncPackName(); dataChanged();">
             </div>
 
-            <div class="input-field">
-                <label for="pack-public" style="display: inline;">Public</label>
-                <input id="question-pack-public" name="pack-public" type="checkbox"{% if public %} checked{% endif %} onchange="syncPackPublic(); dataChanged();">
+            <div class="input-field split-input-field">
+                <div>
+                    <label for="pack-public" style="display: inline;">Public</label>
+                    <input id="question-pack-public" name="pack-public" type="checkbox"{% if public %} checked{% endif %} onchange="syncPackPublic(); dataChanged();">
+                </div>
+
+                <div class="divider"></div>
+
+                <div>
+                    <label for="pack-finale" style="display: inline;">Final Jeopardy</label>
+                    <input id="question-pack-finale" name="pack-finale" type="checkbox"{% if include_finale %} checked{% endif %} onchange="syncPackFinale(); dataChanged(); toggleFinale();">
+                </div>
             </div>
 
-            <div class="input-field">
-                <label for="pack-finale" style="display: inline;">Final Jeopardy</label>
-                <input id="question-pack-finale" name="pack-finale" type="checkbox"{% if include_finale %} checked{% endif %} onchange="syncPackFinale(); dataChanged(); toggleFinale();">
-            </div>
+            <div class="input-field split-input-field">
+                <div>
+                    <label for="language">Language</label>
+                    <select id="question-pack-language" name="language" onchange="syncPackLanguage(); dataChanged();">
+                        {% if not language %}
+                        {% set active_language = 'english' %}
+                        {% else %}
+                        {% set active_language = language %}
+                        {% endif %}
 
-            <div class="input-field">
-                <label for="language">Language</label>
-                <select id="question-pack-language" name="language" onchange="syncPackLanguage(); dataChanged();">
-                    {% if not language %}
-                    {% set active_language = 'english' %}
-                    {% else %}
-                    {% set active_language = language %}
-                    {% endif %}
+                        {% for language_id, language_name in languages %}
+                        <option value="{{ language_id }}" {% if language_id == active_language %}selected{% endif %}>{{ language_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-                    {% for language_id, language_name in languages %}
-                    <option value="{{ language_id }}" {% if language_id == active_language %}selected{% endif %}>{{ language_name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+                <div class="divider"></div>
 
-            <div class="input-field">
-                <label for="theme_id">Theme</label>
-                <select id="question-pack-theme" name="theme_id" onchange="syncPackTheme(); dataChanged();">
-                    {% for theme_data in themes %}
-                    <option value="{{ theme_data['id'] }}" {% if theme_data['id'] == theme_id %}selected{% endif %}>{{ theme_data['name'] }}</option>
-                    {% endfor %}
-                    <option value="none" {% if not theme_id %}selected{% endif %}>Default Theme</option>
-                </select>
+                <div>
+                    <label for="theme_id">Theme</label>
+                    <select id="question-pack-theme" name="theme_id" onchange="syncPackTheme(); dataChanged();">
+                        {% for theme_data in themes %}
+                        <option value="{{ theme_data['id'] }}" {% if theme_data['id'] == theme_id %}selected{% endif %}>{{ theme_data['name'] }}</option>
+                        {% endfor %}
+                        <option value="none" {% if not theme_id %}selected{% endif %}>Default</option>
+                    </select>
+                </div>
             </div>
 
             <div class="input-field">
@@ -126,20 +134,21 @@
                     </div>
                     {% endfor %}
                 </div>
+
+                <button id="question-pack-save-btn" class="default-button" disabled="true" onclick="saveData('{{ id }}');">
+                    <div class="save-btn-regular">Save</div>
+                    <div class="save-btn-pending d-none">
+                        <div class="loading-icon"></div>
+                    </div>
+                    <div class="save-btn-success d-none">
+                        <img src="{{ url_for('static', _external=True, filename='img/success.png') }}">
+                    </div>
+                    <div class="save-btn-fail d-none">
+                        <img src="{{ url_for('static', _external=True, filename='img/error.png') }}">
+                    </div>
+                </button>
             </div>
             
-            <button id="question-pack-save-btn" class="default-button" disabled="true" onclick="saveData('{{ id }}');">
-                <div class="save-btn-regular">Save</div>
-                <div class="save-btn-pending d-none">
-                    <div class="loading-icon"></div>
-                </div>
-                <div class="save-btn-success d-none">
-                    <img src="{{ url_for('static', _external=True, filename='img/success.png') }}">
-                </div>
-                <div class="save-btn-fail d-none">
-                    <img src="{{ url_for('static', _external=True, filename='img/error.png') }}">
-                </div>
-            </button>
         </div>
         
         <!-- Popup -->

@@ -86,7 +86,7 @@ class QuestionRound(Base):
     }
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    pack_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_packs.id"))
+    pack_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_packs.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(64))
     round: Mapped[int] = mapped_column(Integer)
 
@@ -103,7 +103,7 @@ class QuestionCategory(Base):
     }
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    round_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_rounds.id"))
+    round_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_rounds.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(64))
     order: Mapped[int] = mapped_column(Integer)
     buzz_time: Mapped[Optional[int]] = mapped_column(Integer, default=10)
@@ -129,7 +129,7 @@ class Question(Base):
     }
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    category_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_categories.id"))
+    category_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_categories.id", ondelete="CASCADE"))
     question: Mapped[str] = mapped_column(String(128))
     answer: Mapped[str] = mapped_column(String(128))
     value: Mapped[int] = mapped_column(Integer)
@@ -155,7 +155,7 @@ class BuzzerSound(Base):
     __tablename__ = "buzzer_sounds"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    theme_id: Mapped[str] = mapped_column(String(64), ForeignKey("themes.id"))
+    theme_id: Mapped[str] = mapped_column(String(64), ForeignKey("themes.id", ondelete="CASCADE"))
     filename: Mapped[str] = mapped_column(String(128))
     correct: Mapped[bool] = mapped_column(Boolean)
 
@@ -184,8 +184,7 @@ class GamePowerUp(Base):
     __tablename__ = "game_power_ups"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"))
-    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("game_contestants.id"))
+    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("game_contestants.id", ondelete="CASCADE"))
     type: Mapped[PowerUpType] = mapped_column(Enum(PowerUpType))
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -212,8 +211,8 @@ class GameContestant(Base):
     }
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"), primary_key=True)
-    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("contestants.id"), primary_key=True)
+    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id", ondelete="CASCADE"), primary_key=True)
+    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("contestants.id", ondelete="CASCADE"), primary_key=True)
     has_turn: Mapped[bool] = mapped_column(Boolean, default=False)
     score: Mapped[int] = mapped_column(Integer, default=0)
     buzzes: Mapped[int] = mapped_column(Integer, default=0)
@@ -251,7 +250,7 @@ class GameContestant(Base):
 class GameQuestion(Base):
     __tablename__ = "game_questions"
 
-    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id"), primary_key=True)
+    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id", ondelete="CASCADE"), primary_key=True)
     question_id: Mapped[str] = mapped_column(String(64), ForeignKey("questions.id"), primary_key=True)
     active: Mapped[bool] = mapped_column(Boolean, default=False)
     used: Mapped[bool] = mapped_column(Boolean, default=False)

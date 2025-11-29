@@ -10,17 +10,17 @@ function getSpecificParent(element, parentClass) {
     return element;
 }
 
-function deletePack(event, packId) {
+function deleteElement(id, name, desc, event, wrapperId) {
     event.stopPropagation();
 
-    if (!confirm("Are you sure you want to delete this question pack?")) {
+    if (!confirm(`Are you sure you want to delete this ${desc}?`)) {
         return;
     }
 
-    $.ajax(`${getBaseURL()}/jeoparty/pack/${packId}/delete`, 
+    $.ajax(`${getBaseURL()}/jeoparty/${name}/${id}/delete`, 
         {method: "POST"}
     ).done(function() {
-        let wrapper = document.getElementById("dashboard-questions-data");
+        let wrapper = document.getElementById(wrapperId);
         let entry = getSpecificParent(event.target, "dashboard-entry-wrapper");
 
         wrapper.removeChild(entry);
@@ -29,4 +29,12 @@ function deletePack(event, packId) {
         let data = JSON.parse(response["responseText"]);
         alert(data["response"]);
     });
+}
+
+function deletePack(event, packId) {
+    deleteElement(packId, "pack", "question pack", event, "dashboard-questions-data");
+}
+
+function deleteGame(event, gameId) {
+    deleteElement(gameId, "game", "game", event, "dashboard-games-data");
 }

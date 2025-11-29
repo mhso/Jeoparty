@@ -25,6 +25,10 @@
                         <div class="dashboard-game-entry-contestants">Contestants: {{ game_data['game_contestants'] | length }} / {{ game_data['max_contestants'] }}</div>
                         <div class="dashboard-game-entry-created">Started: {{ game_data['started_at'] }}</div>
                         <div class="dashboard-game-entry-ended{% if not game_data['ended_at'] %} game-active{% endif %}">{% if game_data['ended_at'] %}Ended: {{ game_data['ended_at'] }}{% else %}Ongoing{% endif %}</div>
+
+                        <button class="dashboard-delete-btn" onclick="deleteGame(event, '{{ game_data['id'] }}')">
+                            <img src="{{ url_for('static', _external=True, filename='img/trash.png') }}">
+                        </button>
                     </div>
                     {% endfor %}
                 </div>

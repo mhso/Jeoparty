@@ -167,6 +167,26 @@ def create_game():
         error=error,
     )
 
+@dashboard_page.route("/game/<game_id>/delete", methods=["POST"])
+def delete_game(game_id: str):
+    user_details = get_user_details()
+    if user_details is None:
+        return make_json_response("You are not logged in!", 401)
+
+    database: Database = flask.current_app.config["DATABASE"]
+    user_id = user_details[0]
+
+    if database.get_games_for_user(user_id, game_id) is None:
+        return make_json_response("You are not authorized to delete this game", 401)
+
+    try:
+        database.delete_game(game_id)
+    except Exception:
+        logger.exception("Error when deleting game")
+        return make_json_response("Unknown error when deleting game", 500)
+
+    return make_json_response("Game was successfully deleted", 200)
+
 @dashboard_page.route("/pack/fetch")
 def fetch_resource():
     user_details = get_user_details()
@@ -178,12 +198,16 @@ def fetch_resource():
         return make_text_response("URL not specified, nothing to fetch", 404)
 
     # First try to do an 'options' request to just get content-type header
-    response = requests.options(url)
     content_type = None
+    try:
+        response = requests.options(url)
+        status = response.status_code
+    except requests.exceptions.RequestException:
+        status = 500
 
     all_valid_types = _VALID_IMAGE_FILETYPES + _VALID_VIDEO_FILETYPES
 
-    if response.status_code == 200:
+    if status == 200:
         content_type = response.headers.get("Content-Type")
 
     if content_type is None or content_type not in all_valid_types:
@@ -361,7 +385,7 @@ def delete_pack(pack_id: str):
     try:
         database.delete_question_pack(pack_id)
     except Exception:
-        logger.exception("Error when saving question pack")
+        logger.exception("Error when deleting question pack")
         return make_json_response("Unknown error when deleting question pack", 500)
 
     return make_json_response("Question pack was successfully deleted", 200)

@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 from typing import List
 
-from sqlalchemy import select, delete, update, func
+from sqlalchemy import select, delete, text, update, func
 from sqlalchemy.orm import selectinload, Session
 
 from mhooge_flask.database import SQLAlchemyDatabase
@@ -110,7 +110,7 @@ class Database(SQLAlchemyDatabase):
 
             return f"{join_code}_{count}"
 
-    def get_games_for_user(self, user_id: str):
+    def get_games_for_user(self, user_id: str, game_id: str | None = None):
         with self as session:
             statement = select(Game).options(
                 selectinload(Game.pack).selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions)
@@ -120,7 +120,14 @@ class Database(SQLAlchemyDatabase):
                 selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
             ).filter(Game.created_by == user_id)
 
-            return session.execute(statement).scalars().all()
+            if game_id is not None:
+                statement = statement.filter(Game.id == game_id)
+
+            data = session.execute(statement).scalars().all()
+            if data == []:
+                return [] if game_id is None else None
+
+            return data if game_id is None else data[0]
 
     def get_contestants_for_game(self, game_id: str) -> List[GameContestant]:
         with self as session:
@@ -180,6 +187,13 @@ class Database(SQLAlchemyDatabase):
 
             session.commit()
             session.refresh(game_model)
+
+    def delete_game(self, game_id: str):
+        with self as session:
+            stmt = delete(Game).where(Game.id == game_id)
+            session.execute(stmt)
+
+            session.commit()
 
     def _get_update_statement(self, old_model: Base, new_model: Base, id_key: str = "id"):
         changed_columns = {}
@@ -257,7 +271,6 @@ class Database(SQLAlchemyDatabase):
                 # Add power-ups to contestant
                 power_ups = [
                     GamePowerUp(
-                        game_id=game_contestant_model.game_id,
                         contestant_id=game_contestant_model.id,
                         type=power_up
                     )
@@ -428,5 +441,17 @@ class Database(SQLAlchemyDatabase):
         with self as session:
             stmt = delete(QuestionPack).where(QuestionPack.id == pack_id)
             session.execute(stmt)
+
+            session.commit()
+
+    def clear_tables(self, *tables_filter: List[Base]):
+        with self as session:
+            if tables_filter == []:
+                tables = [Base.metadata.tables[table_name] for table_name in Base.metadata.tables]
+            else:
+                tables = tables_filter
+
+            for table in tables:
+                session.execute(delete(table))
 
             session.commit()

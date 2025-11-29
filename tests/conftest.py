@@ -9,11 +9,27 @@ from mhooge_flask.auth import get_hashed_password
 from jeoparty.api.config import Config, get_question_pack_data_path, get_locale_data
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
-from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question, QuestionRound
+from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question, QuestionRound, Theme
 from tests.config import PRESENTER_USER_ID, PRESENTER_USERNAME, PRESENTER_PASSWORD
 
 def _create_question_packs(database: Database):
     with database as session:
+        # Create some themes
+        theme_1 = Theme(
+            id="5d374837-b817-4116-9644-c1046994ce37",
+            name="Jul",
+            language=Language.DANISH,
+            created_by=PRESENTER_USER_ID,
+        )
+
+        theme_2 = Theme(
+            id="87cfa214-1b9a-4edc-8ec8-fd66da1ae816",
+            name="LAN",
+            language=Language.DANISH,
+            created_by=PRESENTER_USER_ID,
+        )
+        database.save_models(theme_1, theme_2)
+
         pack_model_1 = QuestionPack(
             name="Test Pack",
             created_by=PRESENTER_USER_ID,
