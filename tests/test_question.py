@@ -6,7 +6,7 @@ from playwright.async_api import Dialog
 
 from jeoparty.api.enums import StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
-from tests import create_contestant_data
+from tests import create_contestant_data, create_game
 
 @pytest.mark.asyncio
 async def test_first_round(database, locales):
@@ -14,15 +14,9 @@ async def test_first_round(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             await context.start_game()
 
@@ -297,15 +291,9 @@ async def test_simultaneous_buzzes(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             await context.start_game()
 
@@ -352,7 +340,7 @@ async def test_simultaneous_buzzes(database, locales):
                 duration = float(match[2])
 
                 for contestant in game_data.game_contestants:
-                    if contestant.contestant.name == match[1] and duration < fastest_duration:
+                    if contestant.contestant.name == name and duration < fastest_duration:
                         fastest_contestant = contestant
                         fastest_duration = duration
 
@@ -376,15 +364,9 @@ async def test_all_wrong_buzzes(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             await context.start_game()
 
@@ -466,15 +448,9 @@ async def test_time_runs_out(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             await context.start_game()
 
@@ -521,15 +497,9 @@ async def test_question_aborted(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             await context.start_game()
 
@@ -580,15 +550,9 @@ async def test_daily_double_valid(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database, True) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=True))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=True)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             await context.start_game()
             session.refresh(game_data)
@@ -659,17 +623,11 @@ async def test_daily_double_invalid(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=True))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=True)
             language_locale = locales[game_data.pack.language.value]
             locale = language_locale["pages"]["contestant/game"]
             locale.update(language_locale["pages"]["global"])
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             await context.start_game()
             session.refresh(game_data)
@@ -713,15 +671,9 @@ async def test_freeze_power(database, locales):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database, True) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             await context.start_game()
 
@@ -746,6 +698,13 @@ async def test_freeze_power(database, locales):
             await context.hit_buzzer(active_player.contestant_id)
 
             await asyncio.sleep(1)
+
+            await context.assert_contestant_values(
+                active_player.contestant_id,
+                buzzer_status="inactive",
+                used_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                enabled_power_ups={"hijack": True, "freeze": True, "rewind": False},
+            )
 
             power_id = "freeze"
             await context.use_power_up(active_player.contestant_id, power_id)
@@ -780,17 +739,18 @@ async def test_freeze_power(database, locales):
 
             assert seconds_before == seconds_now
 
-            await context.assert_presenter_values(
-                active_player.id,
-                used_power_ups={"hijack": False, "freeze": True, "rewind": False},
-            )
+            for contestant in game_data.game_contestants:
+                await context.assert_presenter_values(
+                    contestant.id,
+                    used_power_ups={"hijack": False, "freeze": contestant.id == active_player.id, "rewind": False},
+                )
 
-            await context.assert_contestant_values(
-                active_player.contestant_id,
-                buzzer_status="inactive",
-                used_power_ups={"hijack": False, "freeze": True, "rewind": False},
-                enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
-            )
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    buzzer_status="inactive",
+                    used_power_ups={"hijack": False, "freeze": contestant.id == active_player.id, "rewind": False},
+                    enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                )
 
             # Answer the question
             await context.answer_question(active_player.contestant_id, key=1)
@@ -811,9 +771,132 @@ async def test_freeze_power(database, locales):
             assert context.presenter_page.url.endswith("/selection")
             assert game_data.stage == StageType.SELECTION
 
-# @pytest.mark.asyncio
-# async def test_rewind_power(database, locales):
-#     pass
+@pytest.mark.asyncio
+async def test_rewind_power(database, locales):
+    pack_name = "Test Pack"
+    contestant_names, contestant_colors = create_contestant_data()
+
+    async with ContextHandler(database, True) as context:
+        with database as session:
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+            await context.start_game()
+
+            session.refresh(game_data)
+
+            # Set player 1 as having the turn and question 1 as the active question
+            active_player = next(filter(lambda c: c.contestant.name == contestant_names[1], game_data.game_contestants))
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
+
+            active_player.has_turn = True
+            active_question.active = True
+
+            database.save_models(active_player, active_question)
+
+            # Open question page and show question
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            await context.show_question()
+
+            # Buzz in and answer wrong
+            await context.hit_buzzer(active_player.contestant_id)
+            await asyncio.sleep(1)
+
+            await context.answer_question(active_player.contestant_id, key=2)
+            await asyncio.sleep(1)
+
+            for contestant in game_data.game_contestants:
+                is_active = contestant.id == active_player.id
+
+                await context.assert_presenter_values(
+                    contestant.id,
+                    score=-active_question.question.value if is_active else 0,
+                    hits=0,
+                    misses=int(is_active),
+                    has_turn=False,
+                    used_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                )
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    score=-active_question.question.value if is_active else 0,
+                    buzzes=int(is_active),
+                    hits=0,
+                    misses=int(is_active),
+                    buzzer_status="inactive" if is_active else "active",
+                    used_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                    enabled_power_ups={"hijack": False, "freeze": False, "rewind": is_active},
+                )
+
+            # Use rewind power-up to cancel the wrong answer
+            power_id = "rewind"
+            await context.use_power_up(active_player.contestant_id, power_id)
+
+            video = await context.presenter_page.query_selector(f"#question-power-up-video-{power_id}")
+
+            async def power_video_done():
+                return await video.evaluate("(e) => e.ended")
+
+            await context.wait_for_event(power_video_done)
+
+            await context.assert_question_values(
+                active_question,
+                game_feed=[
+                    f"{contestant_names[1]} {locale['game_feed_power_1']} rewind {locale['game_feed_power_2']}!",
+                ]
+            )
+
+            for contestant in game_data.game_contestants:
+                is_active = contestant.id == active_player.id
+
+                await context.assert_presenter_values(
+                    contestant.id,
+                    score=0,
+                    hits=0,
+                    misses=0,
+                    has_turn=is_active,
+                    used_power_ups={"hijack": False, "freeze": False, "rewind": is_active},
+                )
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    score=0,
+                    buzzes=int(is_active),
+                    hits=0,
+                    misses=0,
+                    buzzer_status="inactive",
+                    used_power_ups={"hijack": False, "freeze": False, "rewind": is_active},
+                    enabled_power_ups={"hijack": False, "freeze": is_active, "rewind": False},
+                )
+
+            # Answer correctly this time
+            await context.answer_question(active_player.contestant_id, key=1)
+            await asyncio.sleep(1)
+
+            for contestant in game_data.game_contestants:
+                is_active = contestant.id == active_player.id
+
+                await context.assert_presenter_values(
+                    contestant.id,
+                    score=active_question.question.value if is_active else 0,
+                    hits=int(is_active),
+                    misses=0,
+                    has_turn=contestant.id == active_player.id,
+                    used_power_ups={"hijack": False, "freeze": False, "rewind": is_active},
+                )
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    score=active_question.question.value if is_active else 0,
+                    buzzes=int(is_active),
+                    hits=int(is_active),
+                    misses=0,
+                    buzzer_status="inactive",
+                    used_power_ups={"hijack": False, "freeze": False, "rewind": is_active},
+                    enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                )
 
 # @pytest.mark.asyncio
 # async def test_hijack_power(database, locales):
@@ -829,17 +912,12 @@ async def test_finale_question(database, locales):
     contestant_wagers = [1000, 300, 700, 0]
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
+
             language_locale = locales[game_data.pack.language.value]
             locale = language_locale["pages"]["contestant/game"]
             locale.update(language_locale["pages"]["global"])
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             game_data.round = 3
             game_data.stage = StageType.FINALE_WAGER
@@ -848,8 +926,6 @@ async def test_finale_question(database, locales):
 
             database.save_models(finale_question, game_data)
             session.refresh(game_data)
-
-            assert len(game_data.game_contestants) == len(contestant_names)
 
             for contestant, score, wager in zip(game_data.game_contestants, contestant_scores, contestant_wagers):
                 contestant.score = score

@@ -1,68 +1,44 @@
-import traceback
-from typing import List
-from sqlalchemy import Table, select, column
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import NoSuchTableError
+import requests
 
-from jeoparty.api.database import Database
-from jeoparty.api.orm.models import Base
+_VALID_IMAGE_FILETYPES = [
+    "image/apng",
+    "image/gif",
+    "image/jpeg",
+    "image/jpg",
+    "image/pjpeg",
+    "image/png",
+    "image/webp",
+]
 
-ARRAY_SIZE = 1000
+_VALID_VIDEO_FILETYPES = [
+    "video/webm",
+    "video/mp4",
+]
 
-def copy_to_table(source_table: Table, dest_table: Table, session: Session, columns: List[str] | None = None):
-    total = 0
+def go_fetch(url):
+    # First try to do an 'options' request to just get content-type header
+    response = requests.options(url)
+    content_type = None
 
-    select_vals = [source_table] if columns is None else [source_table.columns[col] for col in columns]
+    all_valid_types = _VALID_IMAGE_FILETYPES + _VALID_VIDEO_FILETYPES
 
-    select_query = select(*select_vals)
-    insert_sql = dest_table.insert()
+    if response.status_code == 200:
+        content_type = response.headers.get("Content-Type")
 
-    results = session.execute(select_query)
-    while True:
-        recs = results.fetchmany(ARRAY_SIZE)
-        _total = len(recs)
-        total += _total
+    if content_type is None or content_type not in all_valid_types:
+        # If response is invalid, return error
+        response = requests.get(url)
+        if response.status_code != 200:
+            print("It didn't work 2...", "Status:", response.status_code, response.text)
+            return
 
-        if _total > 0:
-            params = [row._asdict() for row in recs]
-            session.execute(insert_sql, params)
-            session.commit()
+        # If content-type was valid or 'options' request failed, get the full file
+        content_type = response.headers.get("Content-Type")
+        if content_type not in all_valid_types:
+            print("It didn't work 3...", "Content-Type", content_type)
+            return
 
-        if _total < ARRAY_SIZE:
-            break
+        print("It worked!", content_type)
 
-    print(f'{total} records copied from {source_table.name} to {dest_table.name}')
-
-def clone_table(source_table: Table, to_table: str, session: Session, engine):
-    try:
-        dest_table = source_table.to_metadata(source_table.metadata, name=to_table)
-        dest_table.create(engine)
-
-        copy_to_table(source_table, dest_table, session)
-
-        return dest_table
-    except NoSuchTableError:
-        print(f"Table '{source_table.name}' not found")
-        traceback.print_exc()
-        return None
-
-filters = {}
-
-database = Database()
-with database as session:
-    database.engine.update_execution_options(arraysize=ARRAY_SIZE)
-
-    tables = [Base.metadata.tables[name] for name in Base.metadata.tables]
-
-    for old_table in tables:
-        # Create backup table
-        new_table = clone_table(old_table, f"{old_table.name}_backup", session, database.engine)
-        if new_table is None:
-            continue
-
-        # Drop and recreate original table
-        old_table.drop(database.engine)
-        old_table.create(database.engine)
-
-        copy_to_table(new_table, old_table, session, filters.get(old_table.name))
-        new_table.drop(database.engine)
+url = "https://imengine.public.mhm.infomaker.io/?uuid=422c3ae2-436b-531a-b1b1-07721245ec2f"
+go_fetch(url)

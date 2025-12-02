@@ -4,9 +4,9 @@ import pytest
 from sqlalchemy import text
 
 from jeoparty.api.config import Config
-from jeoparty.api.orm.models import Contestant, GameContestant
-from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
-from tests import create_contestant_data
+from jeoparty.api.orm.models import Contestant
+from tests.browser_context import ContextHandler
+from tests import create_contestant_data, create_game
 
 async def _extract_bg_image(element):
     assert element is not None
@@ -28,40 +28,65 @@ async def test_lobby(database):
     async with ContextHandler(database) as context:
         with database as session:
             for theme in ("LAN", "Jul"):
+                context.contestant_pages.clear()
+
                 # Set active theme on the question pack
                 theme_id = session.execute(text(f"SELECT id FROM themes WHERE name = '{theme}'")).scalar_one()
                 session.execute(text(f"UPDATE question_packs SET theme_id = '{theme_id}' WHERE name = '{pack_name}'"))
                 session.commit()
 
-                game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-                game_data = database.get_game_from_id(game_id)
+                game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, title=f"game_{theme}")
 
-                # Add contestants to the game
-                for name, color in zip(contestant_names, contestant_colors):
-                    await context.join_lobby(game_data.join_code, name, color)
+                # Assert lobby specific images are correct
 
-                session.refresh(game_data)
-                assert len(game_data.game_contestants) == len(contestant_names)
 
                 # Assert presenter background image path is correct and that file exists
                 bg_image_path = await _extract_bg_image(await context.presenter_page.query_selector(".bg-image"))
 
                 assert bg_image_path == f"data/themes/{theme_id}/presenter_background.jpg"
 
-                possible_avatars = set(
+                possible_backgrounds = set(
                     img.split("static/")[1]
                     for img in glob(f"{Config.STATIC_FOLDER}/data/themes/{theme_id}/contestant_backgrounds/*")
                 )
-                len_before = len(possible_avatars)
+                len_before = len(possible_backgrounds)
 
                 # Assert same for contestant backgrounds
                 for contestant_id in context.contestant_pages:
                     bg_image_path = await _extract_bg_image(await context.contestant_pages[contestant_id].query_selector("#bg-image"))
 
-                    assert bg_image_path in possible_avatars
+                    assert bg_image_path in possible_backgrounds
 
-                    possible_avatars.remove(bg_image_path)
+                    possible_backgrounds.remove(bg_image_path)
+
+                assert len(possible_backgrounds) == len_before - len(contestant_names)
+
+                if theme == "Jul":
+                    avatar_path = f"data/themes/{theme_id}/avatars"
+                else:
+                    avatar_path = f"img/avatars/default"
+
+                possible_avatars = set(
+                    img.split("static/")[1]
+                    for img in glob(f"{Config.STATIC_FOLDER}/{avatar_path}/*")
+                )
+                len_before = len(possible_avatars)
+
+                # Assert contestant avatars are correct
+                for contestant in game_data.game_contestants:
+                    presenter_avatar = await context.presenter_page.query_selector(f"#player_{contestant.id} > .menu-contestant-avatar")
+                    contestant_avatar = await context.contestant_pages[contestant.contestant_id].query_selector("#contestant-game-avatar")
+
+                    for index, avatar in enumerate((presenter_avatar, contestant_avatar)):
+                        img_src = await avatar.get_attribute("src")
+                        relative_path = img_src.split("static/")[1]
+
+                        assert os.path.exists(f"{Config.STATIC_FOLDER}/{relative_path}")
+                        assert relative_path in possible_avatars
+
+                        if index == 1:
+                            possible_avatars.remove(relative_path)
 
                 assert len(possible_avatars) == len_before - len(contestant_names)
 
-                database.clear_tables(GameContestant, Contestant)
+                database.clear_tables(Contestant)

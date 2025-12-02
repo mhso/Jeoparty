@@ -5,7 +5,7 @@ from playwright.async_api import Dialog
 
 from jeoparty.api.enums import PowerUpType, StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
-from tests import create_contestant_data
+from tests import create_contestant_data, create_game
 
 @pytest.mark.asyncio
 async def test_first_turn(database):
@@ -22,17 +22,8 @@ async def test_first_turn(database):
     ]
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
-
-            session.refresh(game_data)
-            assert len(game_data.game_contestants) == len(contestant_names)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
 
             await context.start_game()
 
@@ -93,17 +84,9 @@ async def test_new_round(database):
     contestant_names, contestant_colors = create_contestant_data()
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
 
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
-
-            session.refresh(game_data)
-            assert len(game_data.game_contestants) == len(contestant_names)
             assert game_data.round == 1
 
             # Mark all but one question in the round as used
@@ -118,7 +101,7 @@ async def test_new_round(database):
             database.save_models(*questions_for_round)
 
             # Go to selection page
-            await context.open_selection_page(game_id)
+            await context.open_selection_page(game_data.id)
 
             session.refresh(game_data)
             questions = game_data.get_questions_for_round()
@@ -138,21 +121,11 @@ async def test_max_contestants(database):
     contestant_names, contestant_colors = create_contestant_data(num_max)
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, contestants=num_max))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
-                await context.screenshot_views()
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, contestants=num_max)
+            await context.start_game()
 
             await context.screenshot_views()
-            session.refresh(game_data)
-            assert len(game_data.game_contestants) == len(contestant_names)
-
-            await context.start_game()
 
 @pytest.mark.asyncio
 async def test_finale_wager_valid(database, locales):
@@ -163,21 +136,14 @@ async def test_finale_wager_valid(database, locales):
     ]
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/selection"]
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             game_data.round = 2
             database.save_models(game_data)
 
             session.refresh(game_data)
-            assert len(game_data.game_contestants) == len(contestant_names)
 
             for contestant, score in zip(game_data.game_contestants, contestant_scores):
                 contestant.score = score
@@ -197,7 +163,7 @@ async def test_finale_wager_valid(database, locales):
             database.save_models(*questions_for_round)
 
             # Go to selection page
-            await context.open_selection_page(game_id)
+            await context.open_selection_page(game_data.id)
 
             session.refresh(game_data)
             questions = game_data.get_questions_for_round()
@@ -318,17 +284,12 @@ async def test_finale_wager_invalid(database, locales):
     ]
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
+
             language_locale = locales[game_data.pack.language.value]
             locale = language_locale["pages"]["contestant/game"]
             locale.update(language_locale["pages"]["global"])
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             for contestant, score in zip(game_data.game_contestants, contestant_scores):
                 contestant.score = score
@@ -352,7 +313,7 @@ async def test_finale_wager_invalid(database, locales):
             database.save_models(*questions_for_round)
 
             # Go to selection page
-            await context.open_selection_page(game_id)
+            await context.open_selection_page(game_data.id)
 
             # Show finale category
             await context.presenter_page.press("body", PRESENTER_ACTION_KEY)

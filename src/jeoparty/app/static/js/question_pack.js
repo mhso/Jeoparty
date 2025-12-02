@@ -1254,7 +1254,7 @@ function handleURLDataTransfers(event) {
             return new Promise((resolve, reject) => {
                 const client = new XMLHttpRequest();
     
-                let url = `${getBaseURL()}/jeoparty/pack/fetch?url=${encodeURI(dataURL)}`
+                let url = `${getBaseURL()}/jeoparty/pack/fetch?url=${encodeURIComponent(dataURL)}`
     
                 client.open("GET", url, true);
                 client.responseType = "blob";
@@ -1264,6 +1264,7 @@ function handleURLDataTransfers(event) {
                 client.onreadystatechange = function() {
                     if(this.readyState == this.DONE) {    
                         if (this.status != 200) {
+                            console.log("Response:", this.responseText);
                             reject();
                             return;
                         }
@@ -1580,6 +1581,24 @@ function saveQuestion(roundId, categoryId, questionId) {
     showQuestionView(roundId, categoryId, questionId, false);
 }
 
+function cancelCreateQuestion(roundId, categoryId, questionId) {
+    const newQuestion = questionId == questionData["rounds"][roundId]["categories"][categoryId]["questions"].length;
+
+    if (newQuestion && !confirm("Are you sure you want to scrap this question?")) {
+        return;
+    }
+
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
+    let questionWrapper = categoryWrapper.querySelector(`.question-pack-question-view-${questionId}`);
+
+    showQuestionView(roundId, categoryId, questionId, false);
+
+    if (newQuestion) {
+        categoryWrapper.removeChild(questionWrapper.parentElement);
+    }
+}
+
 function createQuestionView(roundId, categoryId, isFinale=false) {
     let questionId = getNextId(roundId, categoryId);
 
@@ -1653,6 +1672,12 @@ function createQuestionView(roundId, categoryId, isFinale=false) {
     // Add onclick event to exit button
     let exitBtn = wrapper.querySelector(".question-pack-question-view-exit");
     exitBtn.onclick = function() {
+        cancelCreateQuestion(roundId, categoryId, questionId);
+    }
+
+    // Add onclick event to save button
+    let saveBtn = wrapper.querySelector(".question-pack-question-view-save");
+    saveBtn.onclick = function() {
         saveQuestion(roundId, categoryId, questionId);
     }
 

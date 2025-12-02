@@ -205,7 +205,7 @@ function afterAnswer() {
 
     let buzzFeed = document.getElementById("question-game-feed");
     buzzFeed.classList.add("d-none");
-    buzzFeed.getElementsByTagName("ul").item(0).innerHTML = "";
+    buzzFeed.querySelector("ul").innerHTML = "";
 
     if (activeAnswer == null) {
         // Question has been answered or time ran out
@@ -248,12 +248,12 @@ function updatePlayerScore(playerId, delta) {
     scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points"]}`;
 }
 
-function updatePlayerBuzzStats(playerId, hit) {
+function updatePlayerBuzzStats(playerId, hit, delta=1) {
     let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
     let name = hit ? ".footer-contestant-entry-hits" : ".footer-contestant-entry-misses"
     let statElem = playerEntry.querySelector(name);
 
-    let newValue = Number.parseInt(statElem.textContent) + 1;
+    let newValue = Number.parseInt(statElem.textContent) + delta;
     statElem.textContent = newValue.toString();
 }
 
@@ -576,7 +576,7 @@ function addToGameFeed(text) {
     let wrapper = document.getElementById("question-game-feed");
     wrapper.classList.remove("d-none");
 
-    let listParent = wrapper.getElementsByTagName("ul").item(0);
+    let listParent = wrapper.querySelector("ul");
 
     let listElem = document.createElement("li");
     listElem.innerHTML = text;
@@ -708,6 +708,7 @@ function onRewindUsed(playerId) {
     socket.emit("rewind_used", playerId, activeValue); 
     answeringPlayer = playerId;
     updatePlayerScore(answeringPlayer, activeValue);
+    updatePlayerBuzzStats(answeringPlayer, false, -1);
 }
 
 function afterRewindUsed() {
@@ -1109,9 +1110,9 @@ function setContestantTextSizeAndColors() {
         let bgColor = entry.style.backgroundColor;
         let split = bgColor.replace("rgb(", "").replace(")", "").split(",");
 
-        let red = parseInt(split[0]).toString(16);  
-        let green = parseInt(split[1]).toString(16);
-        let blue = parseInt(split[2]).toString(16); 
+        let red = parseInt(split[0]);
+        let green = parseInt(split[1]);
+        let blue = parseInt(split[2]);
 
         let fgColor = red * 0.299 + green * 0.587 + blue * 0.114 > 160 ? "black" : "white";
         entry.style.color = fgColor;
@@ -1121,8 +1122,8 @@ function setContestantTextSizeAndColors() {
         let scale = (entry.getBoundingClientRect().width * 2) / (baseWidth * 2);
 
         let playerName = entry.querySelector(".footer-contestant-entry-name");
-        let fontSize = scale * Math.max(25 - playerName.textContent.length, 20);
-        playerName.style.fontSize = Math.round(fontSize) + "px";
+        let fontSize = scale * (120 - (playerName.textContent.length * 3.3));
+        playerName.style.fontSize = Math.round(fontSize) + "%";
     }
 }
 

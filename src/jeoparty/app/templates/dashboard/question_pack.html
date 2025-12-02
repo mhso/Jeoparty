@@ -61,7 +61,7 @@
                 </div>
             </div>
 
-            <div class="input-field">
+            <div id="question-pack-music-wrapper" class="input-field">
                 <label for="lobby-music">Lobby Music</label>
                 {% if lobby_music %}
                 <audio id="question-pack-lobby-music" controls preload="metadata"{% if lobby_volume %} data-volume="{{ lobby_volume }}"{% endif %} onvolumechange="syncLobbyVolume()">
@@ -92,7 +92,7 @@
                         </div>
 
                         <button class="question-pack-categories-placeholder{% if round_data['categories'] %} d-none{% endif %}" onclick="addCategory({{ round_num }}, {{ is_finale | tojson }});">
-                            {% if is_finale %}Click here to add the finale question!{% else %}Click here to add a category{% endif %}
+                            {% if is_finale %}Add Finale Question{% else %}Add a Category{% endif %}
                         </button>
 
                         <div class="question-pack-round-body">
@@ -118,8 +118,9 @@
                                         {% set extra = question_data["extra"] %}
     
                                         <div class="question-pack-question-view question-pack-question-view-{{ loop.index0 }} d-none">
-                                            <button class="question-pack-question-view-exit" onclick="saveQuestion({{ round_num }}, {{ category_num }}, {{ loop.index0 }});">&times;</button>
+                                            <button class="question-pack-question-view-exit" onclick="cancelCreateQuestion({{ round_num }}, {{ category_num }}, {{ loop.index0 }});">&times;</button>
                                             {% include 'question_view.html' %}
+                                            <button class="question-pack-question-view-save default-button" onclick="saveQuestion({{ round_num }}, {{ category_num }}, {{ loop.index0 }});">Save Question</button>
                                         </div>
                                     </div>
                                     {% endfor %}
@@ -164,6 +165,7 @@
     <div class="question-pack-question-view question-pack-question-view-placeholder d-none">
         <button class="question-pack-question-view-exit">&times;</button>
         {% include 'question_view.html' %}
+        <button class="question-pack-question-view-save default-button">Save Question</button>
     </div>
 
     <script>

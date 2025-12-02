@@ -1,3 +1,11 @@
+import asyncio
+from typing import List
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from jeoparty.api.orm.models import Game
+
+
 def create_contestant_data(amount=4):
     contestant_names = [
         "Contesto Uno",
@@ -25,3 +33,38 @@ def create_contestant_data(amount=4):
     ]
 
     return contestant_names[:amount], contestant_colors[:amount]
+
+async def create_game(
+    context,
+    session: Session,
+    pack_name: str,
+    contestant_names: List[str],
+    contestant_colors: List[str],
+    join_in_parallel: bool = True,
+    **game_params
+):
+    game_id = (await context.create_game(pack_name, **game_params))[1]
+    game_stmt = select(Game).where(Game.id == game_id)
+    game_data = session.execute(game_stmt).scalar_one()
+
+    # Add contestants to the game
+    if join_in_parallel:
+        pending = (
+            await asyncio.wait(
+                [
+                    asyncio.create_task(context.join_lobby(game_data.join_code, name, color))
+                    for name, color in zip(contestant_names, contestant_colors)
+                ],
+                timeout=15
+            )
+        )[1]
+
+        assert len(pending) == 0
+    else:
+        for name, color in zip(contestant_names, contestant_colors):
+            await context.join_lobby(game_data.join_code, name, color)
+
+    session.refresh(game_data)
+    assert len(game_data.game_contestants) == len(contestant_names)
+
+    return game_data

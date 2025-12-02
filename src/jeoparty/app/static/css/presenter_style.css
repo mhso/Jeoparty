@@ -528,11 +528,10 @@ h3 {
 }
 
 .footer-contestant-entry-name {
-    font-size: 1.3rem;
     font-weight: 1000;
     margin-right: 15px;
     max-width: 45%;
-    max-height: 22px;
+    height: 100%;
 }
 
 .footer-contestant-entry-score {

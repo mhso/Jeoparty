@@ -1,5 +1,6 @@
 import json
 import os
+from time import sleep
 from typing import Any, Dict
 from pydantic import ValidationError
 import requests
@@ -196,6 +197,8 @@ def fetch_resource():
     url = flask.request.args.get("url")
     if url is None:
         return make_text_response("URL not specified, nothing to fetch", 404)
+    
+    print("URL:", url)
 
     # First try to do an 'options' request to just get content-type header
     content_type = None
@@ -207,16 +210,19 @@ def fetch_resource():
 
     all_valid_types = _VALID_IMAGE_FILETYPES + _VALID_VIDEO_FILETYPES
 
-    if status == 200:
+    if 200 <= status < 300:
         content_type = response.headers.get("Content-Type")
 
     if content_type is None or content_type not in all_valid_types:
-        # If response is invalid, return error
+        # If content-type was valid or 'options' request failed, get the full file
+        sleep(0.5)
+
         response = requests.get(url)
+
         if response.status_code != 200:
+            # If response is invalid, return error
             return make_text_response("Could not fetch resources", response.status_code)
 
-        # If content-type was valid or 'options' request failed, get the full file
         content_type = response.headers.get("Content-Type")
         if content_type not in all_valid_types:
             return make_text_response("Invalid file type to fetch", 400)

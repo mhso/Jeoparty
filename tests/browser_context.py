@@ -294,10 +294,9 @@ class ContextHandler:
         if avatar is not None:
             self.avatar_images.append(contestant_id)
 
-        if page is None:
-            # Safe context and page for contestant
-            self.contestant_contexts[contestant_id] = contestant_context
-            self.contestant_pages[contestant_id] = contestant_page
+        # Safe context and page for contestant
+        self.contestant_contexts[contestant_id] = contestant_context
+        self.contestant_pages[contestant_id] = contestant_page
 
         return contestant_page, contestant_id
 
@@ -947,7 +946,10 @@ class ContextHandler:
                 contestant_frame = frame_list[index - offset]
                 x = x_index * contestant_frame.shape[1]
                 y = presenter_height
-                final_frame[y:, x:x + contestant_frame.shape[1], :] = contestant_frame
+                try:
+                    final_frame[y:, x:x + contestant_frame.shape[1], :] = contestant_frame
+                except ValueError:
+                    pass
 
             writer.write(final_frame)
 
