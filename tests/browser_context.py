@@ -253,6 +253,7 @@ class ContextHandler:
         if page is None:
             contestant_context, contestant_page = await self._setup_contestant_browser()
         else:
+            contestant_context = page.context
             contestant_page = page
 
         url = f"{ContextHandler.BASE_URL}/{join_code}"
@@ -694,21 +695,21 @@ class ContextHandler:
             image_elem = await self.presenter_page.query_selector(".question-question-image")
 
             assert image_elem is not None
-            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/{pack_id}/{question_image}")
+            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/packs/{pack_id}/{question_image}")
 
         # Assert that answer image is correct if it exists
         if (answer_image := question.question.extra.get("answer_image")):
             image_elem = await self.presenter_page.query_selector(".question-answer-image")
 
             assert image_elem is not None
-            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/{pack_id}/{answer_image}")
+            assert (await image_elem.get_attribute("src")).endswith(f"/static/data/packs/{pack_id}/{answer_image}")
 
         # Assert that question video is correct if it exists
         if (video := question.question.extra.get("video")):
             video_elem = await self.presenter_page.query_selector(".question-question-video")
 
             assert video_elem is not None
-            assert (await video_elem.get_attribute("src")).endswith(f"/static/data/{pack_id}/{video}")
+            assert (await video_elem.get_attribute("src")).endswith(f"/static/data/packs/{pack_id}/{video}")
 
         # Assert that question choices are correct if they exist
         if (choices := question.question.extra.get("choices")):

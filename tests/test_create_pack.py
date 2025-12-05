@@ -49,7 +49,7 @@ async def test_create_pack_defaults(database):
 
         category_placeholder_1 = await pack_page.query_selector(".question-pack-round-wrapper-0 .question-pack-categories-placeholder")
         assert await category_placeholder_1.is_visible()
-        assert (await category_placeholder_1.text_content()).strip() == "Click here to add a category"
+        assert (await category_placeholder_1.text_content()).strip() == "Add a Category"
 
         await round_2_btn.click()
 
@@ -58,7 +58,7 @@ async def test_create_pack_defaults(database):
     
         category_placeholder_2 = await pack_page.query_selector(".question-pack-round-wrapper-1 .question-pack-categories-placeholder")
         assert await category_placeholder_2.is_visible()
-        assert (await category_placeholder_2.text_content()).strip() == "Click here to add the finale question!"
+        assert (await category_placeholder_2.text_content()).strip() == "Add Finale Question"
 
         pack_data = database.get_question_packs_for_user(PRESENTER_USER_ID, pack_id)
 

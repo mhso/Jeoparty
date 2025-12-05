@@ -304,22 +304,12 @@ class GameSocketHandler(Namespace):
 
             self.database.save_models(contestant_data, power_up)
 
-            if power_id in (PowerUpType.HIJACK, PowerUpType.REWIND):
+            if power in (PowerUpType.HIJACK, PowerUpType.REWIND):
                 self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
 
             self.emit("power_ups_disabled", [power.value for power in PowerUpType], to="contestants")
             self.emit("power_up_used", (user_id, power_id), to="presenter")
             self.emit("power_up_used", power_id, to=contestant_metadata.sid)
-
-    @_presenter_event
-    def on_rewind_used(self, user_id: str, value: int):
-        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
-
-        # Refund points lost from wrong answer when rewind is used
-        contestant_data.score += value
-        contestant_data.misses -= 1
-
-        self.database.save_models(contestant_data)
 
     @_presenter_event
     def on_enable_finale_wager(self):

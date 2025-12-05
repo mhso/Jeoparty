@@ -23,7 +23,7 @@ async def test_first_turn(database):
 
     async with ContextHandler(database) as context:
         with database as session:
-            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, join_in_parallel=False)
 
             await context.start_game()
 

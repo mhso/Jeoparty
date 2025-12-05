@@ -38,7 +38,7 @@ class Config:
 
 def get_question_pack_data_path(pack_id: str, full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""
-    return f"{prefix}data/{pack_id}"
+    return f"{prefix}data/packs/{pack_id}"
 
 def get_avatar_path(full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""

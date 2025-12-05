@@ -143,6 +143,23 @@ function hideFreezeAnimation() {
     }, 1000);
 }
 
+function updatePlayerScore(playerId, delta) {
+    playerScores[playerId] += delta;
+    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
+    let scoreElem = playerEntry.querySelector(".footer-contestant-entry-score");
+
+    scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points"]}`;
+}
+
+function updatePlayerBuzzStats(playerId, hit, delta=1) {
+    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
+    let name = hit ? ".footer-contestant-entry-hits" : ".footer-contestant-entry-misses"
+    let statElem = playerEntry.querySelector(name);
+
+    let newValue = Number.parseInt(statElem.textContent) + delta;
+    statElem.textContent = newValue.toString();
+}
+
 function undoAnswer(playerId, currAnswer=null) {
     console.log("Triggering undo for", playerId);
     let wrong = document.getElementById("question-answer-correct").classList.contains("d-none");
@@ -238,23 +255,6 @@ function afterAnswer() {
     else {
         questionAsked(delay);
     }
-}
-
-function updatePlayerScore(playerId, delta) {
-    playerScores[playerId] += delta;
-    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
-    let scoreElem = playerEntry.querySelector(".footer-contestant-entry-score");
-
-    scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points"]}`;
-}
-
-function updatePlayerBuzzStats(playerId, hit, delta=1) {
-    let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
-    let name = hit ? ".footer-contestant-entry-hits" : ".footer-contestant-entry-misses"
-    let statElem = playerEntry.querySelector(name);
-
-    let newValue = Number.parseInt(statElem.textContent) + delta;
-    statElem.textContent = newValue.toString();
 }
 
 function correctAnswer() {
@@ -705,10 +705,17 @@ function onRewindUsed(playerId) {
     stopCountdown();
 
     // Refund the score the player lost on the previous answer
-    socket.emit("rewind_used", playerId, activeValue); 
+    let score = playerScores[playerId];
+    let missesElem = document.querySelector(`.footer-contestant-${playerId} .footer-contestant-entry-misses`);
+    let misses = Number.parseInt(missesElem.textContent)
+
+    let data = {"misses": misses - 1, "score": score + activeValue};
+    socket.emit("edit_contestant_info", playerId, JSON.stringify(data));
+
+    updatePlayerScore(playerId, activeValue);
+    updatePlayerBuzzStats(playerId, false, -1);
+
     answeringPlayer = playerId;
-    updatePlayerScore(answeringPlayer, activeValue);
-    updatePlayerBuzzStats(answeringPlayer, false, -1);
 }
 
 function afterRewindUsed() {
