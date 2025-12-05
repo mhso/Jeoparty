@@ -131,14 +131,14 @@ class GameSocketHandler(Namespace):
             sid = flask.request.sid
             self.contestant_metadata[user_id] = ContestantMetadata(sid)
 
-            contestant_data = game_contestant.extra_fields
+            contestant_data = game_contestant.dump()
     
             # Add socket IO session ID to contestant and join 'contestants' room
             print(f"User '{contestant_data['name']}' with ID '{user_id}' and SID '{sid}' joined the lobby")
             self.leave_room(sid, "contestants")
             self.enter_room(sid, "contestants")
 
-            self.emit("contestant_joined", (user_id, contestant_data["name"], contestant_data["avatar"], contestant_data["color"]), to="presenter")
+            self.emit("contestant_joined", json.dumps(contestant_data), to="presenter")
             self.emit("contestant_joined", to=sid)
 
     @_presenter_event

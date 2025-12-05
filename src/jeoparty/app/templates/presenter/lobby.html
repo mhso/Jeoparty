@@ -45,6 +45,12 @@
     </body>
     
     <script>
+        initialize(
+            {{ game_contestants | tojson }},
+            "{{ stage | safe }}",
+            {{ _locale | tojson }}
+        );
+
         socket.on("connect", function() {
             socket.on("presenter_joined", function() {
                 hideConnectionStatus();
@@ -55,7 +61,7 @@
         });
 
         {% for contestant in game_contestants %}
-        addContestantDiv("{{ contestant['id'] }}", "{{ contestant['name'] }}", "{{ contestant['avatar'] }}", "{{ contestant['color'] }}");
+        addContestantDiv(contestant);
         {% endfor %}
 
         window.onkeydown = function(e) {

@@ -69,13 +69,24 @@
     <!-- Question images or video -->
     {% set has_media = "question_image" in extra or "video" in extra %}
     {% if has_media or editable %}
+
+    {% if "height" in extra %}
+        {% set mediaSize = extra["height"] %}
+    {% else %}
+        {% if "choices" in extra %}
+            {% set mediaSize = "small" %}
+        {% else %}
+            {% set mediaSize = "default" %}
+        {% endif %}
+    {% endif %}
+
     <div class="question-question-image-wrapper">
         {% if editable %}
         <div class="media-drag-target{% if not has_media %} target-empty{% endif %}" onclick="openMediaInput(event);" ondragover="event.preventDefault();" ondragenter="mediaDragEnter(event);" ondragleave="mediaDragLeave(event);" ondragend="mediaDragLeave(event);" ondrop="mediaDragDropped(event, 'question');">
             <button class="media-delete-btn delete-button media-control-btn{% if not has_media %} d-none{% endif %}" onclick="deleteMedia(event)">&times;</button>
 
             <button class="media-maximize-btn media-control-btn{% if not has_media %} d-none{% endif %}" onclick="maximizeMedia(event);">
-                {% if 'height' in extra and extra['height'] > 420 %}
+                {% if 'height' in extra and extra['height'] == 'maximized' %}
                 {% set isMaximized = true %}
                 {% else %}
                 {% set isMaximized = false %}
@@ -89,9 +100,9 @@
             <div class="drag-target-preview-wrapper{% if not has_media%} d-none{% endif %}">
                 {% if has_media %}
                     {% if "question_image" in extra %}
-                    <img class="question-media question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" loading="lazy" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                    <img class="question-media question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" loading="lazy" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                     {% else %}
-                    <video class="question-media question-question-video question-editable" controls preload="metadata" style="height: {{ extra['height'] }}px;"{% if 'volume' in extra %} data-volume="{{ extra['volume'] }}"{% endif %}>
+                    <video class="question-media question-question-video question-editable" controls preload="metadata" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh;"{% if 'volume' in extra %} data-volume="{{ extra['volume'] }}"{% endif %}>
                         <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
                     </video>
                     {% endif %}
@@ -115,7 +126,7 @@
 
             <div class="drag-target-preview-wrapper{% if 'answer_image' not in extra %} d-none{% endif %}">
                 {% if "answer_image" in extra %}
-                <img class="question-media question-answer-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" loading="lazy" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                <img class="question-media question-answer-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" loading="lazy" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                 {% endif %}
             </div>
 
@@ -133,12 +144,12 @@
 
         {% else %}
         {% if "question_image" in extra %}
-        <img class="question-question-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-question-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% if "answer_image" in extra %}
-        <img class="question-answer-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" style="height: {{ extra['height'] }}px; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-answer-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% endif %}
         {% else %}
-        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" style="height: {{ extra['height'] }}px;">
+        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh;">
             <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
         </video>
         {% endif %}

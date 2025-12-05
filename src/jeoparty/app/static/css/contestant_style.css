@@ -298,16 +298,15 @@ h1 {
     margin-top: 20px;
     width: 120px;
     padding: 5px;
-    height: 45px;
+    height: 35px;
 }
 
 #finale-answer {
     font-size: 20px;
     border: 2px solid black;
     border-radius: 5px;
-    margin-top: 20px;
     padding: 5px;
-    height: 45px;
+    height: 35px;
 }
 
 #contestant-wager-btn {

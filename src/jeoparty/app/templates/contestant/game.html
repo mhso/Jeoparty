@@ -52,9 +52,9 @@
     
                     <!-- Final Jeopardy answer -->
                     <h2 id="question-category-name">{{ question["category"]["name"] }}</h2>
-                    <h3 id="finale-wager-header">{{ _locale["finale_wager_amount"] }} <strong>{{ finale_wager }}</strong> {{ _locale["points"] }}</h3>
-
+                    
                     {% if finale_wager > 0 %}
+                    <h3 id="finale-wager-header">{{ _locale["finale_wager_amount"] }} <strong>{{ finale_wager }}</strong> {{ _locale["points"] }}</h3>
                     <div id="finale-question-wrapper" class="d-none">
                         <h3 id="finale-question-header">{{ question["question"] }}</h3>
                         <h4>{{ _locale["finale_answer"] }}</h4>

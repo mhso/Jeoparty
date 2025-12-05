@@ -111,7 +111,7 @@
                 {% if not daily_double and stage == "finale_question" %}
                 {% for contestant_data in game_contestants %}
                     {% if contestant_data["finale_wager"] == 0 %}
-                    setPlayerReady('{{ contestant_data["contestant_id"] }}');
+                    setPlayerReady('{{ contestant_data["id"] }}');
                     {% endif %}
                 {% endfor %}
                 socket.on("contestant_ready", setPlayerReady);

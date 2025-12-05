@@ -8,7 +8,6 @@ import cv2
 from io import BytesIO
 from subprocess import Popen
 from typing import Dict, List, Literal, Tuple
-from argparse import Namespace
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
@@ -21,7 +20,6 @@ from jeoparty.api.orm.models import GameContestant, GameQuestion
 from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
 from jeoparty.app.routes.contestant import COOKIE_ID
 from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
-import main
 
 BROWSER_OPTIONS = {
     "args": {
@@ -433,6 +431,13 @@ class ContextHandler:
     async def use_power_up(self, contestant_id: str, power_id: str):
         await self.contestant_pages[contestant_id].click(f"#contestant-power-btn-{power_id}")
 
+        video = await self.presenter_page.query_selector(f"#question-power-up-video-{power_id}")
+
+        async def power_video_done():
+            return await video.evaluate("(e) => e.ended")
+
+        await self.wait_for_event(power_video_done)
+
     async def make_wager(self, contestant_id: str, amount: int, dialog_callback=None):
         page = self.contestant_pages[contestant_id]
 
@@ -663,7 +668,7 @@ class ContextHandler:
     async def assert_question_values(
         self,
         question: GameQuestion,
-        question_visible: bool | None = True,
+        question_visible: bool | None = None,
         answer_visible: bool | None = None,
         correct_answer: bool | None = None,
         wrong_answer_text: str | None = None,
@@ -798,12 +803,13 @@ class ContextHandler:
     ):
         page = self.contestant_pages[contestant_id]
         category_header = await page.query_selector("#question-category-name")
-        wager_header = await page.query_selector("#finale-wager-header")
 
         assert await category_header.text_content() == category_name
-        assert await wager_header.text_content() == f"{locale['finale_wager_amount']} {wager} {locale['points']}"
 
         if wager > 0:
+            wager_header = await page.query_selector("#finale-wager-header")
+            assert await wager_header.text_content() == f"{locale['finale_wager_amount']} {wager} {locale['points']}"
+
             wrapper = await page.query_selector("#finale-question-wrapper")
             question_header = await page.query_selector("#finale-question-header")
             answer_header = await wrapper.query_selector("h4")

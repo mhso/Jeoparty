@@ -198,8 +198,6 @@ def fetch_resource():
     if url is None:
         return make_text_response("URL not specified, nothing to fetch", 404)
     
-    print("URL:", url)
-
     # First try to do an 'options' request to just get content-type header
     content_type = None
     try:
@@ -435,6 +433,7 @@ def question_pack(pack_id: str):
         languages=[(lang.value, lang.value.capitalize()) for lang in Language],
         themes=themes_json,
         base_entries=base_entries,
+        mediaSizes=Config.QUESTION_MEDIA_SIZES,
         **pack_json,
     )
 

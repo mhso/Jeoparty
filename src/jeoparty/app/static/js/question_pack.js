@@ -3,10 +3,7 @@ var questionMedia = {};
 var lastSaveState = null;
 var wrapperHeight = 0;
 var wrapperWidth = 0;
-
-const REGULAR_MEDIA_HEIGHT = 460
-const SMALL_MEDIA_HEIGHT = 290
-const MAXIMIZED_MEDIA_HEIGHT = 760
+var mediaSizes = {};
 
 const letters = Array.from("abcdefghijklmnopqrstuvwxyz0123456789")
 const imageFileTypes = [
@@ -236,8 +233,7 @@ function syncQuestionData(round, category, question) {
             let questionMediaPreview = wrapper.querySelector(name);
 
             // Save height of image/video
-            let height = window.getComputedStyle(questionMediaPreview).height;
-            data["extra"]["height"] = Number.parseInt(height.replace("px", ""));
+            data["extra"]["height"] = questionMediaPreview.dataset["media_size"];
 
             // Save border color
             if (questionMediaPreview.style.borderColor) {
@@ -255,9 +251,8 @@ function syncQuestionData(round, category, question) {
         if (Object.hasOwn(data, "extra") && (Object.hasOwn(data["extra"], "question_image") || Object.hasOwn(data["extra"], "video"))) {
             let name = Object.hasOwn(data["extra"], "question_image") ? ".question-question-image" : ".question-question-video";
             let questionMediaPreview = wrapper.querySelector(name);
-            let height = window.getComputedStyle(questionMediaPreview).height;
 
-            data["extra"]["height"] = Number.parseInt(height.replace("px", ""));
+            data["extra"]["height"] = questionMediaPreview.dataset["media_size"];
 
             if (questionMediaPreview.style.borderColor) {
                 data["extra"]["border"] = questionMediaPreview.style.borderColor;
@@ -1086,29 +1081,22 @@ function openBackgroundImageInput(event) {
 function getDefaultMediaHeight(wrapper) {
     let isMultipleChoice = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
     if (isMultipleChoice) {
-        return SMALL_MEDIA_HEIGHT;
+        return "small";
     }
 
-    return REGULAR_MEDIA_HEIGHT;
+    return "default";
 }
 
 function resizeMedia(wrapper) {
     let newHeight = getDefaultMediaHeight(wrapper);
 
-    let questionImage = wrapper.querySelector(".question-question-image");
-    if (questionImage != null) {
-        questionImage.style.height = newHeight + "px";
-    }
-
-    let video = wrapper.querySelector(".question-question-video");
-    if (video != null) {
-        video.style.height = newHeight + "px";
-    }
-
-    let answerImage = wrapper.querySelector(".question-answer-image");
-    if (answerImage != null) {
-        answerImage.style.height = newHeight + "px";
-    }
+    ["question-question-image", "question-question-video", "question-answer-image"].forEach((className) => {
+        let elem = wrapper.querySelector(`.${className}`);
+        if (elem != null) {
+            elem.style.height = mediaSizes[newHeight] + "vh";
+            elem.dataset["media_size"] = newHeight;
+        }
+    });
 }
 
 function setMultipleChoice(event) {
@@ -1160,8 +1148,12 @@ function showMediaPreview(wrapper, file, mediaKey) {
 
     const fileSrc = URL.createObjectURL(file);
     mediaElem.src = fileSrc;
+
     let outerWrapper = getSpecificParent(wrapper, "question-view-wrapper");
-    wrapperElem.style.height = getDefaultMediaHeight(outerWrapper) + "px";
+    
+    let defaultHeight = getDefaultMediaHeight(outerWrapper);
+    wrapperElem.style.height = mediaSizes[defaultHeight] + "vh";
+    wrapperElem.dataset["media_size"] = defaultHeight;
 
     wrapper.classList.remove("target-empty");
 
@@ -1407,18 +1399,18 @@ function _maximizeMedia(wrapper, media, maximize=true) {
     let questionHeader = wrapper.querySelector(".question-question-header");
     let categoryHeader = wrapper.querySelector(".question-category-header");
 
-    let height;
+    let mediaSize;
     if (maximize && !media.classList.contains("media-maximized")) {
         // Maximize media
         media.classList.add("media-maximized");
-        height = MAXIMIZED_MEDIA_HEIGHT;
+        mediaSize = "maximized";
         questionHeader.classList.add("d-none");
         categoryHeader.classList.add("d-none");
     }
     else if (!maximize && media.classList.contains("media-maximized")) {
         // Minimize media
         media.classList.remove("media-maximized");
-        height = REGULAR_MEDIA_HEIGHT;
+        mediaSize = getDefaultMediaHeight(wrapper);
         questionHeader.classList.remove("d-none");
         categoryHeader.classList.remove("d-none");
     }
@@ -1426,11 +1418,13 @@ function _maximizeMedia(wrapper, media, maximize=true) {
         return;
     }
 
-    media.style.height = height + "px";
+    media.style.height = mediaSizes[mediaSize] + "vh";
+    media.dataset["media_size"] = mediaSize;
 
     let answerImage = wrapper.querySelector(".question-answer-image");
     if (answerImage != null) {
-        answerImage.style.height = height + "px";
+        answerImage.style.height = mediaSizes[mediaSize] + "vh";
+        answerImage.dataset["media_size"] = mediaSize;
     }
 }
 
@@ -1721,10 +1715,10 @@ document.addEventListener("DOMContentLoaded", function() {
     mediaWrappers.forEach((elem) => {
         let media = getMedia(elem);
         if (media != null) {
-            let prevHeight = Number.parseInt(window.getComputedStyle(media).height.replace("px", ""));
+            let mediaHeight = media.dataset["media_size"];
 
             // Maximize relevant media
-            if (prevHeight > REGULAR_MEDIA_HEIGHT) {
+            if (mediaHeight == "maximized") {
                 _maximizeMedia(elem, media);
             }
 

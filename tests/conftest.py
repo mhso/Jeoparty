@@ -106,7 +106,7 @@ def _create_question_packs(database: Database):
             question="What is time?",
             answer="An emergent property of entropy, maybe? Who knows, man",
             value=200,
-            extra={"question_image": "clock.png", "height": 420}
+            extra={"question_image": "clock.png", "height": "default"}
         )
 
         question_model_2_1_1 = Question(
@@ -128,7 +128,7 @@ def _create_question_packs(database: Database):
             question="How many choices are in this question?",
             answer="4",
             value=300,
-            extra={"image": "questionmark.png", "choices": ["1", "2", "3", "4"], "height": 256}
+            extra={"question_image": "questionmark.png", "choices": ["1", "2", "3", "4"], "height": "small"}
         )
 
         database.save_models(

@@ -11,7 +11,6 @@ const TIME_FOR_FINAL_ANSWER = 40;
 const TIME_BEFORE_FIRST_TIP = 4;
 const TIME_BEFORE_EXTRA_TIPS = 4;
 const TIME_FOR_FREEZE = 40;
-const IMG_MAX_HEIGHT = 460;
 const PRESENTER_ACTION_KEY = "Space"
 
 var countdownInterval = null;
@@ -900,7 +899,7 @@ function afterShowQuestion() {
 }
 
 function showImageOrVideo(elem) {
-    if (elem.offsetHeight > IMG_MAX_HEIGHT) {
+    if (elem.dataset["media_size"] == "maximized") {
         document.querySelector(".question-category-header").style.display = "none";
         document.querySelector(".question-question-header").style.display = "none";
     }
@@ -1185,30 +1184,158 @@ function beginJeopardy() {
     goToPage(getSelectionURL());
 }
 
-function addContestantDiv(id, name, avatar, color) {
+function addContestantInGame(contestantData) {
+    let avatar = contestantData["avatar"];
+
+    let wrapper = document.getElementById("footer-contestants");
+
+    let classId = `footer-contestant-${contestantData["id"]}`;
+    let existingDiv = document.querySelector(`.${classId}`);
+
+    let div = existingDiv != null ? existingDiv : document.createElement("div");
+
+    div.className = `footer-contestant-entry ${classId}`;
+    div.style.backgroundColor = contestantData["color"];
+    div.onmouseenter = function() {
+        revealContestantEditBtn(id);
+    }
+    div.onmouseleave = function() {
+        hideContestantEditBtn(id);
+    }
+
+    if (existingDiv == null) {
+        // Create buzzes div
+        let buzzElem = document.createElement("div");
+        buzzElem.className = "footer-contestant-buzzes";
+
+        let hitsElem = document.createElement("div");
+        hitsElem.className = "footer-contestant-entry-hits";
+        hitsElem.textContent = contestantData["hits"];
+
+        let missesElem = document.createElement("div");
+        missesElem.className = "footer-contestant-entry-misses";
+        missesElem.textContent = contestantData["misses"];
+
+        buzzElem.appendChild(hitsElem);
+        buzzElem.appendChild(missesElem);
+
+        // Create header div
+        let headerElem = document.createElement("div");
+        headerElem.className = "footer-contestant-header";
+
+        let nameElem = document.createElement("div");
+        nameElem.className = "footer-contestant-entry-name";
+        nameElem.textContent = contestantData["name"];
+
+        let scoreElem = document.createElement("div");
+        scoreElem.className = "footer-contestant-entry-score";
+        scoreElem.textContent = contestantData["score"];
+
+        headerElem.appendChild(nameElem);
+        headerElem.appendChild(scoreElem);
+
+        // Create edit btn
+        let editBtn = document.createElement("button");
+        editBtn.className = "footer-contestant-edit-btn d-none";
+        editBtn.onclick = function() {
+            toggleEditContestantInfo(contestantData["id"]);
+        }
+
+        let editImg = document.createElement("img");
+        editImg.className = "footer-contestant-edit-edit";
+        editImg.src = `${getBaseURL()}/static/img/edit.png`;
+
+        let saveImg = document.createElement("img");
+        saveImg.className = "footer-contestant-edit-save d-none";
+        saveImg.src = `${getBaseURL()}/static/img/save.png`;
+
+        editBtn.appendChild(editImg);
+        editBtn.appendChild(saveImg);
+
+        // Create avatar images
+        let avatarElem = document.createElement("img");
+        avatarElem.className = "footer-contestant-entry-avatar";
+        avatarElem.src = `${getBaseURL()}/static/${avatar}`;
+
+        let readyElem = document.createElement("img");
+        readyElem.className = "footer-contestant-entry-ready";
+        readyElem.src = `${getBaseURL()}/static/img/check.png`;
+
+        // Create powers div
+        let powersWrapper = document.createElement("div");
+        powersWrapper.className = "footer-contestant-entry-powers";
+
+        contestantData["power_ups"].forEach((power) => {
+            let powerElem = document.createElement("div");
+            powerElem.className = `footer-contestant-power-${power["type"]}`;
+
+            let usedImg = document.createElement("img");
+            usedImg.className = "footer-contestant-entry-power-used";
+            if (!power["used"]) {
+                usedImg.classList.add("d-none");
+            }
+            usedImg.src = `${getBaseURL()}/static/img/forbidden.png`;
+
+            let powerImg = document.createElement("img");
+            powerImg.className = "footer-contestant-entry-power-icon";
+            if (!power["used"]) {
+                powerImg.classList.add("d-none");
+            }
+            powerImg.src = `${getBaseURL()}/static/${power["icon"]}`;
+
+            powerElem.appendChild(usedImg);
+            powerElem.appendChild(powerImg);
+
+            powersWrapper.appendChild(powerElem);
+        });
+
+        div.appendChild(buzzElem);
+        div.appendChild(headerElem);
+        div.appendChild(editBtn);
+        div.appendChild(avatarElem);
+        div.appendChild(readyElem);
+        div.appendChild(powersWrapper);
+
+        wrapper.appendChild(div);
+    }
+    else {
+        let nameElem = div.querySelector(".footer-contestant-entry-name");
+        nameElem.textContent = contestantData["name"];
+
+        let scoreElem = div.querySelector(".footer-contestant-entry-score");
+        scoreElem.textContent = contestantData["score"];
+ 
+        let avatarElem = div.querySelector(".footer-contestant-entry-avatar");
+        avatarElem.src = `${getBaseURL()}/static/${avatar}`;
+    }
+}
+
+function addContestantInLobby(contestantData) {
+    let avatar = contestantData["avatar"];
+
     let wrapper = document.getElementById("menu-contestants");
     let placeholder = document.getElementById("menu-no-contestants-placeholder");
     if (placeholder != null) {
         wrapper.removeChild(placeholder);
     }
 
-    let divId = "player_" + id;
+    let divId = "player_" + contestantData["id"];
     let existingDiv = document.getElementById(divId);
     let div = existingDiv != null ? existingDiv : document.createElement("div");
 
     div.id = divId;
     div.className = "menu-contestant-entry";
-    div.style.border = "2px solid " + color;
+    div.style.border = "2px solid " + contestantData["color"];
 
     if (existingDiv == null) {
         let avatarElem = document.createElement("img");
         avatarElem.className = "menu-contestant-avatar";
-        avatarElem.style.border = "2px solid " + color;
+        avatarElem.style.border = "2px solid " + contestantData["color"];
         avatarElem.src = `${getBaseURL()}/static/${avatar}`;
     
         let nameElem = document.createElement("div");
         nameElem.className = "menu-contestant-name";
-        nameElem.textContent = name;
+        nameElem.textContent = contestantData["name"];
     
         div.appendChild(avatarElem);
         div.appendChild(nameElem);
@@ -1217,11 +1344,26 @@ function addContestantDiv(id, name, avatar, color) {
     }
     else {
         let nameElem = div.querySelector(".menu-contestant-name");
-        nameElem.textContent = name;
+        nameElem.textContent = contestantData["name"];
  
         let avatarElem = div.querySelector(".menu-contestant-avatar");
         avatarElem.src = `${getBaseURL()}/static/${avatar}`;
     }
+}
+
+function addContestantDiv(contestantJson) {
+    let data = JSON.parse(contestantJson);
+    if (activeStage == "lobby") {
+        addContestantInLobby(data);
+    }
+    else {
+        addContestantInGame(data);
+    }
+
+    let contestantId = data["id"]
+    playerScores[contestantId] = data["score"];
+    playerNames[contestantId] = data["name"];
+    playerColors[contestantId] = data["color"];
 }
 
 function setPlayerReady(playerId) {
