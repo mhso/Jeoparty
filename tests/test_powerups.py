@@ -439,7 +439,7 @@ async def test_hijack_before_question(database, locales):
                     enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
                 )
 
-            # Buzz in and answer wrong
+            # Buzz in and answer correctly
             await context.hit_buzzer(active_player.contestant_id)
             await asyncio.sleep(1)
 
@@ -486,6 +486,119 @@ async def test_hijack_before_question(database, locales):
                 await context.assert_contestant_values(
                     contestant.contestant_id,
                     score=active_score if is_active else 0,
+                    buzzes=int(is_active),
+                    hits=int(is_active),
+                    misses=0,
+                    buzzer_status="inactive",
+                    used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
+                    enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                )
+
+@pytest.mark.asyncio
+async def test_hijack_after_question(database, locales):
+    pack_name = "Test Pack"
+    contestant_names, contestant_colors = create_contestant_data()
+
+    async with ContextHandler(database, True) as context:
+        with database as session:
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
+            locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
+
+            await context.start_game()
+
+            session.refresh(game_data)
+
+            # Set player 1 as having the turn and question 1 as the active question
+            active_player = next(filter(lambda c: c.contestant.name == contestant_names[2], game_data.game_contestants))
+            active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
+            active_question.active = True
+
+            database.save_models(active_question)
+
+            # Open question page and show question
+            await context.open_question_page(game_data.id)
+            session.refresh(game_data)
+
+            await context.show_question()
+
+            # Use rewind power-up to cancel the wrong answer
+            await context.use_power_up(active_player.contestant_id, "hijack")
+
+            await context.assert_question_values(
+                active_question,
+                game_feed=[
+                    f"{active_player.contestant.name} {locale['game_feed_power_1']} hijack {locale['game_feed_power_2']}!",
+                ]
+            )
+
+            for contestant in game_data.game_contestants:
+                is_active = contestant.id == active_player.id
+
+                await context.assert_presenter_values(
+                    contestant.id,
+                    score=0,
+                    hits=0,
+                    misses=0,
+                    has_turn=is_active,
+                    used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
+                )
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    score=0,
+                    buzzes=0,
+                    hits=0,
+                    misses=0,
+                    buzzer_status="active" if is_active else "inactive",
+                    used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
+                    enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                )
+
+            # Buzz in and answer correctly
+            await context.hit_buzzer(active_player.contestant_id)
+            await asyncio.sleep(1)
+
+            for contestant in game_data.game_contestants:
+                is_active = contestant.id == active_player.id
+
+                await context.assert_presenter_values(
+                    contestant.id,
+                    score=0,
+                    hits=0,
+                    misses=0,
+                    has_turn=is_active,
+                    used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
+                )
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    score=0,
+                    buzzes=int(is_active),
+                    hits=0,
+                    misses=0,
+                    buzzer_status="inactive",
+                    used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
+                    enabled_power_ups={"hijack": False, "freeze": is_active, "rewind": False},
+                )
+
+            await context.answer_question(active_player.contestant_id, key=1)
+            await asyncio.sleep(1)
+
+            for contestant in game_data.game_contestants:
+                is_active = contestant.id == active_player.id
+
+                await context.assert_presenter_values(
+                    contestant.id,
+                    score=active_question.question.value if is_active else 0,
+                    hits=int(is_active),
+                    misses=0,
+                    has_turn=False,
+                    used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
+                )
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    score=active_question.question.value if is_active else 0,
                     buzzes=int(is_active),
                     hits=int(is_active),
                     misses=0,

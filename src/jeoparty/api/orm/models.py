@@ -372,7 +372,7 @@ class Game(Base):
 
         return None
 
-    def get_game_winners(self):
+    def get_game_winners(self) -> List[GameContestant]:
         sorted_contestants = sorted(
             self.game_contestants,
             key=lambda x: (-x.score, x.contestant.name),

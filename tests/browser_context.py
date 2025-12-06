@@ -933,7 +933,7 @@ class ContextHandler:
         contestant_width = 368
         contestant_height = 800
 
-        width = contestant_width * 4
+        width = contestant_width * len(self.contestant_pages)
         height = presenter_height + contestant_height
         offset_x = (width - presenter_width) // 2
         writer = cv2.VideoWriter(f"{VIDEO_RECORD_PATH}/combined.mp4", cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (width, height), True)

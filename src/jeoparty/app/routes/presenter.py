@@ -1,9 +1,11 @@
 import random
 
 import flask
+from flask import json
 from mhooge_flask.auth import get_user_details
 from mhooge_flask.logging import logger
 from mhooge_flask.routing import socket_io
+import requests
 
 from jeoparty.api.database import Database
 from jeoparty.api.config import Config
@@ -331,6 +333,19 @@ def endscreen(game_data: Game):
 
     game_json = game_data.dump(included_relations=[Game.game_contestants], id="game_id")
     game_json["game_contestants"].sort(key=lambda c: (-c["score"], c["contestant"]["name"]))
+
+    # Send post request to Int-Far if LAN is active
+    if _is_lan_active(game_data):
+        base_url = "http://localhost:5000" if "localhost" in flask.request.host else "https://mhooge.com"
+        with open(f"{Config.STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
+            data = json.load(fp)
+            admin_id = data["intfar_disc_id"]
+            token = data["intfar_user_id"]
+
+        request_json = {"winners": winners_json, "disc_id": admin_id, "token": token}
+        response = requests.post(f"{base_url}/intfar/lan/jeopardy_winner", json=request_json)
+        if response.status_code != 200:
+            logger.bind(response=response.text, status=response.status_code).error(f"End of game request to Int-Far failed with status {response.status_code}")
 
     socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 

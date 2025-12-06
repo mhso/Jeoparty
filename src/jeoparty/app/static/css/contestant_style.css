@@ -45,14 +45,16 @@ h1 {
 }
 
 #contestant-game-header {
-    display: inline-flex;
+    width: 65%;
+    min-width: 260px;
+    display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     padding: 10px;
     border: 2px solid white;
     background-color: #323232;
-    width: 210px;
+    margin: 0 auto;
     margin-top: 20px;
     margin-bottom: 15px;
     border-radius: 10px;
