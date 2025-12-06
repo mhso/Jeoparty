@@ -5,7 +5,6 @@ from flask import json
 import requests
 
 from jeoparty.api.config import Config
-from jeoparty.api.orm.models import Contestant, GameContestant
 
 class ScriptRunner:
     def fetch_resource(self):
@@ -50,22 +49,47 @@ class ScriptRunner:
 
             print("It worked!", content_type)
 
-    def intfar_jeopardy_winner(self):
-        contestants = [
-            Contestant(
-                name="Muds",
-            )
-        ]
-
-        winners = [
-            GameContestant(
+    def intfar_winner_call(self):
+        player_data = [
+            dict(
                 game_id="id",
-                contestant_id="331082926475182081", # Mads
-                score=1500,
-                buzzes=7,
-                hits=5,
+                name="Dave",
+                color="#f30b0b",
+                contestant_id="115142485579137029",
+                score=800,
+                buzzes=4,
+                hits=2,
                 misses=2,
-                contestant=
+            ),
+            dict(
+                game_id="id",
+                name="Murt",
+                color="#f30b0b",
+                contestant_id="172757468814770176",
+                score=500,
+                buzzes=4,
+                hits=3,
+                misses=1,
+            ),
+            dict(
+                game_id="id",
+                contestant_id="331082926475182081",
+                name="Muds",
+                color="#f30b0b",
+                score=-1200,
+                buzzes=6,
+                hits=1,
+                misses=5,
+            ),
+            dict(
+                game_id="id",
+                name="Nø",
+                color="#f30b0b",
+                contestant_id="347489125877809155",
+                score=-200,
+                buzzes=1,
+                hits=0,
+                misses=1,
             )
         ]
 
@@ -74,7 +98,7 @@ class ScriptRunner:
             admin_id = data["intfar_disc_id"]
             token = data["intfar_user_id"]
 
-        request_json = {"winners": winners_json, "disc_id": admin_id, "token": token}
+        request_json = {"player_data": player_data, "disc_id": admin_id, "token": token}
         response = requests.post(f"http://localhost:5000/intfar/lan/jeopardy_winner", json=request_json)
 
         print(response.text, response.status_code)

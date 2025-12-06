@@ -143,7 +143,7 @@ class Database(SQLAlchemyDatabase):
                 selectinload(Contestant.game_contestants)
             ).filter(Contestant.id == user_id)
 
-            return session.execute(statement).scalar_one()
+            return session.execute(statement).scalar_one_or_none()
 
     def get_all_contestants(self) -> List[Contestant]:
         with self as session:

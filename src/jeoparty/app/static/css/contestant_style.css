@@ -45,8 +45,8 @@ h1 {
 }
 
 #contestant-game-header {
-    width: 65%;
-    min-width: 260px;
+    width: 90%;
+    max-width: 240px;
     display: flex;
     flex-direction: row;
     justify-content: space-between;

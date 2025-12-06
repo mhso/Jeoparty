@@ -88,6 +88,7 @@
                 socket.on("buzz_received", addBuzzToFeed);
                 socket.on("buzz_winner", playerBuzzedFirst);
                 socket.on("power_up_used", powerUpUsed);
+                socket.on("contestant_joined", (jsonData) => addContestantDiv(JSON.parse(jsonData)));
 
                 {% if daily_double %}
                 document.getElementById("question-wager-wrapper").classList.remove("d-none");

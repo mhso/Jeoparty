@@ -14,7 +14,7 @@ import flask
 from mhooge_flask.routing import make_template_context
 from mhooge_flask.database import Base
 
-from jeoparty.api.config import Config, get_question_pack_data_path, get_theme_path
+from jeoparty.api.config import Config, get_theme_path
 from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Game, Question, QuestionPack
 
@@ -177,36 +177,6 @@ def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: 
         message = f"Error when {action}: {details}"
 
         return False, message
-
-def validate_param(
-    params: Dict[str, Any],
-    key: str,
-    dtype: type,
-    min_len: int = None,
-    max_len: int = None
-) -> Tuple[Any, str | None]:
-    if key not in params:
-        return None, f"'{key.capitalize()}' is required"
-
-    try:
-        val = dtype(params[key])
-    except TypeError:
-        type_name = "text" if dtype == type(str) else "a number"
-        return None, f"'{key}' must be {type_name}"
-
-    if min_len is not None:
-        if isinstance(val, (int, float)) and val < min_len:
-            return None, f"'{key.capitalize()}' must be larger than {min_len}"
-        elif isinstance(val, str) and len(val) < min_len:
-            return None, f"'{key.capitalize()}' must be longer than {min_len} characters"
-        
-    if max_len is not None:
-        if isinstance(val, (int, float)) and val > max_len:
-            return None, f"'{key.capitalize()}' must be less than {max_len}"
-        elif isinstance(val, str) and len(val) > max_len:
-            return None, f"'{key.capitalize()}' must be less than {max_len} characters"
-
-    return val, None
 
 def validate_file(
     file: FileStorage,

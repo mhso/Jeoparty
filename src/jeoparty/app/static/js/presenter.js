@@ -1351,19 +1351,19 @@ function addContestantInLobby(contestantData) {
     }
 }
 
-function addContestantDiv(contestantJson) {
-    let data = JSON.parse(contestantJson);
+function addContestantDiv(contestantData) {
+    console.log("Adding player:", contestantData);
     if (activeStage == "lobby") {
-        addContestantInLobby(data);
+        addContestantInLobby(contestantData);
     }
     else {
-        addContestantInGame(data);
+        addContestantInGame(contestantData);
     }
 
-    let contestantId = data["id"]
-    playerScores[contestantId] = data["score"];
-    playerNames[contestantId] = data["name"];
-    playerColors[contestantId] = data["color"];
+    let contestantId = contestantData["id"]
+    playerScores[contestantId] = contestantData["score"];
+    playerNames[contestantId] = contestantData["name"];
+    playerColors[contestantId] = contestantData["color"];
 }
 
 function setPlayerReady(playerId) {

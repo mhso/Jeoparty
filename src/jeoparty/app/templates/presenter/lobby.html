@@ -54,14 +54,14 @@
         socket.on("connect", function() {
             socket.on("presenter_joined", function() {
                 hideConnectionStatus();
-                socket.on("contestant_joined", addContestantDiv);
+                socket.on("contestant_joined", (jsonData) => addContestantDiv(JSON.parse(jsonData)));
             });
 
             socket.emit("presenter_join", "{{ created_by }}");
         });
 
         {% for contestant in game_contestants %}
-        addContestantDiv(contestant);
+        addContestantDiv({{ contestant | tojson }});
         {% endfor %}
 
         window.onkeydown = function(e) {

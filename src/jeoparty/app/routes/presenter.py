@@ -342,7 +342,7 @@ def endscreen(game_data: Game):
             admin_id = data["intfar_disc_id"]
             token = data["intfar_user_id"]
 
-        request_json = {"winners": winners_json, "disc_id": admin_id, "token": token}
+        request_json = {"player_data": game_json["game_contestants"], "disc_id": admin_id, "token": token}
         response = requests.post(f"{base_url}/intfar/lan/jeopardy_winner", json=request_json)
         if response.status_code != 200:
             logger.bind(response=response.text, status=response.status_code).error(f"End of game request to Int-Far failed with status {response.status_code}")
@@ -366,4 +366,4 @@ def cheatsheet(game_data: Game):
         round_json = round_data.dump()
         all_round_data.append(round_json)
 
-    return render_locale_template("presenter/cheat_sheet.html", rounds=all_round_data)
+    return render_locale_template("presenter/cheatsheet.html", rounds=all_round_data)

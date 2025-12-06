@@ -1,64 +1,77 @@
 <style>
-    #menu-wrapper > img {
-        position: absolute;
+    .menu-champ-img {
+        position: fixed !important;
         pointer-events: none;
     }
 
     #menu-vi {
-        position: fixed !important;
-        bottom: 20px;
-        width: 320px;
-        left: 200px;
+        bottom: 0;
+        width: 16.6vw;
+        left: 10vw;
     }
 
     #menu-quinn {
-        position: fixed !important;
-        bottom: 20px;
-        right: 200px;
-        width: 320px;
+        bottom: 0;
+        right: 10vw;
+        width: 16.6vw;
     }
 
     #menu-teemo {
-        left: 15px;
-        height: 380px;
-        top: -80px
+        left: 24.5vw;
+        height: 36vh;
+        top: 32vh;
     }
 
     #menu-ivern {
-        right: -15px;
-        height: 430px;
-        top: -140px
+        right: 18.5vw;
+        height: 40vh;
+        top: 25vh;
     }
 
     #menu-alistar {
-        top: 440px;
-        width: 350px;
-        right: 100px
+        top: 36vh;
+        width: 18.2vw;
+        right: 5vw;
     }
 
     #menu-brand {
-        top: 0px;
-        right: -600px;
+        top: -6vh;
+        right: -9.8vw;
     }
 
     #menu-naafiri {
-        left: -600px;
-        top: 100px;
-        width: 1000px;
+        left: -9.8vw;
+        top: -3.8vh;
+        width: 52vw;
     }
 
     #menu-nidalee {
-        top: 520px;
+        top: 42.1vh;
         left: 20px;
-        width: 50%;
+        width: 28.6vw;
+    }
+
+    #lan-menu-snow {
+        position: fixed;
+        pointer-events: none;
+        overflow: hidden;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 90;
     }
 </style>
 
-<img id="menu-naafiri" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/naafiri_dance.gif') }}">
-<img id="menu-alistar" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/alistar_dance.gif') }}">
-<img id="menu-teemo" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/teemo_dance.gif') }}">
-<img id="menu-ivern" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/ivern_dance.gif') }}">
-<img id="menu-brand" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/brand_dance.gif') }}">
-<img id="menu-nidalee" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/nidalee_dance.gif') }}">
-<img id="menu-quinn" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/quinn_thonk.gif') }}">
-<img id="menu-vi" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/vi_point.gif') }}">
+<img id="menu-naafiri" class="menu-champ-img" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/naafiri_dance.gif') }}">
+<img id="menu-alistar" class="menu-champ-img" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/alistar_dance.gif') }}">
+<img id="menu-teemo" class="menu-champ-img" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/teemo_dance.gif') }}">
+<img id="menu-ivern" class="menu-champ-img" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/ivern_dance.gif') }}">
+<img id="menu-brand" class="menu-champ-img" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/brand_dance.gif') }}">
+<img id="menu-nidalee" class="menu-champ-img" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/nidalee_dance.gif') }}">
+<img id="menu-quinn" class="menu-champ-img" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/quinn_thonk.gif') }}">
+<img id="menu-vi" class="menu-champ-img" src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/vi_point.gif') }}">
+
+<video id="lan-menu-snow" autoplay loop muted>
+    <source src="{{ url_for('static', filename=theme['data_path'] + '/snow.webm') }}" type="video/webm">    
+</video>

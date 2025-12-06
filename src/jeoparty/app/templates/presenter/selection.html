@@ -75,6 +75,9 @@
         socket.on("connect", function() {
             socket.on("presenter_joined", function () {
                 hideConnectionStatus();
+
+                socket.on("contestant_joined", (jsonData) => addContestantDiv(JSON.parse(jsonData)));
+
                 window.onkeydown = function(e) {
                     {% if first_round %}
                     if (e.code == PRESENTER_ACTION_KEY) {

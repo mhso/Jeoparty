@@ -31,7 +31,7 @@ def _get_user_id_from_cookie(cookies) -> str:
 
 def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | str]:
     if "join_code" not in params:
-        return False, "Failed to join: Lobby ID is missing"
+        return False, "Failed to join: Join code is missing"
 
     if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
         file = flask.request.files["avatar"]
@@ -93,7 +93,13 @@ def _save_contestant_avatar(file: FileStorage, user_id: str):
 def join_lobby():
     database: Database = flask.current_app.config["DATABASE"]
 
-    success, contestant_model_or_error = _validate_join_params(flask.request.form)
+    user_id = flask.request.form.get("user_id")
+    params = dict(flask.request.form)
+
+    if user_id is not None:
+        params["id"] = user_id
+
+    success, contestant_model_or_error = _validate_join_params(params)
     join_code = flask.request.form.get("join_code")
 
     if not success:
@@ -103,7 +109,6 @@ def join_lobby():
         return flask.redirect(flask.url_for(".lobby", join_code=join_code, error=contestant_model_or_error, _external=True))
 
     contestant_model: Contestant = contestant_model_or_error
-    user_id = flask.request.form.get("user_id")
 
     with database:
         game_data = database.get_game_from_code(join_code)
@@ -115,6 +120,11 @@ def join_lobby():
         if game_data.password is not None and flask.request.form.get("password") != game_data.password:
             return flask.redirect(
                 flask.url_for(".lobby", join_code=join_code, error="Failed to join: Wrong password")
+            )
+
+        if game_data.stage == StageType.ENDED:
+            return flask.redirect(
+                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Game is over")
             )
 
         index = len(game_data.game_contestants)

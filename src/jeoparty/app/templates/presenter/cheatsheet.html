@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="UTF-8">
+</head>
+<body>
+    <div id="round-select-wrapper">
+        {% for round_data in rounds %}
+        <button onclick="showRoundView(event, {{ loop.index }})" class="round-button{% if loop.index0 == 0 %} selected{% endif %}">Round {{ loop.index }}</button>
+        {% endfor %}
+    </div>
+
+    {% for round_data in rounds %}
+    <div id="round-{{ loop.index }}" class="round-view{% if loop.index0 > 0 %} d-none{% endif %}">
+        {% for category_data in round_data["categories"] %}
+        <div class="accordion">
+            <button onclick="toggleAccordion(event);">{{ category_data["name"] }}</button>
+            <div>
+                {% for question_data in category_data["questions"] %}
+                <h2 class="category-header">{{ question_data["value"] }}</h2>
+                <div class="question-wrapper">
+                    {% if "question_image" in question_data["extra"] %}<img src="{{ url_for('static', _external=True, filename=question_data['extra']['question_image'] ) }}" height="150px">
+                    <br>
+                    {% endif %}
+                    <span class="emph">Question:</span> {{ question_data["question"] }}
+                    <br>
+                    <span class="emph">Answer:</span> {{ question_data["answer"] }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</body>
+<script>
+    function toggleAccordion(e) {
+        let parent = e.target.parentElement;
+        parent.classList.add("active");
+        let div = parent.children[1];
+        div.style.display = div.style.display == "block" ? "none" : "block";
+    }
+
+    function showRoundView(event, round) {
+        let roundViews = document.querySelectorAll(".round-view");
+        roundViews.forEach((elem) => {
+            elem.classList.add("d-none");
+        });
+
+        document.getElementById(`round-${round}`).classList.remove("d-none");
+
+        let roundButtons = document.querySelectorAll(".round-button");
+        roundButtons.forEach((elem) => {
+            elem.classList.remove("selected");
+        });
+
+        event.target.classList.add("selected");
+    }
+</script>
+<style>
+    html {
+        color: rgb(228, 228, 228);
+        background-color: #303030;
+    }
+
+    .d-none {
+        display: none;
+    }
+
+    .accordion {
+        width: 100vw;
+        max-width: 320px;
+        padding: 20px;
+        margin: 5px;
+    }
+
+    .accordion > div {
+        display: none;
+    }
+
+    .category-header {
+        margin-bottom: 0;
+    }
+
+    .question-wrapper {
+        border-bottom: 2px solid white;
+        padding: 20px 0;
+    }
+
+    .emph {
+        font-weight: 800;
+    }
+
+    .selected {
+        border: 2px solid #005ff4;
+    }
+</style>
+</html>
