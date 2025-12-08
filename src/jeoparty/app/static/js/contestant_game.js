@@ -1,6 +1,6 @@
 // Create socket bound to specific game ID.
 // 'game_id' is defined before this JS file is imported
-const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true});
+const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 10000});
 
 requestWakeLock();
 
@@ -115,7 +115,9 @@ function togglePowerUpsEnabled(playerId, powerIds, enabled) {
     });
 }
 
-function monitorGame(userId, localeData) {
+function monitorGame(userId, localeJson) {
+    let localeData = JSON.parse(localeJson);
+
     let buzzerActive = document.getElementById("buzzer-active");
     let buzzerInactive = document.getElementById("buzzer-inactive");
     let buzzerPressed = document.getElementById("buzzer-pressed");

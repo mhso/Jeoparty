@@ -1,5 +1,5 @@
 # Critical
-- [❌] Make stuff work on Safari
+- [✅] Make stuff work on Safari
 - [✅] Find a way to avoid contestant phones going idle
 - [✅] Create default contestant avatars
 - [❌] Create default contestant backgrounds

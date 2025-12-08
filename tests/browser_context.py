@@ -39,7 +39,8 @@ BROWSER_OPTIONS = {
     "headless": True
 }
 
-BROWSER = "chromium"
+PRESENTER_BROWSER = "chromium"
+CONTESTANT_BROWSER = "chromium"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
 PRESENTER_ACTION_KEY = "Space"
@@ -80,10 +81,10 @@ class ContextHandler:
         self.avatar_images = []
         self._browser_tasks = []
 
-    async def _create_browser(self, context: Playwright):
+    async def _create_browser(self, context: Playwright, browser: str):
         browser_options = dict(BROWSER_OPTIONS)
-        browser_options["args"] = BROWSER_OPTIONS["args"].get(BROWSER, [])
-        return await getattr(context, BROWSER).launch(**browser_options)
+        browser_options["args"] = BROWSER_OPTIONS["args"].get(browser, [])
+        return await getattr(context, browser).launch(**browser_options)
 
     async def _login_to_dashboard(self):
         page = await self.presenter_context.new_page()
@@ -226,7 +227,7 @@ class ContextHandler:
     async def _setup_contestant_browser(self):
         playwright_context = self.playwright_contexts[0]
 
-        browser = await self._create_browser(playwright_context)
+        browser = await self._create_browser(playwright_context, CONTESTANT_BROWSER)
         browser_context = await browser.new_context(
             viewport=CONTESTANT_VIEWPORT,
             is_mobile=True,
@@ -582,7 +583,7 @@ class ContextHandler:
     ):
         game_active = False
         for endpoint in ("question", "selection", "finale"):
-            if self.presenter_page.url.endswith(f"/{endpoint}"):
+            if self.presenter_page.url.endswith(f"/{endpoint}") or self.presenter_page.url.endswith(f"/{endpoint}/"):
                 game_active = True
                 break
 
@@ -871,6 +872,11 @@ class ContextHandler:
             for col, value in zip(columns, values):
                 assert await col.text_content() == str(value)
 
+    async def dump_source(self, page: Page):
+        html = await page.content()
+        with open("tests/source.html", "w", encoding="utf-8") as fp:
+            fp.write(html)
+
     async def screenshot_views(self, suffix: str | None = None):
         width = PRESENTER_VIEWPORT["width"]
         height = PRESENTER_VIEWPORT["height"] + CONTESTANT_VIEWPORT["height"]
@@ -988,7 +994,7 @@ class ContextHandler:
         await asyncio.sleep(3)
 
         # Create presenter browser and context
-        presenter_browser = await self._create_browser(self.playwright_contexts[0])
+        presenter_browser = await self._create_browser(self.playwright_contexts[0], PRESENTER_BROWSER)
         self.presenter_context = await presenter_browser.new_context(
             viewport=PRESENTER_VIEWPORT,
             record_video_dir=None if not self.record_video else VIDEO_RECORD_PATH,

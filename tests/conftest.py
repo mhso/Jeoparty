@@ -118,7 +118,10 @@ def _create_question_packs(database: Database):
 
         question_model_2_1_2 = Question(
             category_id=category_model_2_1.id,
-            question="Have you ever had a dream that where what he that where that?",
+            question=(
+                "Have you ever had a dream that where what he that where that "
+                "uhm where uhm that he could do so much that you could do anything?"
+            ),
             answer="I sure have, kid",
             value=400,
         )

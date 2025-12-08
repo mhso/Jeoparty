@@ -211,7 +211,7 @@ async def test_finale_wager_valid(database, locales):
                     hits=contestant.hits,
                     misses=contestant.misses,
                 )
-    
+
                 await context.assert_presenter_values(
                     contestant.id,
                     contestant.contestant.name,

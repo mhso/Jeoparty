@@ -42,51 +42,51 @@
         {% include theme['template_path'] + '/lobby.html' ignore missing %}
         {% include theme['template_path'] + '/global.html' ignore missing %}
         {% endif %}
-    </body>
-    
-    <script>
-        initialize(
-            {{ game_contestants | tojson }},
-            "{{ stage | safe }}",
-            {{ _locale | tojson }}
-        );
+        
+        <script>
+            initialize(
+                '{{ game_contestants | tojson }}',
+                "{{ stage | safe }}",
+                '{{ _locale | tojson }}'
+            );
 
-        socket.on("connect", function() {
-            socket.on("presenter_joined", function() {
-                hideConnectionStatus();
-                socket.on("contestant_joined", (jsonData) => addContestantDiv(JSON.parse(jsonData)));
+            socket.on("connect", function() {
+                socket.on("presenter_joined", function() {
+                    hideConnectionStatus();
+                    socket.on("contestant_joined", contestantJoined);
+                });
+
+                socket.emit("presenter_join", "{{ created_by }}");
             });
 
-            socket.emit("presenter_join", "{{ created_by }}");
-        });
+            {% for contestant in game_contestants %}
+            contestantJoined('{{ contestant | tojson }}');
+            {% endfor %}
 
-        {% for contestant in game_contestants %}
-        addContestantDiv({{ contestant | tojson }});
-        {% endfor %}
-
-        window.onkeydown = function(e) {
-            if (e.code == PRESENTER_ACTION_KEY) {
-                let audio = document.getElementById("menu-lobby-music");
-                if (audio != null) {
-                    if (audio.dataset.volume != null) {
-                        audio.volume = audio.dataset.volume;
-                    }
-
-                    audio.play();
-
-                    setTimeout(function() {
-                        window.onkeydown = function(e) {
-                            let contestants = document.querySelectorAll(".menu-contestant-entry");
-                            if (contestants.length > 0 && e.code == PRESENTER_ACTION_KEY) {
-                                beginJeopardy();
-                            }
+            window.onkeydown = function(e) {
+                if (e.code == PRESENTER_ACTION_KEY) {
+                    let audio = document.getElementById("menu-lobby-music");
+                    if (audio != null) {
+                        if (audio.dataset.volume != null) {
+                            audio.volume = audio.dataset.volume;
                         }
-                    }, 1000);
-                }
-                else {
-                    beginJeopardy();
+
+                        audio.play();
+
+                        setTimeout(function() {
+                            window.onkeydown = function(e) {
+                                let contestants = document.querySelectorAll(".menu-contestant-entry");
+                                if (contestants.length > 0 && e.code == PRESENTER_ACTION_KEY) {
+                                    beginJeopardy();
+                                }
+                            }
+                        }, 1000);
+                    }
+                    else {
+                        beginJeopardy();
+                    }
                 }
             }
-        }
-    </script>
+        </script>
+    </body>
 </html>

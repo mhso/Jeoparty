@@ -39,6 +39,7 @@ h1 {
 }
 
 #contestant-game-wrapper {
+    width: 100%;
     position: relative;
     padding: 0 10px;
     color: white;

@@ -41,28 +41,28 @@
         {% include theme['template_path'] + '/finale.html' ignore missing %}
         {% include theme['template_path'] + '/global.html' ignore missing %}
         {% endif %}
-    </body>
 
-    <script>
-        initialize(
-            {{ game_contestants | tojson }},
-            "{{ stage | safe }}",
-            {{ _locale | tojson }},
-        );
+        <script>
+            initialize(
+                '{{ game_contestants | tojson }}',
+                "{{ stage | safe }}",
+                '{{ _locale | tojson }}'
+            );
 
-        socket.on("connect", function() {
-            socket.on("presenter_joined", function () {
-                hideConnectionStatus();
+            socket.on("connect", function() {
+                socket.on("presenter_joined", function () {
+                    hideConnectionStatus();
+                });
+
+                socket.emit("presenter_join", "{{ created_by }}");
             });
 
-            socket.emit("presenter_join", "{{ created_by }}");
-        });
-
-        window.onkeydown = function(e) {
-            if (e.code == PRESENTER_ACTION_KEY) {
-                document.activeElement.blur();
-                showFinaleResult();
+            window.onkeydown = function(e) {
+                if (e.code == PRESENTER_ACTION_KEY) {
+                    document.activeElement.blur();
+                    showFinaleResult();
+                }
             }
-        }
-    </script>
+        </script>
+    </body>
 </html>

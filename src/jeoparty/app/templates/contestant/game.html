@@ -153,7 +153,7 @@
                         pingActive = true;
                         sendPingMessage("{{ user_id }}");
                         animateWaitingText();
-                        monitorGame("{{ user_id }}", {{ _locale | tojson }});
+                        monitorGame("{{ user_id }}", '{{ _locale | tojson }}');
     
                         {% if first_round %}
                         socket.on("turn_chosen", function(userId) {

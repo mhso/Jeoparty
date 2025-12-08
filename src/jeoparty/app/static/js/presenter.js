@@ -1,6 +1,6 @@
 // Create socket bound to a namespace for a specific game ID.
 // 'GAME_ID' is defined before this JS file is imported
-const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true});
+const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 10000});
 socket.on("connect_error", function(err) {
     console.error("Socket connection error:", err);
 });
@@ -193,6 +193,22 @@ function undoAnswer(playerId, currAnswer=null) {
 
 function isCtrlZHeld(event) {
     return event.ctrlKey && event.key == "z";
+}
+
+function setPlayerTurn(playerId, save) {
+    let playerEntries = document.querySelectorAll(".footer-contestant-entry");
+    playerEntries.forEach((entry) => {
+        entry.classList.remove("active-contestant-entry");
+    });
+
+    if (playerId != null) {
+        let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
+        playerEntry.classList.add("active-contestant-entry");
+    }
+
+    if (save) {
+        playerTurn = playerId;
+    }
 }
 
 function afterQuestion() {
@@ -994,7 +1010,12 @@ function scaleAnswerChoices() {
     }
 }
 
-function initialize(playerData, stage, localeData, pageSpecificData=null) {
+function initialize(playerJson, stage, localeJson, pageSpecificJson=null) {
+    let playerData = JSON.parse(playerJson);
+    let pageSpecificData = pageSpecificJson == null ? null : JSON.parse(pageSpecificJson);
+
+    localeStrings = JSON.parse(localeJson);
+
     playerData.forEach((data) => {
         let playerId = data["id"];
         playerIds.push(playerId);
@@ -1007,7 +1028,6 @@ function initialize(playerData, stage, localeData, pageSpecificData=null) {
         }
     });
 
-    localeStrings = localeData;
     activeStage = stage;
     if (pageSpecificData) {
         activeAnswer = pageSpecificData["answer"];
@@ -1133,24 +1153,6 @@ function setContestantTextSizeAndColors() {
     }
 }
 
-function setPlayerTurn(playerId, save) {
-    let playerEntries = document.querySelectorAll(".footer-contestant-entry");
-    playerEntries.forEach((entry) => {
-        if (entry.classList.contains("active-contestant-entry")) {
-            entry.classList.remove("active-contestant-entry");
-        }
-    });
-
-    if (playerId != null) {
-        let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
-        playerEntry.classList.add("active-contestant-entry");
-    }
-
-    if (save) {
-        playerTurn = playerId;
-    }
-}
-
 function chooseStartingPlayer(callback) {
     let playerEntries = document.getElementsByClassName("footer-contestant-entry");
     let minIters = 20;
@@ -1194,16 +1196,16 @@ function addContestantInGame(contestantData) {
 
     let div = existingDiv != null ? existingDiv : document.createElement("div");
 
-    div.className = `footer-contestant-entry ${classId}`;
-    div.style.backgroundColor = contestantData["color"];
-    div.onmouseenter = function() {
-        revealContestantEditBtn(id);
-    }
-    div.onmouseleave = function() {
-        hideContestantEditBtn(id);
-    }
-
     if (existingDiv == null) {
+        div.className = `footer-contestant-entry ${classId}`;
+        div.style.backgroundColor = contestantData["color"];
+        div.onmouseenter = function() {
+            revealContestantEditBtn(id);
+        }
+        div.onmouseleave = function() {
+            hideContestantEditBtn(id);
+        }
+
         // Create buzzes div
         let buzzElem = document.createElement("div");
         buzzElem.className = "footer-contestant-buzzes";
@@ -1229,7 +1231,7 @@ function addContestantInGame(contestantData) {
 
         let scoreElem = document.createElement("div");
         scoreElem.className = "footer-contestant-entry-score";
-        scoreElem.textContent = contestantData["score"];
+        scoreElem.textContent = `${contestantData["score"]} points`;
 
         headerElem.appendChild(nameElem);
         headerElem.appendChild(scoreElem);
@@ -1303,7 +1305,7 @@ function addContestantInGame(contestantData) {
         nameElem.textContent = contestantData["name"];
 
         let scoreElem = div.querySelector(".footer-contestant-entry-score");
-        scoreElem.textContent = contestantData["score"];
+        scoreElem.textContent = `${contestantData["score"]} points`;
  
         let avatarElem = div.querySelector(".footer-contestant-entry-avatar");
         avatarElem.src = `${getBaseURL()}/static/${avatar}`;
@@ -1323,11 +1325,12 @@ function addContestantInLobby(contestantData) {
     let existingDiv = document.getElementById(divId);
     let div = existingDiv != null ? existingDiv : document.createElement("div");
 
-    div.id = divId;
-    div.className = "menu-contestant-entry";
     div.style.border = "2px solid " + contestantData["color"];
 
     if (existingDiv == null) {
+        div.id = divId;
+        div.className = "menu-contestant-entry";
+
         let avatarElem = document.createElement("img");
         avatarElem.className = "menu-contestant-avatar";
         avatarElem.style.border = "2px solid " + contestantData["color"];
@@ -1351,8 +1354,9 @@ function addContestantInLobby(contestantData) {
     }
 }
 
-function addContestantDiv(contestantData) {
-    console.log("Adding player:", contestantData);
+function contestantJoined(contestantJson) {
+    let contestantData = JSON.parse(contestantJson);
+
     if (activeStage == "lobby") {
         addContestantInLobby(contestantData);
     }

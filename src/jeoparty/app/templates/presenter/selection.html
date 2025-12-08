@@ -61,57 +61,57 @@
         {% include theme['template_path'] + '/selection.html' ignore missing %}
         {% include theme['template_path'] + '/global.html' ignore missing %}
         {% endif %}
-    </body>
 
-    <script>
-        initialize(
-            {{ game_contestants | tojson }},
-            "{{ stage | safe }}",
-            {{ _locale | tojson }},
-        );
+        <script>
+            initialize(
+                '{{ game_contestants | tojson }}',
+                "{{ stage | safe }}",
+                '{{ _locale | tojson }}'
+            );
 
-        const arrowKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
+            const arrowKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
 
-        socket.on("connect", function() {
-            socket.on("presenter_joined", function () {
-                hideConnectionStatus();
+            socket.on("connect", function() {
+                socket.on("presenter_joined", function () {
+                    hideConnectionStatus();
 
-                socket.on("contestant_joined", (jsonData) => addContestantDiv(JSON.parse(jsonData)));
+                    window.onkeydown = function(e) {
+                        {% if first_round %}
+                        if (e.code == PRESENTER_ACTION_KEY) {
+                            let startSound = document.getElementById("selection-start-sound");
+                            if (startSound != null) {
+                                startSound.volume = 0.3;
+                                startSound.play();
+                            }
 
-                window.onkeydown = function(e) {
-                    {% if first_round %}
-                    if (e.code == PRESENTER_ACTION_KEY) {
-                        let startSound = document.getElementById("selection-start-sound");
-                        if (startSound != null) {
-                            startSound.volume = 0.3;
-                            startSound.play();
-                        }
-
-                        chooseStartingPlayer(function(playerId) {
-                            setPlayerTurn(playerId, true);
-                            document.querySelectorAll(".selection-question-box").forEach((elem) => {
-                                elem.classList.remove("inactive");
+                            chooseStartingPlayer(function(playerId) {
+                                setPlayerTurn(playerId, true);
+                                document.querySelectorAll(".selection-question-box").forEach((elem) => {
+                                    elem.classList.remove("inactive");
+                                });
+                                socket.emit("first_turn", playerId);
                             });
-                            socket.emit("first_turn", playerId);
-                        });
-                    }
+                        }
+                        {% endif %}
+                        if (arrowKeys.includes(e.code)) {
+                            tabulateCategorySelection(e.code, {{ categories | length - 1 }});
+                        }
+                        else if (e.code == "Enter") {
+                            goToSelectedCategory();
+                        }
+                    };
+                    {% if stage == "selection" and not first_round %}
+                    setPlayerTurn("{{ player_with_turn['id'] }}", false);
+                    {% elif stage == "finale_wager" %}
+                    showFinaleCategory();
+                    socket.on("contestant_ready", setPlayerReady);
                     {% endif %}
-                    if (arrowKeys.includes(e.code)) {
-                        tabulateCategorySelection(e.code, {{ categories | length - 1 }});
-                    }
-                    else if (e.code == "Enter") {
-                        goToSelectedCategory();
-                    }
-                };
-                {% if stage == "selection" and not first_round %}
-                setPlayerTurn("{{ player_with_turn['id'] }}");
-                {% elif stage == "finale_wager" %}
-                showFinaleCategory();
-                socket.on("contestant_ready", setPlayerReady);
-                {% endif %}
-            });
 
-            socket.emit("presenter_join", "{{ created_by }}");
-        });
-    </script>
+                    socket.on("contestant_joined", contestantJoined);
+                });
+
+                socket.emit("presenter_join", "{{ created_by }}");
+            });
+        </script>
+    </body>
 </html>

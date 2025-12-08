@@ -43,85 +43,87 @@
         {% include theme['template_path'] + '/question.html' ignore missing %}
         {% include theme['template_path'] + '/global.html' ignore missing %}
         {% endif %}
-    </body>
 
-    <!-- Buzzer sound -->
-    <audio id="question-buzzer-sound">
-        <source src="{{ url_for('static', _external=True, filename='data/sounds/buzzer.mp3') }}" type="audio/mpeg">
-    </audio>
+        <!-- Buzzer sound -->
+        <audio id="question-buzzer-sound">
+            <source src="{{ url_for('static', _external=True, filename='data/sounds/buzzer.mp3') }}" type="audio/mpeg">
+        </audio>
 
-    <!-- Buzz-in sounds for contestants -->
-    {% for contestant in game_contestants %}
-    {% if contestant.buzz_sound %}
-    <audio id="question-buzzer-{{ contestant['contestant_id'] }}">
-        <source src="{{ url_for('static', _external=True, filename=contestant['buzz_sound']) }}" type="audio/mpeg">
-    </audio>
-    {% endif %}
-    {% endfor %}
-    <!-- Correct/wrong answers sounds -->
-    {% if stage == "question" %}
-    <audio id="question-sound-correct">
-        <source src="{{ url_for('static', _external=True, filename=correct_sound) }}" type="audio/mpeg">
-    </audio>
-    {% for sound_file in wrong_sounds %}
-    <audio class="question-sound-wrong">
-        <source src="{{ url_for('static', _external=True, filename=sound_file) }}" type="audio/mpeg">
-    </audio>
-    {% endfor %}
-    {% else %}
-    <audio id="question-finale-suspense" class="volume-7">
-        <source src="{{ url_for('static', _external=True, filename='data/sounds/suspense.mp3') }}" type="audio/mpeg">
-    </audio>
-    {% endif %}
+        <!-- Buzz-in sounds for contestants -->
+        {% for contestant in game_contestants %}
+        {% if contestant.buzz_sound %}
+        <audio id="question-buzzer-{{ contestant['contestant_id'] }}">
+            <source src="{{ url_for('static', _external=True, filename=contestant['buzz_sound']) }}" type="audio/mpeg">
+        </audio>
+        {% endif %}
+        {% endfor %}
+        <!-- Correct/wrong answers sounds -->
+        {% if stage == "question" %}
+        <audio id="question-sound-correct">
+            <source src="{{ url_for('static', _external=True, filename=correct_sound) }}" type="audio/mpeg">
+        </audio>
+        {% for sound_file in wrong_sounds %}
+        <audio class="question-sound-wrong">
+            <source src="{{ url_for('static', _external=True, filename=sound_file) }}" type="audio/mpeg">
+        </audio>
+        {% endfor %}
+        {% else %}
+        <audio id="question-finale-suspense" class="volume-7">
+            <source src="{{ url_for('static', _external=True, filename='data/sounds/suspense.mp3') }}" type="audio/mpeg">
+        </audio>
+        {% endif %}
 
-    <script>
-        initialize(
-            {{ game_contestants | tojson }},
-            "{{ stage | safe }}",
-            {{ _locale | tojson }},
-            {{ question_ui_data | tojson }},
-        );
+        <script>
+            initialize(
+                '{{ game_contestants | tojson }}',
+                "{{ stage | safe }}",
+                '{{ _locale | tojson }}',
+                '{{ question_ui_data | tojson }}'
+            );
 
-        socket.on("connect", function() {
-            socket.on("presenter_joined", function () {
-                hideConnectionStatus();
-                socket.on("buzz_received", addBuzzToFeed);
-                socket.on("buzz_winner", playerBuzzedFirst);
-                socket.on("power_up_used", powerUpUsed);
-                socket.on("contestant_joined", (jsonData) => addContestantDiv(JSON.parse(jsonData)));
+            socket.on("connect", function() {
+                socket.on("presenter_joined", function () {
+                    hideConnectionStatus();
+                    socket.on("buzz_received", addBuzzToFeed);
+                    socket.on("buzz_winner", playerBuzzedFirst);
+                    socket.on("power_up_used", powerUpUsed);
 
-                {% if daily_double %}
-                document.getElementById("question-wager-wrapper").classList.remove("d-none");
-                socket.on("daily_wager_made", function(amount) {
-                    afterDailyDoubleWager(amount);
+                    {% if daily_double %}
+                    document.getElementById("question-wager-wrapper").classList.remove("d-none");
+                    socket.on("daily_wager_made", function(amount) {
+                        afterDailyDoubleWager(amount);
+                    });
+
+                    {% else %}
+                    window.onkeydown = function(e) {
+                        if (e.code == PRESENTER_ACTION_KEY) {
+                            showQuestion();
+                            {% if stage == 'finale_question' %}
+                            setTimeout(function() {
+                                socket.emit("enable_finale_answer");
+                            }, 2000);
+                            {% endif %}
+                        }
+                    }
+                    {% endif %}
+
+                    {% if not daily_double and stage == "finale_question" %}
+                    {% for contestant_data in game_contestants %}
+                        {% if contestant_data["finale_wager"] == 0 %}
+                        setPlayerReady('{{ contestant_data["id"] }}');
+                        {% endif %}
+                    {% endfor %}
+                    socket.on("contestant_ready", setPlayerReady);
+                    {% endif %}
+
+                    socket.on("contestant_joined", contestantJoined);
                 });
 
-                {% else %}
-                window.onkeydown = function(e) {
-                    if (e.code == PRESENTER_ACTION_KEY) {
-                        showQuestion();
-                        {% if stage == 'finale_question' %}
-                        setTimeout(function() {
-                            socket.emit("enable_finale_answer");
-                        }, 2000);
-                        {% endif %}
-                    }
-                }
-                {% endif %}
-
-                {% if not daily_double and stage == "finale_question" %}
-                {% for contestant_data in game_contestants %}
-                    {% if contestant_data["finale_wager"] == 0 %}
-                    setPlayerReady('{{ contestant_data["id"] }}');
-                    {% endif %}
-                {% endfor %}
-                socket.on("contestant_ready", setPlayerReady);
-                {% endif %}
+                socket.emit("presenter_join", "{{ created_by }}");
             });
 
-            socket.emit("presenter_join", "{{ created_by }}");
-        });
+            placeAnswerImageIfPresent();
+        </script>
 
-        placeAnswerImageIfPresent();
-    </script>
+    </body>
 </html>
