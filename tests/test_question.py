@@ -326,23 +326,7 @@ async def test_simultaneous_buzzes(database, locales):
             assert len(pending) == 0
 
             # Find who buzzed the fastest
-            part_1 = r"\s".join(locale['game_feed_buzz_1'].split(" "))
-            part_2 = r"\s".join(locale['game_feed_buzz_2'].split(" "))
-            regex = re.compile(r"(.+)\s" + part_1 + r"\s(\d{1,3}\.\d{2})\s" + part_2)
-
-            buzz_feed_elem = await context.presenter_page.query_selector_all("#question-game-feed > ul > li")
-            fastest_contestant = None
-            fastest_duration = 100
-            for entry in buzz_feed_elem:
-                text = await entry.text_content()
-                match = regex.match(text.strip())
-                name = match[1]
-                duration = float(match[2])
-
-                for contestant in game_data.game_contestants:
-                    if contestant.contestant.name == name and duration < fastest_duration:
-                        fastest_contestant = contestant
-                        fastest_duration = duration
+            fastest_contestant = (await context.find_buzz_winner(game_data.game_contestants, locale))[0]
 
             # Assert that the fastest contestant won the buzz
             for contestant in game_data.game_contestants:

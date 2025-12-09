@@ -410,6 +410,27 @@ class ContextHandler:
 
         await self.wait_for_event(hits_or_misses_incremented)
 
+    async def find_buzz_winner(self, contestants: List[GameContestant], locale: Dict[str, str]):
+        part_1 = r"\s".join(locale['game_feed_buzz_1'].split(" "))
+        part_2 = r"\s".join(locale['game_feed_buzz_2'].split(" "))
+        regex = re.compile(r"(.+)\s" + part_1 + r"\s(\d{1,3}\.\d{2})\s" + part_2)
+
+        buzz_feed_elem = await self.presenter_page.query_selector_all("#question-game-feed > ul > li")
+        fastest_contestant = None
+        fastest_duration = 100
+        for entry in buzz_feed_elem:
+            text = await entry.text_content()
+            match = regex.match(text.strip())
+            name = match[1]
+            duration = float(match[2])
+
+            for contestant in contestants:
+                if contestant.contestant.name == name and duration < fastest_duration:
+                    fastest_contestant = contestant
+                    fastest_duration = duration
+
+        return fastest_contestant, fastest_duration
+
     async def hit_buzzer(self, contestant_id: str):
         page = self.contestant_pages[contestant_id]
 
