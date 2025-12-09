@@ -11,6 +11,7 @@ from typing import Dict, List, Literal, Tuple
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
+from playwright.async_api import TimeoutError as PlaywrightTimeout
 from PIL import Image
 from sqlalchemy import Enum
 
@@ -241,6 +242,13 @@ class ContextHandler:
 
         return browser_context, page
 
+    @asynccontextmanager
+    async def wait_for_event_context_manager(self, event):
+        try:
+            yield
+        finally:
+            await self.wait_for_event(event)
+
     async def join_lobby(
         self,
         join_code: str,
@@ -277,8 +285,13 @@ class ContextHandler:
         join_button = await contestant_page.query_selector("#contestant-lobby-join")
 
         # Wait for the lobby page to load
-        async with contestant_page.expect_navigation(wait_until="domcontentloaded"):
-            await join_button.click()
+        try:
+            async with contestant_page.expect_navigation(wait_until="domcontentloaded", timeout=10000):
+                await join_button.click()
+        except PlaywrightTimeout:
+            error_elem = await contestant_page.query_selector("#contestant-lobby-error")
+            if await error_elem.is_hidden():
+                raise
 
         # Get contestant ID from cookie after they joined the lobby
         cookies = await contestant_page.context.cookies()
@@ -299,13 +312,6 @@ class ContextHandler:
         self.contestant_pages[contestant_id] = contestant_page
 
         return contestant_page, contestant_id
-
-    @asynccontextmanager
-    async def wait_for_event_context_manager(self, event):
-        try:
-            yield
-        finally:
-            await self.wait_for_event(event)
 
     async def wait_until_ready(self, wait_for_socket: bool = True):
         """

@@ -6,7 +6,7 @@
         <div id="contestant-lobby-wrapper">
             <h1>{{ _locale["welcome_header"] }}</h1>
 
-            <form action="{{ url_for('contestant.join_lobby', _external=True) }}" method="post" enctype="multipart/form-data" onsubmit="return validateForm();">
+            <form id="contestant-join-form" action="{{ url_for('contestant.join_lobby', _external=True) }}" method="post" enctype="multipart/form-data" onsubmit="return joinGame(event);">
                 <div id="contestant-lobby-avatar-wrapper">
                     {% if is_default_avatar %}
                     <input id="contestant-lobby-default-avatar" type="hidden" name="default_avatar" value="1">
@@ -25,18 +25,16 @@
                 <input id="contestant-lobby-password" name="password" type="password">
                 {% endif %}
                 
-                {% if id %}
-                <input name="user_id" type="hidden" value="{{ id }}">
-                {% endif %}
                 <input id="contestant-lobby-code" name="join_code" type="hidden" value="{{ join_code }}">
+
+                <!-- Optional parameters -->
+                {% if id %}<input name="user_id" type="hidden" value="{{ id }}">{% endif %}
     
                 <input id="contestant-lobby-join" type="submit" value="{{ _locale['join'] }}">
             </form>
         </div>
 
-        {% if error %}
-        <div id="contestant-lobby-error">{{ error }}</div>
-        {% endif %}
+        <div id="contestant-lobby-error" {% if not error %}class="d-none"{% endif %}>{{ error }}</div>
     </body>
     
     {% if not color %}

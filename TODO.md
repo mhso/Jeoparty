@@ -10,7 +10,7 @@
 - [✴️] Test themes
 - [✅] Test rewind power-up
 - [✅] Test hijack power-up
-- [❌] Test a full-game playthrough with pseduo-random actions
+- [✴️] Test a full-game playthrough with pseduo-random actions
 
 # Julequiz
 - [✅] Create christmas-themed backgrounds for contestants

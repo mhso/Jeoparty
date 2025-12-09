@@ -74,3 +74,9 @@ def get_locale_data():
            locale_data[lang] = json.load(fp)
 
     return locale_data
+
+def file_or_fallback(file: str, fallback: str, condition: bool):
+    if condition and os.path.exists(f"{Config.STATIC_FOLDER}/{file}"):
+        return file
+    
+    return fallback

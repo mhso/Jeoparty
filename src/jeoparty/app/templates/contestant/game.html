@@ -43,7 +43,7 @@
                 {% if stage == "finale_question" %}
                 <h2 class="contestant-round-header">{{ round_name }}</h2>
                 {% else %}
-                <h2 class="contestant-round-header">{{ _locale["question_header"] }} {{ question_num }}/{{ total_questions }}</h2>
+                <h2 class="contestant-round-header">{{ _locale["question_header"] }} {{ question_num }}/{{ num_questions_in_round }}</h2>
                 {% endif %}
 
                 {% if stage == "question" or stage == "finale_question" %}

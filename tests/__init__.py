@@ -43,6 +43,9 @@ async def create_game(
     join_in_parallel: bool = True,
     **game_params
 ):
+    if "contestants" not in game_params:
+        game_params["contestants"] = len(contestant_names)
+
     game_id = (await context.create_game(pack_name, **game_params))[1]
     game_stmt = select(Game).where(Game.id == game_id)
     game_data = session.execute(game_stmt).scalar_one()

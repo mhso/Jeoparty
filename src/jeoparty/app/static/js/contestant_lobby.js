@@ -92,15 +92,44 @@ function getRenderedColor(color) {
     return elem.style.color.replace(/\s+/,'').toLowerCase();
 }
 
-function validateForm() {
+function joinGame(event) {
+    event.preventDefault();
     requestWakeLock();
 
     let color = document.getElementById("contestant-lobby-color").value;
+    let errorMsg = document.getElementById("contestant-lobby-error");
 
     if (!getRenderedColor(color)) {
-        alert(`Invalid color: '${color}', please provide a valid color.`);
+        errorMsg.textContent = `Invalid color: '${color}', please provide a valid color.`;
+        errorMsg.classList.remove("d-none");
         return false;
     }
 
-    return true;
+    let form = document.getElementById("contestant-join-form");
+    let formData = new FormData(form);
+
+    $.ajax(
+        form.action,
+        {
+            data: formData,
+            method: "POST",
+            contentType: false,
+            processData: false,
+        }
+    ).done(function(response) {
+        window.location.href = response["redirect"];
+    }).fail(function(response) {
+        let message;
+        if (Object.hasOwn(response, "responseJSON")) {
+            message = JSON.parse(response["responseText"])["error"];
+        }
+        else {
+            message = "An unknown error occured, try again later."
+        }
+
+        errorMsg.textContent = message;
+        errorMsg.classList.remove("d-none");
+    });
+
+    return false;
 }

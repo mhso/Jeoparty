@@ -1,8 +1,8 @@
 // Create socket bound to a namespace for a specific game ID.
 // 'GAME_ID' is defined before this JS file is imported
-const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 10000});
+const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 15000});
 socket.on("connect_error", function(err) {
-    console.error("Socket connection error:", err);
+    console.error("Presenter socket connection error:", err);
 });
 
 const TIME_FOR_DOUBLE_ANSWER = 10;
@@ -278,7 +278,6 @@ function correctAnswer() {
     activePowerUp = null;
 
     let elem = document.getElementById("question-answer-correct");
-
     let valueElem = elem.getElementsByClassName("question-answer-value").item(0);
 
     // Reduce the value of the question if tips are shown
@@ -432,8 +431,17 @@ function answerQuestion(event) {
     if (keyIsNumeric(event.key, 1, Math.max(choices, 2))) {
         if (choices) {
             // Highlight element as having been selected as the answer.
-            const delay = 2500
             const elem = document.querySelector(".question-choice-" + event.key);
+
+            if (
+                elem.classList.contains("question-answering")
+                || elem.classList.contains("question-answered-wrong")
+                || elem.classList.contains("question-answered-correct")
+            ) {
+                return;
+            }
+
+            const delay = 2500
             const answerElem = elem.querySelector(".question-choice-text");
             elem.classList.add("question-answering");
 

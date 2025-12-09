@@ -14,9 +14,9 @@ import flask
 from mhooge_flask.routing import make_template_context
 from mhooge_flask.database import Base
 
-from jeoparty.api.config import Config, get_theme_path
+from jeoparty.api.config import Config, get_theme_path, file_or_fallback
 from jeoparty.api.enums import Language
-from jeoparty.api.orm.models import Game, Question, QuestionPack
+from jeoparty.api.orm.models import Game, Question, Theme
 
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
@@ -45,22 +45,27 @@ def dump_game_to_json(game_data: Game):
 
     return game_json
 
-def get_question_answer_sounds(pack: QuestionPack, max_contestants: int):
-    if pack.theme_id:
+def get_question_answer_sounds(theme: Theme, max_contestants: int):
+    default_correct = "data/sounds/correct_answer.mp3"
+    if theme:
         correct_sounds = [
-            f"{get_theme_path(pack.theme_id, False)}/sounds/{sound.filename}"
-            for sound in pack.theme.buzzer_sounds
+            f"{get_theme_path(theme.id, False)}/sounds/{sound.filename}"
+            for sound in theme.buzzer_sounds
             if sound.correct
         ]
-        correct_sound = random.choice(correct_sounds)
+        if correct_sounds == []:
+            correct_sound = default_correct
+        else:
+            correct_sound = random.choice(correct_sounds)
     else:
         # Get default correct answer sound
-        correct_sound = "data/sounds/correct_answer.mp3"
+        correct_sound = default_correct
 
-    if pack.theme_id:
+    default_wrong = "data/sounds/wrong_answer.mp3"
+    if theme:
         wrong_sounds = [
-            f"{get_theme_path(pack.theme_id, False)}/sounds/{sound.filename}"
-            for sound in pack.theme.buzzer_sounds
+            f"{get_theme_path(theme.id, False)}/sounds/{sound.filename}"
+            for sound in theme.buzzer_sounds
             if not sound.correct
         ]
     else:
@@ -70,63 +75,32 @@ def get_question_answer_sounds(pack: QuestionPack, max_contestants: int):
     # if we don't have enough custom ones
     if len(wrong_sounds) < max_contestants:
         # Add default wrong answer sound
-        wrong_sounds = wrong_sounds + ["data/sounds/wrong_answer.mp3" for _ in range(max_contestants - len(wrong_sounds))]
+        wrong_sounds = wrong_sounds + [default_wrong for _ in range(max_contestants - len(wrong_sounds))]
 
     random.shuffle(wrong_sounds)
     wrong_sounds = wrong_sounds[:max_contestants]
 
     return correct_sound, wrong_sounds
 
-def get_question_answer_images(pack: QuestionPack):
-    if pack.theme_id:
-        data_path = get_theme_path(pack.theme_id, False)
+def get_question_answer_images(theme: Theme):
+    if theme:
+        data_path = get_theme_path(theme.id, False)
     else:
         data_path = None
 
-    if data_path is not None and os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "correct_answer.png")):
-        correct_image = f"{data_path}/correct_answer.png"
-    else:
-        correct_image = "img/check.png"
+    correct_image = file_or_fallback(
+        f"{data_path}/correct_answer.png",
+        "img/check.png",
+        data_path is not None,
+    )
 
-    if data_path is not None and os.path.exists(os.path.join(Config.STATIC_FOLDER, data_path, "wrong_answer.png")):
-        wrong_image = f"{data_path}/wrong_answer.png"
-    else:
-        wrong_image = "img/error.png"
+    wrong_image = file_or_fallback(
+        f"{data_path}/wrong_answer.png",
+        "img/error.png",
+        data_path is not None,
+    )
 
     return correct_image, wrong_image
-
-def render_question_template(game_data: Game, question: Question, daily_double: bool = False):
-    question_json = question.dump(id="question_id")
-    question_json["daily_double"] = daily_double
-
-    del question_json["game_questions"]
-
-    # If question is multiple-choice, randomize order of choices
-    if "choices" in question_json["extra"]:
-        random.shuffle(question_json["extra"]["choices"])
-
-    # Get images for when questiton is answered correctly or wrong
-    correct_image, wrong_image = get_question_answer_images(game_data.pack)
-
-    # Get random sounds that plays for correct/wrong answers
-    correct_sound, wrong_sounds = get_question_answer_sounds(game_data.pack, game_data.max_contestants)
-
-    round_name = game_data.pack.rounds[game_data.round - 1].name
-
-    # Get game JSON data with nested contestant data
-    game_json = dump_game_to_json(game_data)
-
-    return render_locale_template(
-        "presenter/question.html",
-        game_data.pack.language,
-        correct_image=correct_image,
-        wrong_image=wrong_image,
-        correct_sound=correct_sound,
-        wrong_sounds=wrong_sounds,
-        round_name=round_name,
-        **game_json,
-        **question_json,
-    )
 
 T = TypeVar("T", bound="Base")
 

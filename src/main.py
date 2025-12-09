@@ -3,6 +3,7 @@ import json
 from os.path import basename
 from glob import glob
 import gevent
+from multiprocessing import Lock
 
 from mhooge_flask.logging import logger
 from mhooge_flask import init
@@ -40,6 +41,7 @@ def run_app(args):
         persistent_variables={"app_name": app_name.capitalize()},
         exit_code=0,
         locales=locale_data,
+        join_lock=Lock(),
     )
 
     ports_file = f"{Config.PROJECT_FOLDER}/../flask_ports.json"

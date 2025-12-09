@@ -14,6 +14,7 @@ from jeoparty.api.config import (
     get_theme_path,
     get_question_pack_data_path,
     get_buzz_sound_path,
+    file_or_fallback,
 )
 
 power_up_order_case = {power_up.name: index for index, power_up in enumerate(PowerUpType)}
@@ -197,7 +198,11 @@ class GamePowerUp(Base):
         icon = f"{self.type.value}_power.png"
 
         return {
-            "icon": f"img/{icon}" if not theme_id else f"{get_theme_path(theme_id, False)}/{icon}"
+            "icon": file_or_fallback(
+                f"{get_theme_path(theme_id, False)}/{icon}",
+                f"img/{icon}",
+                theme_id is not None
+            )
         }
 
 class GameContestant(Base):
@@ -318,13 +323,17 @@ class Game(Base):
         power_videos = {}
         for power_up in PowerUpType:
             video = f"{power_up.value}_power_used"
-            power_videos[power_up.value] = f"img/{video}_{language}.webm" if not theme_id else f"{get_theme_path(theme_id, False)}/{video}.webm"
+            power_videos[power_up.value] = file_or_fallback(
+                f"{get_theme_path(theme_id, False)}/{video}.webm",
+                f"img/{video}_{language}.webm",
+                theme_id is not None
+            )
 
         return {
             "total_rounds": self.regular_rounds + 1 if self.pack and self.pack.include_finale else self.regular_rounds,
             "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
-            "question_num": sum(1 if gq.used else 0 for gq in self.game_questions) + 1,
+            "question_num": sum(1 if gq.used else 0 for gq in questions_for_round) + 1 if questions_for_round else 1,
             "created_by": self.created_by,
             "started_at": self.started_at.strftime("%Y-%m-%d %H:%M:%S"),
             "ended_at": None if not self.ended_at else self.ended_at.strftime("%Y-%m-%d %H:%M:%S"),

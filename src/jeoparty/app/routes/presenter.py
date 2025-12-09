@@ -135,8 +135,8 @@ def question(game_data: Game):
     database.save_game(game_data)
 
     # Get images and sounds for when questions are answered correctly/wrong
-    correct_image, wrong_image = get_question_answer_images(game_data.pack)
-    correct_sound, wrong_sounds = get_question_answer_sounds(game_data.pack, game_data.max_contestants)
+    correct_image, wrong_image = get_question_answer_images(game_data.pack.theme)
+    correct_sound, wrong_sounds = get_question_answer_sounds(game_data.pack.theme, game_data.max_contestants)
 
     round_name = game_data.pack.rounds[game_data.round - 1].name
     game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")

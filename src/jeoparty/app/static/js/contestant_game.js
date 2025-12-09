@@ -1,6 +1,9 @@
 // Create socket bound to specific game ID.
 // 'game_id' is defined before this JS file is imported
-const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 10000});
+const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 15000});
+socket.on("connect_error", function(err) {
+    console.error("Contestant socket connection error:", err);
+});
 
 requestWakeLock();
 
@@ -52,6 +55,10 @@ function pressBuzzer(playerId) {
     document.getElementById("buzzer-pressed").classList.remove("d-none");
 
     socket.emit("buzzer_pressed", playerId);
+
+    if (wakeLock == null) {
+        requestWakeLock();
+    }
 }
 
 function resetBuzzerStatusImg(elem) {

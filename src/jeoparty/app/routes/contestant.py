@@ -6,7 +6,7 @@ from typing import Any, Dict, Tuple
 import flask
 from werkzeug.datastructures import FileStorage
 
-from mhooge_flask.routing import make_template_context
+from mhooge_flask.routing import make_template_context, make_json_response
 
 from jeoparty.api.database import Database
 from jeoparty.api.enums import StageType
@@ -104,89 +104,86 @@ def join_lobby():
 
     if not success:
         if join_code is None:
-            return flask.abort(400)
+            return make_json_response({"error": "Failed to join: Missing join code"}, 400)
 
-        return flask.redirect(flask.url_for(".lobby", join_code=join_code, error=contestant_model_or_error, _external=True))
+        return make_json_response({"error": contestant_model_or_error}, 400)
 
     contestant_model: Contestant = contestant_model_or_error
 
-    with database:
+    with database as session:
         game_data = database.get_game_from_code(join_code)
         if game_data is None:
-            return flask.redirect(
-                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Game does not exist")
-            )
+            return make_json_response({"error": "Failed to join: Game does not exist"}, 404)
 
         if game_data.password is not None and flask.request.form.get("password") != game_data.password:
-            return flask.redirect(
-                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Wrong password")
-            )
+            return make_json_response({"error": "Failed to join: Wrong password"}, 401)
 
         if game_data.stage == StageType.ENDED:
-            return flask.redirect(
-                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Game is over")
-            )
+            return make_json_response({"error": "Failed to join: Game is over"}, 400)
 
-        index = len(game_data.game_contestants)
-        if index == game_data.max_contestants:
-            return flask.redirect(
-                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Lobby is already full")
-            )
+        # Ensure no race conditions can occur when contestants join
+        with flask.current_app.config["JOIN_LOCK"]:
+            session.refresh(game_data)
 
-        # Try to get existitng user
-        existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
+            index = len(game_data.game_contestants)
+            if index == game_data.max_contestants:
+                return make_json_response({"error": "Failed to join: Lobby is full"}, 400)
 
-        user_already_joined = False
-        if existing_model is not None:
-            contestant_model.id = existing_model.id
-            contestant_model.avatar = existing_model.avatar
-            contestant_model.bg_image = existing_model.bg_image
-            contestant_model.buzz_sound = existing_model.buzz_sound
+            # Try to get existitng user
+            existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
 
-            for contestant in game_data.game_contestants:
-                if contestant.contestant_id == user_id:
-                    user_already_joined = True
-                    break
+            user_already_joined = False
+            if existing_model is not None:
+                contestant_model.id = existing_model.id
+                contestant_model.avatar = existing_model.avatar
+                contestant_model.bg_image = existing_model.bg_image
+                contestant_model.buzz_sound = existing_model.buzz_sound
 
-        # Get or set background image
-        bg_image = flask.request.form.get("bg_image")
-        bg_image = _get_bg_image(index, bg_image, game_data.pack.theme_id)
+                for contestant in game_data.game_contestants:
+                    if contestant.contestant_id == user_id:
+                        user_already_joined = True
+                        break
 
-        contestant_model.bg_image = bg_image
+            # Get or set background image
+            bg_image = flask.request.form.get("bg_image")
+            bg_image = _get_bg_image(index, bg_image, game_data.pack.theme_id)
 
-        # Set buzz sound, if given
-        buzz_sound = flask.request.form.get("buzz_sound")
-        if buzz_sound is not None:
-           contestant_model.buzz_sound = f"{get_buzz_sound_path(game_data.pack.theme_id, False)}/{buzz_sound}"
+            contestant_model.bg_image = bg_image
 
-        # We need the ID of the user to use in the filename of their avatar,
-        # so we have to save the contestant twice
-        contestant_model = database.save_or_update(contestant_model, existing_model)
+            # Set buzz sound, if given
+            buzz_sound = flask.request.form.get("buzz_sound")
+            if buzz_sound is not None:
+                contestant_model.buzz_sound = f"{get_buzz_sound_path(game_data.pack.theme_id, False)}/{buzz_sound}"
 
-        # Update or save contestant avatar
-        new_avatar = None
-        if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
-            new_avatar = _save_contestant_avatar(flask.request.files["avatar"], contestant_model.id)
-        elif existing_model is None or existing_model.avatar is None:
-            new_avatar = _get_default_avatar(index, game_data.pack.theme_id)
+            # We need the ID of the user to use in the filename of their avatar,
+            # so we have to save the contestant twice
+            contestant_model = database.save_or_update(contestant_model, existing_model)
 
-        if new_avatar is not None:
-            contestant_model.avatar = new_avatar
-            database.save_models(contestant_model)
+            # Update or save contestant avatar
+            new_avatar = None
+            if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
+                new_avatar = _save_contestant_avatar(flask.request.files["avatar"], contestant_model.id)
+            elif existing_model is None or existing_model.avatar is None:
+                new_avatar = _get_default_avatar(index, game_data.pack.theme_id)
 
-        if not user_already_joined:
-            # If user isn't already in the game, add them
-            game_contestant_model = GameContestant(
-                game_id=game_data.id,
-                contestant_id=contestant_model.id
-            )
-            database.add_contestant_to_game(game_contestant_model, game_data.use_powerups)
+            if new_avatar is not None:
+                contestant_model.avatar = new_avatar
+                database.save_models(contestant_model)
 
-        response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
+            if not user_already_joined:
+                # If user isn't already in the game, add them
+                game_contestant_model = GameContestant(
+                    game_id=game_data.id,
+                    contestant_id=contestant_model.id
+                )
+                database.add_contestant_to_game(game_contestant_model, game_data.use_powerups)
+
+        response = make_json_response({"redirect": flask.url_for(".game_view", game_id=game_data.id, _external=True)}, 200)
 
         # Save user ID to cookie
         cookie_id, data, max_age = _save_user_id_to_cookie(str(contestant_model.id))
-        response.set_cookie(cookie_id, data, max_age=max_age)
+        response.set_cookie(cookie_id, data, max_age=max_age, samesite="Lax")
+        response.headers.add_header("Access-Control-Allow-Credentials", "true")
 
     return response
 
@@ -237,14 +234,14 @@ def game_view(game_id: str):
 
             game_contestant_json["winner"] = contestant_won
 
-        total_questions = len(game_data.get_questions_for_round())
+        num_questions_in_round = len(game_data.get_questions_for_round())
 
         return render_locale_template(
             "contestant/game.html",
             game_data.pack.language,
             ping=30,
             question=question,
-            total_questions=total_questions,
+            num_questions_in_round=num_questions_in_round,
             first_round=first_round,
             round_name=round_name,
             **game_json,

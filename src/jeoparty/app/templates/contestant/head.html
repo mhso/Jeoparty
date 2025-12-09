@@ -12,7 +12,7 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/style.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/contestant_style.css') }}">
     <script src="{{ url_for('static', _external=True, filename='js/jquery.min.js') }}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    <script src="{{ url_for('static', _external=True, filename='js/socket_io.js') }}"></script>
     <script src="{{ url_for('static', _external=True, filename='js/wake_lock.js') }}"></script>
     {% if game_id %}
     <script>const GAME_ID = "{{ game_id }}";</script>
