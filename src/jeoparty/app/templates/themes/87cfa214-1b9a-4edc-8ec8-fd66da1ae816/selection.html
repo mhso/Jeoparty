@@ -1,0 +1,10 @@
+{% if first_round %}
+<audio id="selection-start-sound">
+    <source src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/sounds/its_happening.mp3') }}" type="audio/mpeg">
+</audio>
+
+<script>
+    let startSound = document.getElementById("selection-start-sound");
+    startSound.volume = 0.3;
+</script>
+{% endif %}

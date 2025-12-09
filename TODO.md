@@ -2,7 +2,6 @@
 - [✅] Make stuff work on Safari
 - [✅] Find a way to avoid contestant phones going idle
 - [✅] Create default contestant avatars
-- [❌] Create default contestant backgrounds
 - [✅] Make unique default avatars & backgrounds be selected pseudo randomly
 - [✅] Make question media relative to screen size
 - [✅] Finish cheatsheet page
@@ -20,6 +19,7 @@
 - [✅] Replace background image in selection screen with fireplace video
 
 # Long Term
+- [❌] Create default contestant backgrounds
 - [❌] Make user-friendly mobile page for presenter
 - [❌] Make usage guide for presenter/quiz creators
 - [❌] Make a theme editor

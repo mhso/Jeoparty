@@ -10,6 +10,11 @@ from jeoparty.api.orm.models import Contestant
 from tests.browser_context import ContextHandler
 from tests import create_contestant_data, create_game
 
+async def choose_unused_question():
+    pass
+
+
+
 @pytest.mark.asyncio
 async def test_random_game(database):
     pack_name = "Test Pack"
