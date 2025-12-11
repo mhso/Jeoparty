@@ -173,7 +173,7 @@ function updatePlayerScore(playerId, delta) {
     let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
     let scoreElem = playerEntry.querySelector(".footer-contestant-entry-score");
 
-    scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points"]}`;
+    scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points_short"]}`;
     triggerValueUpdateAnimation(scoreElem, delta >= 0);
 }
 
@@ -1266,7 +1266,7 @@ function addContestantInGame(contestantData) {
 
         let scoreElem = document.createElement("div");
         scoreElem.className = "footer-contestant-entry-score";
-        scoreElem.textContent = `${contestantData["score"]} points`;
+        scoreElem.textContent = `${contestantData["score"]} ${localeStrings['points_short']}`;
 
         headerElem.appendChild(nameElem);
         headerElem.appendChild(scoreElem);
@@ -1340,7 +1340,7 @@ function addContestantInGame(contestantData) {
         nameElem.textContent = contestantData["name"];
 
         let scoreElem = div.querySelector(".footer-contestant-entry-score");
-        scoreElem.textContent = `${contestantData["score"]} points`;
+        scoreElem.textContent = `${contestantData["score"]} ${localeStrings['points_short']}`;
  
         let avatarElem = div.querySelector(".footer-contestant-entry-avatar");
         avatarElem.src = `${getBaseURL()}/static/${avatar}`;

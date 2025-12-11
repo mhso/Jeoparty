@@ -40,7 +40,7 @@
     {% if daily_double %}
     {% set max_wager = [player_with_turn["score"], max_value] | max %}
     <div id="question-wager-wrapper" class="d-none">
-        <h3>{{ _locale["daily_double_wager_1"] }} <span style="color: #{{ player_with_turn['color'] }}; font-weight: 800;">{{ player_with_turn["name"] }}</span> {{ _locale["daily_double_wager_2"] }} (max {{ max_wager }})</h3>
+        <h3>{{ _locale["daily_double_wager_1"] }} <span style="color: {{ player_with_turn['color'] }}; font-weight: 800;">{{ player_with_turn["name"] }}</span> {{ _locale["daily_double_wager_2"] }} (max {{ max_wager }})</h3>
     </div>
     {% endif %}
 

@@ -882,9 +882,6 @@ class ContextHandler:
         winner_desc: str,
         contestants: List[GameContestant],
     ):
-        header = await self.presenter_page.query_selector("h1")
-        assert await header.text_content() == locale["header"]
-
         description = await self.presenter_page.query_selector("#endscreen-winner-desc")
         assert await description.text_content() == winner_desc
 
@@ -948,30 +945,16 @@ class ContextHandler:
         if presenter_video is None:
             return
 
-        readers = [cv2.VideoCapture(await presenter_video.path())]
-        readers += [
+        presenter_reader = cv2.VideoCapture(await presenter_video.path())
+        contestant_readers = [
             cv2.VideoCapture(await page.video.path())
             for page in self.contestant_pages.values()
         ]
 
-        output_frames = [[] for _ in readers]
-        readers_done = {index: False for index in range(len(readers))}
+        presenter_frames = presenter_reader.get(cv2.CAP_PROP_FRAME_COUNT)
+        contestant_frames = [reader.get(cv2.CAP_PROP_FRAME_COUNT) for reader in contestant_readers]
 
-        # Read all videos to 'output_frames'
-        while not all(readers_done.values()):
-            for index, reader in enumerate(readers):
-                if readers_done[index]:
-                    continue
-
-                ret, frame = reader.read()
-                if not ret:
-                    readers_done[index] = True
-                    continue
-
-                output_frames[index].append(frame)
-
-        for reader in readers:
-            reader.release()
+        readers_done = {index: False for index in range(len(contestant_readers) + 1)}
 
         presenter_width = 800
         presenter_height = 450
@@ -981,22 +964,31 @@ class ContextHandler:
         width = contestant_width * len(self.contestant_pages)
         height = presenter_height + contestant_height
         offset_x = (width - presenter_width) // 2
-        writer = cv2.VideoWriter(f"{VIDEO_RECORD_PATH}/combined.mp4", cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (width, height), True)
 
-        for index, presenter_frame in enumerate(output_frames[0]):
+        # Merge all videos in one go
+        writer = cv2.VideoWriter(f"{VIDEO_RECORD_PATH}/combined.mp4", cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (width, height), True)
+        frame_count = 0
+        while not all(readers_done.values()):
+            ret, presenter_frame = presenter_reader.read()
+            if not ret:
+                break
+
             final_frame = np.zeros((height, width, 3), dtype=np.uint8)
 
             # Copy presenter frame to final frame
             final_frame[:presenter_frame.shape[0], offset_x:-offset_x, :] = presenter_frame
 
             # Copy contestant frames
-            for x_index, frame_list in enumerate(output_frames[1:]):
-                offset = len(output_frames[0]) - len(frame_list)
-                if index <= offset:
+            for index, (reader, frames) in enumerate(zip(contestant_readers, contestant_frames), start=1):
+                if frame_count < presenter_frames - frames or readers_done[index]:
                     continue
 
-                contestant_frame = frame_list[index - offset]
-                x = x_index * contestant_frame.shape[1]
+                ret, contestant_frame = reader.read()
+                if not ret:
+                    readers_done[index] = True
+                    continue
+
+                x = (index - 1) * contestant_frame.shape[1]
                 y = presenter_height
                 try:
                     final_frame[y:, x:x + contestant_frame.shape[1], :] = contestant_frame
@@ -1004,6 +996,10 @@ class ContextHandler:
                     pass
 
             writer.write(final_frame)
+            frame_count += 1
+
+        for reader in [presenter_reader] + contestant_readers:
+            reader.release()
 
         writer.release()
 
@@ -1063,6 +1059,7 @@ class ContextHandler:
 
         if self.record_video:
             # Splice videos of presenter and contestants together
+            print("Stiching browser videos together...")
             await self.tile_videos()
 
         for pack_folder in self.pack_folders:

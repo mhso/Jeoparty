@@ -43,6 +43,7 @@ h1 {
     position: relative;
     padding: 0 10px;
     color: white;
+    text-align: center;
 }
 
 #contestant-game-header {

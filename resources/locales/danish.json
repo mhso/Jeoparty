@@ -71,6 +71,7 @@
         },
         "global": {
             "points": "point",
+            "points_short": "pt",
             "contestants": "deltagere",
             "for": "til",
             "and": "og",

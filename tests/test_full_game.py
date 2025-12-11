@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import text
 from playwright.async_api import Page
 
-from jeoparty.api.enums import StageType
+from jeoparty.api.enums import PowerUpType, StageType
 from jeoparty.api.orm.models import Game
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
@@ -31,6 +31,21 @@ async def handle_selection_page(context: ContextHandler, game_data: Game):
                     return
 
     assert False, "Could not find active question in selection"
+
+async def answer_question(context, contestant, question, guessed_choices):
+    # Answer correctly or wrong randomly
+    if question.question.extra and question.question.extra.get("choices"):
+        remaining_choices = [choice for choice in question.question.extra["choices"] if choice not in guessed_choices]
+        choice = random.choice(remaining_choices)
+        guessed_choices.add(choice)
+        correct = choice == question.question.answer
+        await context.answer_question(contestant.contestant_id, choice=choice)
+    else:
+        key = random.randint(1, 2)
+        correct = key == 1
+        await context.answer_question(contestant.contestant_id, key=key)
+
+    return correct
 
 async def handle_question_page(context: ContextHandler, game_data: Game, locale: Dict[str, str]):
     active_question = game_data.get_active_question()
@@ -87,19 +102,24 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
 
         await asyncio.sleep(1)
 
+        # Randomly use freeze if available
+        freeze_power = buzz_winner.get_power(PowerUpType.FREEZE)
+        if not freeze_power.used and random.random() < 0.2:
+            await context.use_power_up(buzz_winner.contestant_id, freeze_power.type.value)
+            await asyncio.sleep(3)
+
         # Answer correctly or wrong randomly
-        if active_question.question.extra and active_question.question.extra.get("choices"):
-            remaining_choices = [choice for choice in active_question.question.extra["choices"] if choice not in guessed_choices]
-            choice = random.choice(remaining_choices)
-            guessed_choices.add(choice)
-            correct = choice == active_question.question.answer
-            await context.answer_question(buzz_winner.contestant_id, choice=choice)
-        else:
-            key = random.randint(1, 2)
-            correct = key == 1
-            await context.answer_question(buzz_winner.contestant_id, key=key)
+        correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
 
         await asyncio.sleep(1)
+
+        # Randomly use rewind if available and answer again
+        rewind_power = buzz_winner.get_power(PowerUpType.REWIND)
+        if not correct and not rewind_power.used and random.random() < 0.5:
+            await context.use_power_up(buzz_winner.contestant_id, rewind_power.type.value)
+
+            correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
+            await asyncio.sleep(1)
 
         if correct:
             break
@@ -117,7 +137,12 @@ async def handle_finale_wager_page(context: ContextHandler, game_data: Game):
     wagers = []
     for contestant in game_data.game_contestants:
         # Get a random wager for each contestant
-        wagers.append((contestant, random.randint(0, max(1000, contestant.score))))
+        if random.random() < 0.1:
+            wager = 0
+        else:
+            wager = random.randint(1, max(1000, contestant.score))
+
+        wagers.append((contestant, wager))
 
     # Make the wagers in parallel to stress-test
     pending = (

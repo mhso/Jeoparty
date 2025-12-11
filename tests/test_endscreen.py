@@ -1,8 +1,7 @@
-import asyncio
 import pytest
 
 from jeoparty.api.enums import StageType
-from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
+from tests.browser_context import ContextHandler
 
 @pytest.mark.asyncio
 async def test_finale_result(database, locales):

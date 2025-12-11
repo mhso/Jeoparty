@@ -71,6 +71,7 @@
         },
         "global": {
             "points": "points",
+            "points_short": "pts",
             "contestants": "contestants",
             "for": "for",
             "and": "and",

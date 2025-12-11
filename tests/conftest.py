@@ -33,6 +33,7 @@ def _create_question_packs(database: Database):
         pack_model_1 = QuestionPack(
             name="Test Pack",
             created_by=PRESENTER_USER_ID,
+            language=Language.DANISH,
         )
         pack_model_1 = database.create_question_pack(pack_model_1)
         os.mkdir(get_question_pack_data_path(pack_model_1.id))
