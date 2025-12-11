@@ -70,7 +70,7 @@ async def test_finale_result(database, locales):
             await asyncio.sleep(0.5)
 
             lines = []
-            for contestant in game_data.game_contestants:
+            for index, contestant in enumerate(game_data.game_contestants):
                 wager = contestant.finale_wager or locale["nothing"]
 
                 answer = locale["nothing"] if not contestant.finale_wager else f"'{contestant.finale_answer}'"
@@ -95,7 +95,18 @@ async def test_finale_result(database, locales):
                     key = "1"
                     result_line = locale["answer_skipped"]
 
+                # Simulate an error and undo on contestant 2
+                old_key = key
+                if index == 1:
+                    key = "1" if key == "2" else "2"
+
                 await context.presenter_page.press("body", key)
+
+                if index == 1:
+                    await asyncio.sleep(1)
+                    await context.presenter_page.press("body", "Control+z")
+                    await asyncio.sleep(1)
+                    await context.presenter_page.press("body", old_key)
 
                 lines[-1].append(result_line)
 

@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from jeoparty.api.orm.models import Game
 
-
 def create_contestant_data(amount=4):
     contestant_names = [
         "Contesto Uno",
@@ -52,17 +51,10 @@ async def create_game(
 
     # Add contestants to the game
     if join_in_parallel:
-        pending = (
-            await asyncio.wait(
-                [
-                    asyncio.create_task(context.join_lobby(game_data.join_code, name, color))
-                    for name, color in zip(contestant_names, contestant_colors)
-                ],
-                timeout=15
-            )
-        )[1]
+        async with asyncio.TaskGroup() as group:
+            for name, color in zip(contestant_names, contestant_colors): 
+                group.create_task(context.join_lobby(game_data.join_code, name, color))
 
-        assert len(pending) == 0
     else:
         for name, color in zip(contestant_names, contestant_colors):
             await context.join_lobby(game_data.join_code, name, color)

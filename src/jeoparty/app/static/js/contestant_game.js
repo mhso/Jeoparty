@@ -1,9 +1,20 @@
 // Create socket bound to specific game ID.
 // 'game_id' is defined before this JS file is imported
-const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 15000});
-socket.on("connect_error", function(err) {
-    console.error("Contestant socket connection error:", err);
-});
+const CONN_ATTEMPTS = 5;
+var socket;
+for (let i = 0; i < CONN_ATTEMPTS; i++) {
+    try {
+        socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 5000});
+        socket.on("connect_error", function(err) {
+            console.error("Contestant socket connection error:", err);
+        });
+        break;
+    }
+    catch (err) {
+        console.log(`CONTESTANT --- ERROR #${i} WHEN CONNECTING TO SOCKET IO!`);
+        console.log(err);
+    }
+}
 
 requestWakeLock();
 

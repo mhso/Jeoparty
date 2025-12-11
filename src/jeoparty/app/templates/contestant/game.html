@@ -166,17 +166,15 @@
                                 elem.textContent = "{{ _locale['waiting_turn_3'] }}";
                             }
                         });
-                        {% elif stage == "finale_wager" or stage == "finale_question" %}
-                            {% if stage == "finale_question" %}
-                            socket.on("finale_answer_enabled", function() {
-                                document.getElementById("finale-question-wrapper").classList.remove("d-none");
-                            });
-                            {% else %}
-                            socket.on("finale_wager_enabled", function() {
-                                document.getElementById("contestant-wager-btn").disabled = false;
-                                document.getElementById("finale-wager-input").disabled = false;
-                            });
-                            {% endif %}
+                        {% elif stage == "finale_question" and finale_wager > 0 %}
+                        socket.on("finale_answer_enabled", function() {
+                            document.getElementById("finale-question-wrapper").classList.remove("d-none");
+                        });
+                        {% elif stage == "finale_wager" %}
+                        socket.on("finale_wager_enabled", function() {
+                            document.getElementById("contestant-wager-btn").disabled = false;
+                            document.getElementById("finale-wager-input").disabled = false;
+                        });
                         {% endif %}
                     });
 

@@ -119,21 +119,21 @@ class GameSocketHandler(Namespace):
     def on_contestant_join(self, user_id: str):
         with self.database:
             game_data = self.database.get_game_from_id(self.game_id)
-    
+
             game_contestant = game_data.get_contestant(game_contestant_id=user_id)
             if game_contestant is None:
                 logger.warning(
                     f"User '{user_id}' tried to join 'contestant' room, "
-                    f"but is not a game contestant for game with ID '{self.game_id}'."
+                    f"but is not a game contestant for game with ID '{self.game_id}'"
                 )
                 return
 
             sid = flask.request.sid
             self.contestant_metadata[user_id] = ContestantMetadata(sid)
 
-            contestant_data = game_contestant.dump()
-    
-            # Add socket IO session ID to contestant and join 'contestants' room
+            contestant_data = game_contestant.dump(included_relations=[])
+
+            # Add socket_io session ID to contestant and join 'contestants' room
             print(f"User '{contestant_data['name']}' with ID '{user_id}' and SID '{sid}' joined the lobby")
             self.leave_room(sid, "contestants")
             self.enter_room(sid, "contestants")
@@ -495,5 +495,24 @@ class GameSocketHandler(Namespace):
 
         contestant_data.score -= amount
         contestant_data.misses += 1
+
+        self.database.save_models(contestant_data)
+
+    @_presenter_event
+    def on_finale_answer_undo(self, user_id: str, amount: int):
+        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+        if not contestant_data.finale_wager:
+            return
+
+        correct = amount < 0
+
+        contestant_data.score += amount
+
+        if correct: # We incorrectly marked answer correct, but it was wrong
+            contestant_data.hits -= 1
+            contestant_data.misses += 1
+        else: # Vice versa
+            contestant_data.hits += 1
+            contestant_data.misses -= 1
 
         self.database.save_models(contestant_data)

@@ -1,11 +1,12 @@
 import asyncio
 import random
-from typing import Dict
+from typing import Dict, List
 
-from jeoparty.api.enums import StageType
 import pytest
 from sqlalchemy import text
+from playwright.async_api import Page
 
+from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Game
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
@@ -24,7 +25,7 @@ async def handle_selection_page(context: ContextHandler, game_data: Game):
             for question_elem in question_elements:
                 if (await question_elem.text_content()).strip() == str(active_question.question.value):
                     assert not await question_elem.evaluate("(e) => e.classList.contains('inactive')"), "Question is already used"
-                    async with context.presenter_page.expect_navigation():
+                    async with await context.wait_until_ready():
                         await question_elem.click()
 
                     return
@@ -47,6 +48,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
 
     max_buzz_attempts = 1 if active_question.daily_double else game_data.max_contestants
     guessed_choices = set()
+    players_buzzed = set()
 
     for _ in range(max_buzz_attempts):
         if not active_question.daily_double:
@@ -57,7 +59,10 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
                 await asyncio.sleep(active_question.question.category.buzz_time + 3)
                 break
 
-            shuffled_players = list(game_data.game_contestants)
+            shuffled_players = [
+                contestant for contestant in game_data.game_contestants
+                if contestant.id not in players_buzzed
+            ]
             random.shuffle(shuffled_players)
             players_buzzing = shuffled_players[:num_players]
 
@@ -78,8 +83,12 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         else:
             buzz_winner = active_contestant
 
+        players_buzzed.add(buzz_winner.id)
+
+        await asyncio.sleep(1)
+
         # Answer correctly or wrong randomly
-        if active_question.question.extra and "choices" in active_question.question.extra:
+        if active_question.question.extra and active_question.question.extra.get("choices"):
             remaining_choices = [choice for choice in active_question.question.extra["choices"] if choice not in guessed_choices]
             choice = random.choice(remaining_choices)
             guessed_choices.add(choice)
@@ -97,8 +106,159 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
 
     await asyncio.sleep(1)
 
-    async with context.presenter_page.expect_navigation():
+    async with await context.wait_until_ready():
         await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+async def handle_finale_wager_page(context: ContextHandler, game_data: Game):
+    # Wait for category to be revealed
+    await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+    await asyncio.sleep(4)
+
+    wagers = []
+    for contestant in game_data.game_contestants:
+        # Get a random wager for each contestant
+        wagers.append((contestant, random.randint(0, max(1000, contestant.score))))
+
+    # Make the wagers in parallel to stress-test
+    pending = (
+        await asyncio.wait(
+            [
+                asyncio.create_task(context.make_wager(contestant.contestant_id, wager))
+                for contestant, wager in wagers
+            ],
+            timeout=10
+        )
+    )[1]
+
+    assert len(pending) == 0
+
+    await asyncio.sleep(1)
+
+    # Go to finale question page
+    async with await context.wait_until_ready():
+        await context.presenter_page.press("body", PRESENTER_ACTION_KEY)    
+
+async def handle_finale_question_page(context: ContextHandler, game_data: Game):
+    assert game_data.round == 3
+    assert len(game_data.get_questions_for_round()) == 1
+
+    await context.show_question()
+
+    possible_answers = [
+        "1", "two", "3", "4", "four", "none", "zero", "idk", "who cares?"
+    ]
+
+    answers = []
+    for contestant in game_data.game_contestants:
+        # Get a random answer for each contestant
+        if contestant.finale_wager:
+            answers.append((contestant, random.choice(possible_answers)))
+
+    # Give the answers in parallel to stress-test
+    pending = (
+        await asyncio.wait(
+            [
+                asyncio.create_task(context.give_finale_answer(contestant.contestant_id, answer))
+                for contestant, answer in answers
+            ],
+            timeout=10
+        )
+    )[1]
+
+    assert len(pending) == 0
+
+    await asyncio.sleep(2)
+
+    # Finish the question and go to finale screen
+    async with context.presenter_page.expect_navigation(timeout=5000):
+        await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+async def handle_finale_result_page(context: ContextHandler, game_data: Game):
+    await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+    await asyncio.sleep(0.5)
+
+    for contestant in game_data.game_contestants:
+        await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+        await asyncio.sleep(0.5)
+
+        if contestant.finale_answer:
+            correct = contestant.finale_answer in ("4", "four")
+            if correct:
+                key = "1"
+            else:
+                key = "2"
+        else:
+            key = "1"
+
+        await context.presenter_page.press("body", key)
+
+        await asyncio.sleep(1)
+
+    await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+    await asyncio.sleep(1)
+
+    await context.presenter_page.wait_for_url("**/endscreen", timeout=10000)
+
+async def handle_endscreen_page(context: ContextHandler):
+    # Play confetti video
+    await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+    await asyncio.sleep(5)
+
+def to_absolute_url(page: Page, url: str):
+    http_split = page.url.split("://")
+    base_url = http_split[0] + "://" + http_split[1].split("/")[0]
+
+    if url.startswith("/"):
+        return f"{base_url}{url}"
+
+    return url
+
+async def get_all_links(page: Page) -> List[str]:
+    links = await page.locator("a").all()
+    media = (
+        (await page.locator("img").all()) +
+        (await page.locator("video > source").all()) +
+        (await page.locator("audio > source").all())
+    )
+
+    all_tasks = []
+    async with asyncio.TaskGroup() as group:
+        for elem in links:
+            all_tasks.append(group.create_task(elem.get_attribute("href")))
+
+    async with asyncio.TaskGroup() as group:
+        for elem in media:
+            all_tasks.append(group.create_task(elem.get_attribute("src")))
+
+    return [to_absolute_url(page, task.result()) for task in all_tasks]
+
+async def get_broken_links(page: Page, links: List[str]) -> List[str]:
+    request_tasks = []
+    async with asyncio.TaskGroup() as group:
+        for url in links:
+            request_tasks.append((url, group.create_task(page.request.get(url))))
+
+    broken_links = []
+    for url, task in request_tasks:
+        response = task.result()
+        if not response.ok:
+            broken_links.append(url)
+
+    return broken_links
+
+async def validate_links(context: ContextHandler):
+    broken_links = []
+    for page in [context.presenter_page] + list(context.contestant_pages.values()):
+        all_links = await get_all_links(page)
+        broken_links.extend(await get_broken_links(page, all_links))
+
+    assert broken_links == [], f"There are {len(broken_links)} broken links"
+
+    return broken_links
 
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
@@ -118,6 +278,8 @@ async def test_random_game(database, locales):
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
             locales = locales[game_data.pack.language.value]["pages"]
 
+            await asyncio.sleep(1)
+
             await context.start_game()
             await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
@@ -135,8 +297,11 @@ async def test_random_game(database, locales):
             while True:
                 session.refresh(game_data)
 
+                await validate_links(context)
+
                 match game_data.stage:
                     case StageType.SELECTION:
+                        print("=" * 30, "SELECTION", "=" * 30)
                         if question_index == questions_in_round:
                             assert game_data.round == curr_round + 1
                             questions_in_round = len(game_data.get_questions_for_round())
@@ -144,8 +309,18 @@ async def test_random_game(database, locales):
 
                         await handle_selection_page(context, game_data)
                     case StageType.QUESTION:
+                        print("=" * 30, "QUESTION", "=" * 30)
                         await handle_question_page(context, game_data, locales["presenter/question"])
                     case StageType.FINALE_WAGER:
-                        break
+                        print("=" * 30, "FINALE WAGER", "=" * 30)
+                        await handle_finale_wager_page(context, game_data)
+                    case StageType.FINALE_QUESTION:
+                        print("=" * 30, "FINALE QUESTION", "=" * 30)
+                        await handle_finale_question_page(context, game_data)
+                    case StageType.FINALE_RESULT:
+                        print("=" * 30, "FINALE RESULT", "=" * 30)
+                        await handle_finale_result_page(context, game_data)
                     case StageType.ENDED:
-                        break
+                        print("=" * 30, "ENDSCREEN", "=" * 30)
+                        await handle_endscreen_page(context)
+                        return

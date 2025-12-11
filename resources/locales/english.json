@@ -25,7 +25,7 @@
         },
         "presenter/finale": {
             "wager_header": "What everyone wagered:",
-            "answer_header": "The answer is:",
+            "answer_header": "The answer is",
             "player_answer": "answered",
             "endscreen_teaser": "Which means...",
             "answer_skipped": "and nothing changes",
@@ -34,7 +34,6 @@
             "nothing": "nothing"
         },
         "presenter/endscreen": {
-            "header": "GG WP!",
             "winner_flavor_1": "won!!! All hail the king!",
             "winner_flavor_2": "have the same amount of points, they both win!!!",
             "winner_flavor_3": "all have equal amount of points! They are all winners!!!",

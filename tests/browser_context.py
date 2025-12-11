@@ -222,8 +222,19 @@ class ContextHandler:
     async def _print_console_output(self, msg: ConsoleMessage):
         print("Message from console:", msg.text)
 
-    async def _print_unhandled_error(self, error):
-        print("Unhandled error in page:", error.message)
+    async def _print_unhandled_error_contestant(self, error):
+        message = error.message
+        if error.stack:
+            message += "\n" + error.stack
+
+        raise RuntimeError(message)
+
+    async def _print_unhandled_error_presenter(self, error):
+        message = error.message
+        if error.stack:
+            message += "\n" + error.stack
+
+        raise RuntimeError(message)
 
     async def _setup_contestant_browser(self):
         playwright_context = self.playwright_contexts[0]
@@ -238,7 +249,7 @@ class ContextHandler:
 
         page = await browser_context.new_page()
         page.on("console", self._print_console_output)
-        page.on("pageerror", self._print_unhandled_error)
+        page.on("pageerror", self._print_unhandled_error_contestant)
 
         return browser_context, page
 
@@ -376,9 +387,10 @@ class ContextHandler:
         await asyncio.sleep(1)
 
         # Check if question is multiple choice
-        is_multiple_choice = await self.presenter_page.evaluate("() => document.getElementsByClassName('question-choice-entry').length > 0")
-        if is_multiple_choice:
-            for _ in range(4):
+        answer_choices = await self.presenter_page.evaluate("() => getNumAnswerChoices()")
+
+        if answer_choices:
+            for _ in range(answer_choices):
                 await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
                 await asyncio.sleep(0.5)
         elif question_image is not None or question_video is not None:
@@ -1028,7 +1040,7 @@ class ContextHandler:
         )
 
         self.presenter_page = await self._login_to_dashboard()
-        self.presenter_page.on("pageerror", self._print_unhandled_error)
+        self.presenter_page.on("pageerror", self._print_unhandled_error_presenter)
         self.presenter_page.on("console", self._print_console_output)
 
         await asyncio.sleep(1)

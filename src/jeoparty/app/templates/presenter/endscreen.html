@@ -9,8 +9,6 @@
         <div id="endscreen-wrapper">
             {% include 'logo.html' %}
 
-            <h1>{% if lan_mode %}GG WP!{% else %}{{ _locale['header'] }}{% endif %}</h1>
-
             <!-- Winner description -->
             <p id="endscreen-winner-desc">{% autoescape false %}{{ winner_desc }}{% endautoescape %}</p>
 
@@ -49,13 +47,6 @@
             </video>
         </div>
 
-        {% if lan_mode %}
-        <!-- I LOVE LEAGUE OF LEGENDS! -->
-        <audio id="endscreen-sound" class="volume-5">
-            <source src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/sounds/league.mp3') }}" type="audio/mpeg">
-        </audio>
-        {% endif %}
-
         <!-- Shooting Star celebratory music -->
         <audio id="endscreen-music">
             <source src="{{ url_for('static', _external=True, filename='data/sounds/shooting_star.mp3') }}" type="audio/mpeg">
@@ -63,11 +54,6 @@
     
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                const endscreenSound = document.getElementById("endscreen-sound");
-                if (endscreenSound) {
-                    endscreenSound.play();
-                }
-
                 startWinnerParty();
             });
         </script>

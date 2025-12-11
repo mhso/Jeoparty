@@ -2,6 +2,7 @@
 <html>
     {% include 'presenter/head.html' %}
     <body>
+        {% include 'presenter/connection_status.html' %}
         <div class="bg-fill{% if theme and theme['bg_image'] %} bg-image" style="background-image: url({{ url_for('static', _external=True, filename=theme['bg_image']) }}); {% endif %}"></div>
 
         <div id="finale-wrapper">
@@ -21,7 +22,7 @@
                 {% endfor %}
             </div>
 
-            <h3 id="finale-answer">{{ _locale["answer_header"] }} <span class="question-emph">{{ answer }}</span></h3>
+            <h3 id="finale-answer">{{ _locale["answer_header"] }} <span class="question-emph">'{{ answer }}'</span></h3>
 
             <div id="finale-results-wrapper">
                 <ul>
@@ -52,17 +53,17 @@
             socket.on("connect", function() {
                 socket.on("presenter_joined", function () {
                     hideConnectionStatus();
+
+                    window.onkeydown = function(e) {
+                        if (e.code == PRESENTER_ACTION_KEY) {
+                            document.activeElement.blur();
+                            showFinaleResult();
+                        }
+                    }
                 });
 
                 socket.emit("presenter_join", "{{ created_by }}");
             });
-
-            window.onkeydown = function(e) {
-                if (e.code == PRESENTER_ACTION_KEY) {
-                    document.activeElement.blur();
-                    showFinaleResult();
-                }
-            }
         </script>
     </body>
 </html>

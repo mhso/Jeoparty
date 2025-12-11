@@ -412,8 +412,7 @@ h3 {
 }
 
 #finale-results-wrapper {
-    width: 300px;
-    max-width: 350px;
+    width: 600px;
     margin: 0 auto;
     text-align: left;
     background-color: #000000d6;
@@ -486,6 +485,7 @@ h3 {
     border: 2px solid black;
     border-bottom: none;
     margin: 0 20px;
+    padding: 0 2px;
 }
 
 .footer-contestant-entry.active-contestant-entry {
@@ -530,14 +530,28 @@ h3 {
 
 .footer-contestant-entry-name {
     font-weight: 1000;
-    margin-right: 15px;
-    max-width: 45%;
+    margin-right: 12px;
+    max-width: 47%;
     height: 100%;
+}
+
+@keyframes valueUpdated {
+    25% {
+        font-weight: 1000;
+        transform: scale(1.25);
+    }
+    100% {
+        font-weight: initial;
+        transform: scale(1);
+    }
 }
 
 .footer-contestant-entry-score {
     font-size: 1.2rem;
-    text-align: right;
+    text-align: center;
+
+    animation-duration: 2s;
+    animation-iteration-count: 1;
 }
 
 .footer-contestant-entry-score > img {
@@ -545,6 +559,14 @@ h3 {
     height: 22px;
     vertical-align: sub;
     display: inline-block;
+}
+
+.value-animation-correct {
+    color: rgb(0, 212, 0);
+}
+
+.value-animation-correct {
+    color: red;
 }
 
 .footer-contestant-entry-powers {
@@ -773,23 +795,7 @@ h3 {
     font-weight: 800;
     border-bottom: 2px solid white;
 }
-/*
-#endscreen-scores-table th:nth-child(2) {
-    color: #4797ff;
-}
 
-#endscreen-scores-table th:nth-child(3) {
-    color: orange;
-}
-
-#endscreen-scores-table th:nth-child(4) {
-    color: #06ff06;
-}
-
-#endscreen-scores-table th:nth-child(5) {
-    color: red;
-}
-*/
 .endscreen-score-name {
     text-align: left;
 }
@@ -804,7 +810,7 @@ h3 {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 10;
+    z-index: 100;
     pointer-events: none;
 }
 

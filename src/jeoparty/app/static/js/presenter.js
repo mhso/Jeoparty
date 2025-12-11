@@ -1,9 +1,20 @@
 // Create socket bound to a namespace for a specific game ID.
 // 'GAME_ID' is defined before this JS file is imported
-const socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 15000});
-socket.on("connect_error", function(err) {
-    console.error("Presenter socket connection error:", err);
-});
+const CONN_ATTEMPTS = 5;
+var socket;
+for (let i = 0; i < CONN_ATTEMPTS; i++) {
+    try {
+        socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 5000});
+        socket.on("connect_error", function(err) {
+            console.error("Presenter socket connection error:", err);
+        });
+        break;
+    }
+    catch (err) {
+        console.log(`PRESENTER --- ERROR #${i} WHEN CONNECTING TO SOCKET IO!`);
+        console.log(err);
+    }
+}
 
 const TIME_FOR_DOUBLE_ANSWER = 10;
 const TIME_FOR_WAGERING = 60;
@@ -126,7 +137,9 @@ function disableBuzzIn() {
 }
 
 function enablePowerUp(playerId, powerId) {
-    socket.emit("enable_powerup", playerId, powerId);
+    if (canPlayersBuzzIn()) {
+        socket.emit("enable_powerup", playerId, powerId);
+    }
 }
 
 function disablePowerUp(playerId=null, powerId=null) {
@@ -142,12 +155,26 @@ function hideFreezeAnimation() {
     }, 1000);
 }
 
+function triggerValueUpdateAnimation(element, gain) {
+    let duration = Number.parseFloat(window.getComputedStyle(element).animationDuration.replace("s", ""));
+    element.style.animationName = "valueUpdated";
+    element.classList.add(`value-animation-${gain ? 'correct' : 'wrong'}`);
+
+    setTimeout(function() {
+        // Reset animation after it has played
+        element.style.animationName = "none";
+        element.offsetHeight; // Trigger reflow
+        element.style.animationName = null;
+    }, duration * 1000);
+}
+
 function updatePlayerScore(playerId, delta) {
     playerScores[playerId] += delta;
     let playerEntry = document.querySelector(`.footer-contestant-${playerId}`);
     let scoreElem = playerEntry.querySelector(".footer-contestant-entry-score");
 
     scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points"]}`;
+    triggerValueUpdateAnimation(scoreElem, delta >= 0);
 }
 
 function updatePlayerBuzzStats(playerId, hit, delta=1) {
@@ -1474,6 +1501,21 @@ function showFinaleResult() {
                 else if (e.code == PRESENTER_ACTION_KEY) {
                     showNextResult(player + 1);
                 }
+                else if (isCtrlZHeld(e) && e.key == "z") {
+                    // Undo last answer
+                    const correct = descElem.classList.contains("wager-answer-correct");
+                    if (correct) {
+                        descElem.classList.remove("wager-answer-correct");
+                    }
+                    else {
+                        descElem.classList.remove("wager-answer-wrong");
+                    }
+
+                    descElem.innerHTML = "";
+                    descElem.style.opacity = 0;
+
+                    socket.emit("finale_answer_undo", playerId, correct ? -amount : amount);
+                }
             }
         }
     }
@@ -1488,35 +1530,48 @@ function showFinaleResult() {
     answerElem.style.opacity = 1;
 }
 
+function startEndscreenAnimation() {
+    document.getElementById("endscreen-confetti-video").play();
+    document.getElementById("endscreen-music").play();
+    let overlay = document.getElementById("endscreen-techno-overlay");
+
+    overlay.classList.remove("d-none");
+
+    let colors = ["#1dd8265e", "#1d74d85e", "#c90f0f69", "#deb5115c"];
+    let colorIndex = 0;
+
+    let initialDelay = 320;
+    let intervalDelay = 472;
+
+    setTimeout(() => {
+        overlay.style.backgroundColor = colors[colorIndex];
+        colorIndex += 1;
+
+        setInterval(() => {
+            overlay.style.backgroundColor = colors[colorIndex];
+
+            colorIndex += 1;
+
+            if (colorIndex == colors.length) {
+                colorIndex = 0;
+            }
+        }, intervalDelay);
+    }, initialDelay);
+}
+
 function startWinnerParty() {
     window.onkeydown = function(e) {
         if (e.code == PRESENTER_ACTION_KEY) {
-            document.getElementById("endscreen-confetti-video").play();
-            document.getElementById("endscreen-music").play();
-            let overlay = document.getElementById("endscreen-techno-overlay");
-
-            overlay.classList.remove("d-none");
-
-            let colors = ["#1dd8265e", "#1d74d85e", "#c90f0f69", "#deb5115c"];
-            let colorIndex = 0;
-
-            let initialDelay = 320;
-            let intervalDelay = 472;
-
-            setTimeout(() => {
-                overlay.style.backgroundColor = colors[colorIndex];
-                colorIndex += 1;
-
-                setInterval(() => {
-                    overlay.style.backgroundColor = colors[colorIndex];
-    
-                    colorIndex += 1;
-    
-                    if (colorIndex == colors.length) {
-                        colorIndex = 0;
-                    }
-                }, intervalDelay);
-            }, initialDelay);
+            const endscreenSound = document.getElementById("endscreen-sound");
+            if (endscreenSound) {
+                endscreenSound.play();
+                endscreenSound.onended = function() {
+                    startEndscreenAnimation();
+                }
+            }
+            else {
+                startEndscreenAnimation();
+            }
         }
     }
 }

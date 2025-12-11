@@ -25,7 +25,7 @@
         },
         "presenter/finale": {
             "wager_header": "Hvad folk satsede:",
-            "answer_header": "Svaret er:",
+            "answer_header": "Svaret er",
             "player_answer": "svarede",
             "endscreen_teaser": "Hvilket betyder...",
             "answer_skipped": "og intet ændrer sig",
@@ -34,7 +34,6 @@
             "nothing": "intet"
         },
         "presenter/endscreen": {
-            "header": "Tak for spillet!",
             "winner_flavor_1": "vandt!!! Bøj jer i støvet!",
             "winner_flavor_2": "har samme mængde point, de vinder begge to!!!",
             "winner_flavor_3": "har alle samme mængde point! De er alle vindere!!!",

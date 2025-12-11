@@ -69,8 +69,19 @@ def home():
         for game_data in games:
             json_data = game_data.dump()
             json_data["total_questions"] = len(game_data.get_questions_for_round())
-            if game_data.stage is not StageType.ENDED:
-                json_data["url"] = flask.url_for(f"presenter.{game_data.stage.value}", game_id=game_data.id)
+            if game_data.stage is StageType.ENDED:
+                continue
+
+            if game_data.stage is StageType.FINALE_WAGER:
+                url_suffix = "selection"
+            elif game_data.stage is StageType.FINALE_QUESTION:
+                url_suffix = "question"
+            elif game_data.stage is StageType.FINALE_RESULT:
+                url_suffix = "finale"
+            else:
+                url_suffix = game_data.stage.value
+
+            json_data["url"] = flask.url_for(f"presenter.{url_suffix}", game_id=game_data.id)
 
             games_json.append(json_data)
 
