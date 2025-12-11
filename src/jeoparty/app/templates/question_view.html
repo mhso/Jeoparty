@@ -102,7 +102,7 @@
                     {% if "question_image" in extra %}
                     <img class="question-media question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" loading="lazy" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                     {% else %}
-                    <video class="question-media question-question-video question-editable" controls preload="metadata" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh;"{% if 'volume' in extra %} data-volume="{{ extra['volume'] }}"{% endif %}>
+                    <video class="question-media question-question-video question-editable" controls preload="metadata" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}"{% if 'volume' in extra %} data-volume="{{ extra['volume'] }}"{% endif %}>
                         <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
                     </video>
                     {% endif %}
@@ -149,7 +149,7 @@
         <img class="question-answer-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% endif %}
         {% else %}
-        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh;">
+        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
             <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
         </video>
         {% endif %}

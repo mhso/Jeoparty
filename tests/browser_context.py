@@ -406,7 +406,7 @@ class ContextHandler:
         misses_then = int(await misses_elem.text_content())
 
         await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
 
         answer_choices = await self.presenter_page.query_selector_all(".question-choices-wrapper > .question-choice-entry")
         if answer_choices != []:

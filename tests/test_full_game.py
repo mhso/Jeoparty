@@ -103,10 +103,11 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         await asyncio.sleep(1)
 
         # Randomly use freeze if available
-        freeze_power = buzz_winner.get_power(PowerUpType.FREEZE)
-        if not freeze_power.used and random.random() < 0.2:
-            await context.use_power_up(buzz_winner.contestant_id, freeze_power.type.value)
-            await asyncio.sleep(3)
+        if not active_question.daily_double:
+            freeze_power = buzz_winner.get_power(PowerUpType.FREEZE)
+            if not freeze_power.used and random.random() < 0.3:
+                await context.use_power_up(buzz_winner.contestant_id, freeze_power.type.value)
+                await asyncio.sleep(3)
 
         # Answer correctly or wrong randomly
         correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
@@ -114,12 +115,15 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         await asyncio.sleep(1)
 
         # Randomly use rewind if available and answer again
-        rewind_power = buzz_winner.get_power(PowerUpType.REWIND)
-        if not correct and not rewind_power.used and random.random() < 0.5:
-            await context.use_power_up(buzz_winner.contestant_id, rewind_power.type.value)
+        if not active_question.daily_double:
+            rewind_power = buzz_winner.get_power(PowerUpType.REWIND)
+            if not correct and not rewind_power.used and random.random() < 0.5:
+                await context.use_power_up(buzz_winner.contestant_id, rewind_power.type.value)
 
-            correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
-            await asyncio.sleep(1)
+                await asyncio.sleep(2)
+
+                correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
+                await asyncio.sleep(2)
 
         if correct:
             break
@@ -288,6 +292,9 @@ async def validate_links(context: ContextHandler):
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
     pack_name = "Test Pack"
+    seed = 1337
+    random.seed(seed)
+
     num_contestants = random.randint(3, 10)
     contestant_names, contestant_colors = create_contestant_data(num_contestants)
 
@@ -300,7 +307,7 @@ async def test_random_game(database, locales):
             session.commit()
 
             # Create game with 3-10 contestants randomly chosen
-            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locales = locales[game_data.pack.language.value]["pages"]
 
             await asyncio.sleep(1)

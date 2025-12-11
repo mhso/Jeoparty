@@ -1,0 +1,16 @@
+<style>
+    #jul-selection-fire {
+        position: fixed;
+        pointer-events: none;
+        overflow: hidden;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        z-index: -1;
+        filter: blur(3px) brightness(0.75);
+    }
+</style>
+
+<video id="jul-selection-fire" autoplay loop muted>
+    <source src="{{ url_for('static', filename=theme['data_path'] + '/fireplace.mp4') }}" type="video/mp4">    
+</video>

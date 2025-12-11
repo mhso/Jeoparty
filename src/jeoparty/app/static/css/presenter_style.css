@@ -324,7 +324,7 @@ h3 {
     background-color: rgb(15, 12, 118);
     width: 10vw;
     text-align: center;
-    padding: 0 5px;
+    padding: 0 15px;
 }
 
 .selection-category-header > span {
@@ -535,10 +535,43 @@ h3 {
     height: 100%;
 }
 
-@keyframes valueUpdated {
+@keyframes scoreUpdatedSmall {
     25% {
         font-weight: 1000;
         transform: scale(1.25);
+    }
+    100% {
+        font-weight: initial;
+        transform: scale(1);
+    }
+}
+
+@keyframes scoreUpdatedMedium {
+    25% {
+        font-weight: 1000;
+        transform: scale(1.4);
+    }
+    100% {
+        font-weight: initial;
+        transform: scale(1);
+    }
+}
+
+@keyframes scoreUpdatedLarge {
+    25% {
+        font-weight: 1000;
+        transform: scale(1.6);
+    }
+    100% {
+        font-weight: initial;
+        transform: scale(1);
+    }
+}
+
+@keyframes scoreUpdatedHuge {
+    25% {
+        font-weight: 1000;
+        transform: scale(1.8);
     }
     100% {
         font-weight: initial;
@@ -561,11 +594,11 @@ h3 {
     display: inline-block;
 }
 
-.value-animation-correct {
+.score-animation-correct {
     color: rgb(0, 212, 0);
 }
 
-.value-animation-correct {
+.score-animation-wrong {
     color: red;
 }
 

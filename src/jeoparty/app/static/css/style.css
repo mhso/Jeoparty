@@ -8,7 +8,7 @@ body {
 
 .bg-fill {
     position: absolute;
-    z-index: -1;
+    z-index: -2;
     background: linear-gradient(to bottom, #2525c6, #1d1939);
     height: 100%;
     width: 100%;

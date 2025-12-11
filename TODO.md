@@ -5,16 +5,17 @@
 - [✅] Make unique default avatars & backgrounds be selected pseudo randomly
 - [✅] Make question media relative to screen size
 - [✅] Finish cheatsheet page
+- [❌] Find some better fonts
 
 # Testing
 - [✴️] Test themes
 - [✅] Test rewind power-up
 - [✅] Test hijack power-up
-- [✴️] Test a full-game playthrough with pseduo-random actions
+- [✅] Test a full-game playthrough with pseduo-random actions
 
 # Julequiz
 - [✅] Create christmas-themed backgrounds for contestants
-- [❌] Record santa intro video when first turn is chosen
+- [✴️] Record santa intro video when first turn is chosen
 - [✅] Make it even more christmas-y! Maybe gifts and christmas trees
 - [✅] Replace background image in selection screen with fireplace video
 

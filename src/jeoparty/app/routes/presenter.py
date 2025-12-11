@@ -220,8 +220,11 @@ def selection(game_data: Game):
             questions_copy = list(questions)
             random.shuffle(questions_copy)
 
+            round_zero = game_data.round - 1
+            dailies_in_round = (game_data.regular_rounds + 1) - (game_data.regular_rounds - round_zero)
+
             for index, game_question in enumerate(questions_copy):
-                game_question.daily_double = index < game_data.round
+                game_question.daily_double = index < dailies_in_round
 
             database.save_models(*questions_copy)
 

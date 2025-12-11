@@ -1,7 +1,8 @@
+import asyncio
 import pytest
 
 from jeoparty.api.enums import StageType
-from tests.browser_context import ContextHandler
+from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 
 @pytest.mark.asyncio
 async def test_finale_result(database, locales):
@@ -22,7 +23,7 @@ async def test_finale_result(database, locales):
     contestant_hits = [3, 6, 1, 0]
     contestant_misses = [2, 3, 2, 1]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database:
@@ -101,3 +102,13 @@ async def test_finale_result(database, locales):
             await context.assert_endscreen_values(
                 locale, expected_winner_desc, game_data.game_contestants
             )
+
+            # Start the endscreen party!
+            await asyncio.sleep(1)
+            await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+
+            # Stop the party after three seconds
+            await asyncio.sleep(3)
+
+            await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+            await asyncio.sleep(1)

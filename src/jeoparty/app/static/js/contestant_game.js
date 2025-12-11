@@ -19,6 +19,7 @@ for (let i = 0; i < CONN_ATTEMPTS; i++) {
 requestWakeLock();
 
 var pingActive = true;
+var buzzerResetTimeout = null;
 
 function makeDailyDoubleWager(playerId) {
     let btn = document.getElementById("contestant-wager-btn");
@@ -79,6 +80,18 @@ function resetBuzzerStatusImg(elem) {
     elem.classList.add("d-none");
 }
 
+function resetBuzzerState(buzzerStatus) {
+    let buzzerWinnerImg = document.getElementById("buzzer-winner");
+    let buzzerLoserImg = document.getElementById("buzzer-loser");
+
+    // Reset and hide buzzer status after a delay
+    resetBuzzerStatusImg(buzzerWinnerImg);
+    resetBuzzerStatusImg(buzzerLoserImg);
+
+    buzzerStatus.classList.add("d-none");
+    buzzerStatus.style.opacity = 0;
+}
+
 function handleBuzzInResult(imageToShow) {
     let buzzerActive = document.getElementById("buzzer-active");
     let buzzerInactive = document.getElementById("buzzer-inactive");
@@ -94,16 +107,8 @@ function handleBuzzInResult(imageToShow) {
     imageToShow.classList.remove("d-none");
     imageToShow.style.animationName = "showBuzzerStatus";
 
-    setTimeout(function() {
-        let buzzerWinnerImg = document.getElementById("buzzer-winner");
-        let buzzerLoserImg = document.getElementById("buzzer-loser");
-
-        // Reset and hide buzzer status after a delay
-        resetBuzzerStatusImg(buzzerWinnerImg);
-        resetBuzzerStatusImg(buzzerLoserImg);
-
-        buzzerStatus.classList.add("d-none");
-        buzzerStatus.style.opacity = 0;
+    buzzerResetTimeout = setTimeout(function() {
+        resetBuzzerState(buzzerStatus);
     }, 1600);
 }
 
@@ -151,6 +156,12 @@ function monitorGame(userId, localeJson) {
     // Called when question has been asked and buzzing has been enabled.
     socket.on("buzz_enabled", function(activeIds) {
         if (activeIds.includes(userId)) {
+            if (!buzzerStatus.classList.contains("d-none")) {
+                if (buzzerResetTimeout) {
+                    clearTimeout(buzzerResetTimeout);
+                }
+                resetBuzzerState(buzzerStatus);
+            }
             buzzerInactive.classList.add("d-none");
             buzzerActive.classList.remove("d-none");
         }
@@ -263,8 +274,6 @@ function monitorGame(userId, localeJson) {
     socket.on("ping_calculated", function(ping) {
         pingElem.textContent = ping + " ms";
         let pingNum = Number.parseFloat(ping);
-
-        console.log("Ping received:", pingNum);
 
         if (pingNum < 50) {
             pingElem.className = "contestant-low-ping";

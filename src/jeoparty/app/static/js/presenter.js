@@ -155,16 +155,34 @@ function hideFreezeAnimation() {
     }, 1000);
 }
 
-function triggerValueUpdateAnimation(element, gain) {
+function triggerScoreUpdateAnimation(element, delta) {
     let duration = Number.parseFloat(window.getComputedStyle(element).animationDuration.replace("s", ""));
-    element.style.animationName = "valueUpdated";
-    element.classList.add(`value-animation-${gain ? 'correct' : 'wrong'}`);
 
+    let animationName;
+    let absDelta = Math.abs(delta);
+    if (absDelta < 500) {
+        animationName = "scoreUpdatedSmall";
+    }
+    else if (absDelta < 1000) {
+        animationName = "scoreUpdatedMedium";
+    }
+    else if (absDelta < 1500) {
+        animationName = "scoreUpdatedLarge";
+    }
+    else {
+        animationName = "scoreUpdatedHuge";
+    }
+    element.style.animationName = animationName;
+
+    let className = `score-animation-${delta >= 0 ? 'correct' : 'wrong'}`;
+    element.classList.add(className);
+ 
     setTimeout(function() {
         // Reset animation after it has played
         element.style.animationName = "none";
         element.offsetHeight; // Trigger reflow
         element.style.animationName = null;
+        element.classList.remove(className);
     }, duration * 1000);
 }
 
@@ -174,7 +192,7 @@ function updatePlayerScore(playerId, delta) {
     let scoreElem = playerEntry.querySelector(".footer-contestant-entry-score");
 
     scoreElem.textContent = `${playerScores[playerId]} ${localeStrings["points_short"]}`;
-    triggerValueUpdateAnimation(scoreElem, delta >= 0);
+    triggerScoreUpdateAnimation(scoreElem, delta);
 }
 
 function updatePlayerBuzzStats(playerId, hit, delta=1) {
@@ -524,6 +542,10 @@ function setCountdownBar(countdownBar, milis, green, red, maxMilis) {
 }
 
 function startCountdown(duration, callback=null) {
+    if (countdownInterval) {
+        stopCountdown();
+    }
+
     let countdownWrapper = document.querySelector(".question-countdown-wrapper");
     if (countdownWrapper.classList.contains("d-none")) {
         countdownWrapper.classList.remove("d-none");
@@ -546,10 +568,6 @@ function startCountdown(duration, callback=null) {
     setCountdownBar(countdownBar, (secs * 1000) + (iteration * delay), green, red, duration * 1000);
 
     countdownPaused = false;
-
-    if (countdownInterval) {
-        stopCountdown();
-    }
 
     countdownInterval = setInterval(function() {
         if (countdownPaused) {
@@ -653,7 +671,7 @@ function addPowerUseToFeed(playerId, powerId) {
 
     let name = playerNames[playerId];
     let color = playerColors[playerId];
-    addToGameFeed(`<span color='${color}'>${name}</span> ${powerStr1} <strong>${powerId}</strong> ${powerStr2}!`);
+    addToGameFeed(`<span style="color: ${color}; font-weight: 800">${name}</span> ${powerStr1} <strong>${powerId}</strong> ${powerStr2}!`);
 }
 
 function afterBuzzIn(playerId) {
@@ -921,10 +939,11 @@ function questionAsked(countdownDelay) {
 }
 
 function showAnswerChoice(index) {
-    let choiceElem = document.querySelectorAll(".question-choice-entry")[index];
-    choiceElem.style.opacity = 1;
+    let choiceElems = document.querySelectorAll(".question-choice-entry");
+    let currChoice = choiceElems[index];
+    currChoice.style.opacity = 1;
 
-    if (index == 3) {
+    if (index == choiceElems.length - 1) {
         questionAsked(500);
     }
     else {
@@ -937,6 +956,7 @@ function showAnswerChoice(index) {
 }
 
 function afterShowQuestion() {
+    console.log("AFTER SHOW QUESTION!");
     if (getNumAnswerChoices()) {
         window.onkeydown = function(e) {
             if (e.code == PRESENTER_ACTION_KEY) {
@@ -1531,10 +1551,12 @@ function showFinaleResult() {
 }
 
 function startEndscreenAnimation() {
-    document.getElementById("endscreen-confetti-video").play();
-    document.getElementById("endscreen-music").play();
+    let endscreenMusic = document.getElementById("endscreen-music");
+    let confettiVideo = document.getElementById("endscreen-confetti-video");
     let overlay = document.getElementById("endscreen-techno-overlay");
 
+    endscreenMusic.play();
+    confettiVideo.play();
     overlay.classList.remove("d-none");
 
     let colors = ["#1dd8265e", "#1d74d85e", "#c90f0f69", "#deb5115c"];
@@ -1557,6 +1579,16 @@ function startEndscreenAnimation() {
             }
         }, intervalDelay);
     }, initialDelay);
+
+    // Add listener for stopping the party when the police knocks down the door
+    window.onkeydown = function(e) {
+        if (e.code == PRESENTER_ACTION_KEY) {
+            overlay.classList.add("d-none");
+            endscreenMusic.pause();
+            confettiVideo.pause();
+            confettiVideo.classList.add("d-none");
+        }
+    }
 }
 
 function startWinnerParty() {
