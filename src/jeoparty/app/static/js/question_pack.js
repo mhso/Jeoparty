@@ -1256,7 +1256,9 @@ function handleURLDataTransfers(event) {
                 client.onreadystatechange = function() {
                     if(this.readyState == this.DONE) {    
                         if (this.status != 200) {
-                            console.log("Response:", this.responseText);
+                            if (this.responseType == "text" || this.responseType == "") {
+                                console.log("Response:", this.responseText);
+                            }
                             reject();
                             return;
                         }

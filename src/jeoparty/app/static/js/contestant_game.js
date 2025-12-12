@@ -7,6 +7,13 @@ for (let i = 0; i < CONN_ATTEMPTS; i++) {
         socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 5000});
         socket.on("connect_error", function(err) {
             console.error("Contestant socket connection error:", err);
+            if (socket.active) {
+                console.log("Socket will reconnect...");
+            }
+            else {
+                console.log("Socket is DEAD!!! We try to connect manually...");
+                socket.connect();
+            }
         });
         break;
     }

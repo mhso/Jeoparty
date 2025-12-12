@@ -95,6 +95,10 @@
                     });
 
                     {% else %}
+                    {% if stage == 'question' %}
+                    socket.emit("enable_powerup", null, "hijack");
+                    {% endif %}
+
                     window.onkeydown = function(e) {
                         if (e.code == PRESENTER_ACTION_KEY) {
                             showQuestion();

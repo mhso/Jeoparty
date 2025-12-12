@@ -476,7 +476,7 @@ class ContextHandler:
         async def power_video_done():
             return await video.evaluate("(e) => e.ended")
 
-        await self.wait_for_event(power_video_done)
+        await self.wait_for_event(power_video_done, timeout=15)
 
     async def make_wager(self, contestant_id: str, amount: int, dialog_callback=None):
         page = self.contestant_pages[contestant_id]

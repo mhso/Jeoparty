@@ -125,9 +125,7 @@ def question(game_data: Game):
     for contestant in game_data.game_contestants:
         for power_up in contestant.power_ups:
             power_up.enabled = (
-                power_up.type is PowerUpType.HIJACK
-                and not is_daily_double
-                and game_data.stage is not StageType.FINALE_QUESTION
+                not is_daily_double and game_data.stage is StageType.QUESTION
             )
 
         database.save_models(*contestant.power_ups)

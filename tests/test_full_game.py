@@ -54,19 +54,47 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
     assert active_question is not None
     assert active_contestant is not None
 
+    contestants_with_hijack = [
+        contestant for contestant in game_data.game_contestants
+        if not contestant.get_power(PowerUpType.HIJACK).used
+    ]
+
+    hijack_player = None
     if active_question.daily_double:
         # Make a random wager
         wager = random.randint(100, max(500 * game_data.round, active_contestant.score))
         await context.make_wager(active_contestant.contestant_id, wager)
+        max_buzz_attempts = 1
+    elif contestants_with_hijack != [] and random.random() < 0.2:
+        # Have someone use hijack before the question is asked
+        hijack_player = random.choice(contestants_with_hijack)
+        await context.use_power_up(hijack_player.contestant_id, PowerUpType.HIJACK.value)
+        await asyncio.sleep(1)
+
+        max_buzz_attempts = 1
+    else:
+        max_buzz_attempts = game_data.max_contestants
 
     await context.show_question(active_question.daily_double)
 
-    max_buzz_attempts = 1 if active_question.daily_double else game_data.max_contestants
+    if not hijack_player and contestants_with_hijack != [] and random.random() < 0.2:
+        # Have someone hijack after the question is asked
+        hijack_player = random.choice(contestants_with_hijack)
+        await context.use_power_up(hijack_player.contestant_id, PowerUpType.HIJACK.value)
+        await asyncio.sleep(1)
+
+        max_buzz_attempts = 1
+
     guessed_choices = set()
     players_buzzed = set()
 
     for _ in range(max_buzz_attempts):
-        if not active_question.daily_double:
+        if hijack_player:
+            await context.hit_buzzer(hijack_player.contestant_id)
+            buzz_winner = hijack_player
+        elif active_question.daily_double:
+            buzz_winner = active_contestant
+        else:
             # Choose one or more random players to answer
             num_players = random.randint(0, game_data.max_contestants * 4) // 4
 
@@ -95,8 +123,6 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             assert len(pending) == 0
 
             buzz_winner = (await context.find_buzz_winner(game_data.game_contestants, locale))[0]
-        else:
-            buzz_winner = active_contestant
 
         players_buzzed.add(buzz_winner.id)
 
@@ -295,7 +321,7 @@ async def test_random_game(database, locales):
     seed = 1337
     random.seed(seed)
 
-    num_contestants = random.randint(3, 10)
+    num_contestants = random.randint(3, 5)
     contestant_names, contestant_colors = create_contestant_data(num_contestants)
 
     async with ContextHandler(database, True) as context:

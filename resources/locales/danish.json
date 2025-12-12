@@ -31,7 +31,7 @@
             "answer_skipped": "og intet ændrer sig",
             "answer_correct": "vinder",
             "answer_wrong": "taber",
-            "nothing": "intet"
+            "nothing": "ingenting"
         },
         "presenter/endscreen": {
             "winner_flavor_1": "vandt!!! Bøj jer i støvet!",
