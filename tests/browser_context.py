@@ -40,7 +40,7 @@ BROWSER_OPTIONS = {
     "headless": True
 }
 
-PRESENTER_BROWSER = "chromium"
+PRESENTER_BROWSER = "firefox"
 CONTESTANT_BROWSER = "chromium"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
@@ -389,12 +389,12 @@ class ContextHandler:
         # Check if question is multiple choice
         answer_choices = await self.presenter_page.evaluate("() => getNumAnswerChoices()")
 
-        if answer_choices:
+        if question_image is None and question_video is None:
+            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
+        elif answer_choices:
             for _ in range(answer_choices):
                 await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
                 await asyncio.sleep(0.5)
-        elif question_image is not None or question_video is not None:
-            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def answer_question(self, contestant_id: str, *, key: int | None = None, choice: str | None = None):
         contestant_page = self.contestant_pages[contestant_id]
@@ -687,7 +687,7 @@ class ContextHandler:
         # Validate remaining fields
         header_data = [
             ("name", name),
-            ("score", f"{score} points" if score is not None else None),
+            ("score", f"{score} pts" if score is not None else None),
             ("hits", str(hits) if hits is not None else None),
             ("misses", str(misses) if misses is not None else None),
         ]

@@ -100,7 +100,6 @@ def question(game_data: Game):
         # If question does not exist or has already been answered, redirect back to selection
         return flask.redirect(flask.url_for(".selection", game_id=game_data.id))
 
-    is_daily_double = game_data.use_daily_doubles and game_question.daily_double
     question_json = game_question.question.dump(id="question_id")
     question_json["category"] = game_question.question.category.dump(included_relations=[])
     question_json["daily_double"] = game_question.daily_double
@@ -124,9 +123,7 @@ def question(game_data: Game):
     # Disable all power-ups except hijack unless question is daily double or we are at the finale
     for contestant in game_data.game_contestants:
         for power_up in contestant.power_ups:
-            power_up.enabled = (
-                not is_daily_double and game_data.stage is StageType.QUESTION
-            )
+            power_up.enabled = False
 
         database.save_models(*contestant.power_ups)
 

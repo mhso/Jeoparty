@@ -150,7 +150,9 @@ function enablePowerUp(playerId, powerId) {
 }
 
 function disablePowerUp(playerId=null, powerId=null) {
-    socket.emit("disable_powerup", playerId, powerId);
+    if (canPlayersBuzzIn()) {
+        socket.emit("disable_powerup", playerId, powerId);
+    }
 }
 
 function hideFreezeAnimation() {
@@ -260,6 +262,14 @@ function setPlayerTurn(playerId, save) {
 
     if (save) {
         playerTurn = playerId;
+    }
+}
+
+function registerAction(callback) {
+    window.onkeydown = function(e) {
+        if (e.code == PRESENTER_ACTION_KEY) {
+            callback(e);
+        }
     }
 }
 
@@ -612,7 +622,26 @@ function pauseVideo() {
     let videoElem = document.querySelector(".question-question-video");
     if (videoElem != null) {
         videoElem.onended = null;
-        videoElem.pause();
+        if (!videoElem.paused) {
+            videoElem.pause();
+        }
+    }
+}
+
+function pauseBeforeAnswer() {
+    // Disable 'hijack' power-up for all and 'freeze' for the answering player
+    // after an answer has been given
+    disablePowerUp(null, "hijack");
+    disablePowerUp(answeringPlayer, "freeze");
+
+    // Pause video if one is playing
+    pauseVideo();
+
+    // Clear countdown
+    stopCountdown();
+
+    window.onkeydown = function(e) {
+        answerQuestion(e);
     }
 }
 
@@ -627,24 +656,7 @@ function startAnswerCountdown(duration) {
     }, (duration - 1) * 1000);
 
     // Action key has to be pressed before an answer can be given (for safety)
-    window.onkeydown = function(e) {
-        if (e.code == PRESENTER_ACTION_KEY) {
-            // Disable 'hijack' power-up for all and 'freeze' for the answering player
-            // after an answer has been given
-            disablePowerUp(null, "hijack");
-            disablePowerUp(answeringPlayer, "freeze");
-
-            // Pause video if one is playing
-            pauseVideo();
-
-            // Clear countdown
-            stopCountdown();
-
-            window.onkeydown = function(e) {
-                answerQuestion(e);
-            }
-        }
-    }
+    registerAction(pauseBeforeAnswer);
 }
 
 function addToGameFeed(text) {
@@ -763,7 +775,7 @@ function afterFreezeUsed() {
 
     setTimeout(function() {
         freezeWrapper.offsetHeight; // Trigger reflow
-        freezeWrapper.style.transition = `opacity ${duration}s`;
+        freezeWrapper.style.transition = `opacity ${fadeInDuration}s`;
         freezeWrapper.style.opacity = 0;
     
         setTimeout(function() {
@@ -773,7 +785,6 @@ function afterFreezeUsed() {
             }
         }, (TIME_FOR_FREEZE - fadeInDuration) * 1000)
     }, fadeInDuration * 1000);
-
 }
 
 function onRewindUsed(playerId) {
@@ -902,11 +913,9 @@ function questionAsked(countdownDelay) {
             showTip(0);
             if (buzzInTime == 0) {
                 // Question has no timer, contestants can take their time
-                window.onkeydown = function(e) {
-                    if (e.code == PRESENTER_ACTION_KEY) {
-                        wrongAnswer(localeStrings["wrong_answer_cowards"], true);
-                    }
-                };
+                registerAction(function() {
+                    wrongAnswer(localeStrings["wrong_answer_cowards"], true);
+                });
             }
             else {
                 startCountdown(buzzInTime);
@@ -925,12 +934,10 @@ function questionAsked(countdownDelay) {
 
             // Allow us to override the countdown if people are done answering
             setTimeout(function() {
-                window.onkeydown = function(e) {
-                    if (e.code == PRESENTER_ACTION_KEY) {
-                        stopCountdown();
-                        goToPage(url);
-                    }
-                }
+                registerAction(function() {
+                    stopCountdown();
+                    goToPage(url);
+                });
             }, 2000);
         }
     }, countdownDelay);
@@ -938,10 +945,6 @@ function questionAsked(countdownDelay) {
     if (canPlayersBuzzIn()) {
         // Enable participants to buzz in if we are in regular rounds
         listenForBuzzIn();
-    }
-    else if (isDailyDouble) {
-        answeringPlayer = playerTurn;
-        setPlayerTurn(answeringPlayer, false);
     }
 }
 
@@ -954,16 +957,13 @@ function showAnswerChoice(index) {
         questionAsked(500);
     }
     else {
-        window.onkeydown = function(e) {
-            if (e.code == PRESENTER_ACTION_KEY) {
-                showAnswerChoice(index + 1);
-            }
-        }
+        registerAction(function() {
+            showAnswerChoice(index + 1);
+        })
     }
 }
 
 function afterShowQuestion() {
-    console.log("AFTER SHOW QUESTION!");
     if (getNumAnswerChoices()) {
         window.onkeydown = function(e) {
             if (e.code == PRESENTER_ACTION_KEY) {
@@ -1004,24 +1004,29 @@ function showQuestion() {
     if (answerImage != null || videoElem != null) {
         // If there is an answer image, first show the question, then show
         // the image after pressing action key again. Otherwise show image instantly
-        window.onkeydown = function(e) {
-            if (e.code == PRESENTER_ACTION_KEY) {
-                if (questionImage != null) {
-                    showImageOrVideo(questionImage);
-                    afterShowQuestion();
-                }
-                else {
-                    showImageOrVideo(videoElem);
-                    videoElem.play();
-                    videoElem.onended = afterShowQuestion;
+        registerAction(function() {
+            if (questionImage != null) {
+                showImageOrVideo(questionImage);
+                afterShowQuestion();
+            }
+            else {
+                showImageOrVideo(videoElem);
+                videoElem.play();
+                videoElem.onended = afterShowQuestion;
 
-                    if (canPlayersBuzzIn()) {
-                        // Let players interrupt the video and buzz in early
-                        listenForBuzzIn();
-                    }
+                if (canPlayersBuzzIn()) {
+                    // Let players interrupt the video and buzz in early
+                    listenForBuzzIn();
+                }
+                else if (isDailyDouble) {
+                    // If daily double, allow interruption of the video by presenter
+                    registerAction(function() {
+                        videoElem.onended = null;
+                        pauseBeforeAnswer();
+                    });
                 }
             }
-        }
+        });
     }
     else {
         // If there is no answer image, either show answer choices if question
@@ -1036,11 +1041,9 @@ function showQuestion() {
             if (questionImage != null) {
                 showImageOrVideo(questionImage);
             }
-            window.onkeydown = function(e) {
-                if (e.code == PRESENTER_ACTION_KEY) {
-                    afterShowQuestion();
-                }
-            }
+            registerAction(function() {
+                afterShowQuestion();
+            });
         }
     }
 }
@@ -1090,6 +1093,7 @@ function initialize(playerJson, stage, localeJson, pageSpecificJson=null) {
         }
     });
 
+    
     activeStage = stage;
     if (pageSpecificData) {
         activeAnswer = pageSpecificData["answer"];
@@ -1097,6 +1101,10 @@ function initialize(playerJson, stage, localeJson, pageSpecificJson=null) {
         answerTime = pageSpecificData["answer_time"];
         buzzInTime = pageSpecificData["buzz_time"];
         isDailyDouble = pageSpecificData["daily_double"];
+        if (isDailyDouble) {
+            answeringPlayer = playerTurn;
+            setPlayerTurn(answeringPlayer, false);
+        }
     }
 }
 
@@ -1444,31 +1452,27 @@ function setPlayerReady(playerId) {
 }
 
 function showFinaleCategory() {
-    window.onkeydown = function(e) {
-        if (e.code == PRESENTER_ACTION_KEY) {
-            let header1 = document.getElementById("selection-finale-header1");
-            header1.style.setProperty("opacity", 1);
+    registerAction(function() {
+        let header1 = document.getElementById("selection-finale-header1");
+        header1.style.setProperty("opacity", 1);
 
-            setTimeout(function() {
-                let header2 = document.getElementById("selection-finale-header2");
-                header2.style.setProperty("opacity", 1);
+        setTimeout(function() {
+            let header2 = document.getElementById("selection-finale-header2");
+            header2.style.setProperty("opacity", 1);
 
-                let header3 = document.getElementById("selection-finale-header3");
-                header3.style.setProperty("opacity", 1);
-            }, 2000);
+            let header3 = document.getElementById("selection-finale-header3");
+            header3.style.setProperty("opacity", 1);
+        }, 2000);
 
-            setTimeout(function() {
-                socket.emit("enable_finale_wager");
-                document.getElementById("selection-jeopardy-theme").play();
+        setTimeout(function() {
+            socket.emit("enable_finale_wager");
+            document.getElementById("selection-jeopardy-theme").play();
 
-                window.onkeydown = function(e) {
-                    if (e.code == PRESENTER_ACTION_KEY) {
-                        goToPage(getQuestionURL());
-                    }
-                }
-            }, 3000);
-        }
-    }
+            registerAction(function() {
+                goToPage(getQuestionURL());
+            });
+        }, 3000);
+    });
 }
 
 function showFinaleResult() {
@@ -1547,11 +1551,9 @@ function showFinaleResult() {
         }
     }
 
-    window.onkeydown = function(e) {
-        if (e.code == PRESENTER_ACTION_KEY) {
-            showNextResult(0);
-        }
-    }
+    registerAction(function() {
+        showNextResult(0);
+    });
 
     let answerElem = document.getElementById("finale-answer");
     answerElem.style.opacity = 1;
@@ -1588,31 +1590,27 @@ function startEndscreenAnimation() {
     }, initialDelay);
 
     // Add listener for stopping the party when the police knocks down the door
-    window.onkeydown = function(e) {
-        if (e.code == PRESENTER_ACTION_KEY) {
-            overlay.classList.add("d-none");
-            endscreenMusic.pause();
-            confettiVideo.pause();
-            confettiVideo.classList.add("d-none");
-        }
-    }
+    registerAction(function() {
+        overlay.classList.add("d-none");
+        endscreenMusic.pause();
+        confettiVideo.pause();
+        confettiVideo.classList.add("d-none");
+    });
 }
 
 function startWinnerParty() {
-    window.onkeydown = function(e) {
-        if (e.code == PRESENTER_ACTION_KEY) {
-            const endscreenSound = document.getElementById("endscreen-sound");
-            if (endscreenSound) {
-                endscreenSound.play();
-                endscreenSound.onended = function() {
-                    startEndscreenAnimation();
-                }
-            }
-            else {
+    registerAction(function() {
+        const endscreenSound = document.getElementById("endscreen-sound");
+        if (endscreenSound) {
+            endscreenSound.play();
+            endscreenSound.onended = function() {
                 startEndscreenAnimation();
             }
         }
-    }
+        else {
+            startEndscreenAnimation();
+        }
+    });
 }
 
 function revealContestantEditBtn(playerId) {

@@ -3,7 +3,6 @@ import random
 from typing import Dict, List
 
 import pytest
-from sqlalchemy import text
 from playwright.async_api import Page
 
 from jeoparty.api.enums import PowerUpType, StageType
@@ -96,10 +95,22 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             buzz_winner = active_contestant
         else:
             # Choose one or more random players to answer
-            num_players = random.randint(0, game_data.max_contestants * 4) // 4
+            num_players = random.randint(0, game_data.max_contestants * 6) // 6
 
             if num_players == 0: # No one buzzes in and time runs out
-                await asyncio.sleep(active_question.question.category.buzz_time + 3)
+                video = await context.presenter_page.query_selector(".question-question-video")
+                print(f"No one buzzes in for this one!")
+
+                if video is not None:
+                    async def wait_for_video():
+                        return await video.evaluate("(vid) => vid.ended")
+
+                    print("Waiting for video to end...")
+                    await context.wait_for_event(wait_for_video, timeout=45)
+
+                sleep_time = active_question.question.category.buzz_time + 3
+
+                await asyncio.sleep(sleep_time)
                 break
 
             shuffled_players = [
@@ -146,7 +157,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             if not correct and not rewind_power.used and random.random() < 0.5:
                 await context.use_power_up(buzz_winner.contestant_id, rewind_power.type.value)
 
-                await asyncio.sleep(2)
+                await asyncio.sleep(3)
 
                 correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
                 await asyncio.sleep(2)
@@ -317,23 +328,17 @@ async def validate_links(context: ContextHandler):
 
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
-    pack_name = "Test Pack"
+    pack_name = "Julequiz 2025"
     seed = 1337
     random.seed(seed)
 
-    num_contestants = random.randint(3, 5)
+    num_contestants = random.randint(3, 10)
     contestant_names, contestant_colors = create_contestant_data(num_contestants)
 
     async with ContextHandler(database, True) as context:
         with database as session:
-            # Set active theme on the question pack
-            theme = "Jul"
-            theme_id = session.execute(text(f"SELECT id FROM themes WHERE name = '{theme}'")).scalar_one()
-            session.execute(text(f"UPDATE question_packs SET theme_id = '{theme_id}' WHERE name = '{pack_name}'"))
-            session.commit()
-
             # Create game with 3-10 contestants randomly chosen
-            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
             locales = locales[game_data.pack.language.value]["pages"]
 
             await asyncio.sleep(1)

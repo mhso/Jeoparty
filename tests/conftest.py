@@ -1,6 +1,7 @@
 import os
 import shutil
 import pytest
+from sqlalchemy import text
 
 pytest.register_assert_rewrite("tests.browser_context")
 
@@ -15,25 +16,24 @@ from tests.config import PRESENTER_USER_ID, PRESENTER_USERNAME, PRESENTER_PASSWO
 def _create_question_packs(database: Database):
     with database as session:
         # Create some themes
-        theme_1 = Theme(
-            id="5d374837-b817-4116-9644-c1046994ce37",
-            name="Jul",
-            language=Language.DANISH,
-            created_by=PRESENTER_USER_ID,
-        )
+        # theme_1 = Theme(
+        #     id="5d374837-b817-4116-9644-c1046994ce37",
+        #     name="Jul",
+        #     language=Language.DANISH,
+        #     created_by=PRESENTER_USER_ID,
+        # )
 
-        theme_2 = Theme(
-            id="87cfa214-1b9a-4edc-8ec8-fd66da1ae816",
-            name="LAN",
-            language=Language.DANISH,
-            created_by=PRESENTER_USER_ID,
-        )
-        database.save_models(theme_1, theme_2)
+        # theme_2 = Theme(
+        #     id="87cfa214-1b9a-4edc-8ec8-fd66da1ae816",
+        #     name="LAN",
+        #     language=Language.DANISH,
+        #     created_by=PRESENTER_USER_ID,
+        # )
+        # database.save_models(theme_1, theme_2)
 
         pack_model_1 = QuestionPack(
             name="Test Pack",
             created_by=PRESENTER_USER_ID,
-            language=Language.DANISH,
         )
         pack_model_1 = database.create_question_pack(pack_model_1)
         os.mkdir(get_question_pack_data_path(pack_model_1.id))
@@ -158,12 +158,17 @@ def database():
     if os.path.exists(db_file_path):
         os.remove(db_file_path)
 
+    shutil.copy(f"{Config.RESOURCES_FOLDER}/database.db", db_file_path)
     database = Database(db_file)
 
-    with database:
+    with database as session:
         # Create presenter user
         hashed_pw = get_hashed_password(PRESENTER_PASSWORD, f"{Config.SRC_FOLDER}/app/static/secret.json")
         database.create_user(PRESENTER_USER_ID, PRESENTER_USERNAME, hashed_pw)
+
+        session.execute(text(f"UPDATE themes SET created_by = '{PRESENTER_USER_ID}'"))
+        session.execute(text(f"UPDATE question_packs SET created_by = '{PRESENTER_USER_ID}'"))
+        session.commit()
 
         # Create test contestant users
         colors = ["#ee1105", "#0564e8", "#35ae3b", "#9f1dd6", "#1565c6"]

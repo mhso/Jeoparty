@@ -127,8 +127,6 @@ function usePowerUp(playerId, powerId) {
 }
 
 function togglePowerUpsEnabled(playerId, powerIds, enabled) {
-    console.log(`${enabled ? "Enabled" : "Disabled"} '${powerIds}' power-up(s) for ${playerId}`);
-
     powerIds.forEach((powerId) => {
         let btn = document.getElementById(`contestant-power-btn-${powerId}`);
         let powerIcon = btn.getElementsByClassName("contestant-power-icon").item(0);

@@ -308,8 +308,6 @@ async def test_simultaneous_buzzes(database, locales):
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
 
-            await context.show_question()
-
             await asyncio.sleep(2)
 
             # Try to buzz in at the same time
@@ -327,6 +325,8 @@ async def test_simultaneous_buzzes(database, locales):
 
             # Find who buzzed the fastest
             fastest_contestant = (await context.find_buzz_winner(game_data.game_contestants, locale))[0]
+
+            await context.screenshot_views()
 
             # Assert that the fastest contestant won the buzz
             for contestant in game_data.game_contestants:
