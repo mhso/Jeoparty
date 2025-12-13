@@ -48,7 +48,7 @@ async def test_inputs(database):
     expected_title = "Jeopardy Extravaganza"
     expected_password = "Pass1337"
     expected_join_code = f"jeopardy_extravaganza"
-    expected_rounds = 3
+    expected_rounds = 1
     expected_contestants = 5
     expected_doubles = False
     expected_powerups = True
@@ -95,7 +95,7 @@ async def test_errors(database):
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
-        assert await error_elem.text_content() == "Error: The selected question pack is invalid."
+        assert await error_elem.text_content() == "Error when creating game: The selected question pack is invalid."
 
         # Create game with too short of a title
         page, game_id = await context.create_game("Test Pack", "No")
@@ -139,6 +139,13 @@ async def test_errors(database):
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
         assert await error_elem.text_content() == "Error when creating game: 'Regular rounds' - Input should be less than 10"
+
+        # Create game with more rounds than the pack supports
+        page, game_id = await context.create_game("Other Pack", rounds=2)
+
+        error_elem = await page.query_selector("#dashboard-form-error")
+        assert database.get_game_from_id(game_id) is None
+        assert await error_elem.text_content() == "Error when creating game: The question pack only supports 1 regular round."
 
         # Create game with too few contestants
         page, game_id = await context.create_game("Test Pack", contestants=0)

@@ -495,6 +495,8 @@ function answerQuestion(event) {
             // Highlight element as having been selected as the answer.
             const elem = document.querySelector(".question-choice-" + event.key);
 
+            console.log(`Answering choice #${event.key}`)
+
             if (
                 elem.classList.contains("question-answering")
                 || elem.classList.contains("question-answered-wrong")
@@ -640,9 +642,7 @@ function pauseBeforeAnswer() {
     // Clear countdown
     stopCountdown();
 
-    window.onkeydown = function(e) {
-        answerQuestion(e);
-    }
+    window.onkeydown = answerQuestion;
 }
 
 function startAnswerCountdown(duration) {

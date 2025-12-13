@@ -1,4 +1,5 @@
 import asyncio
+import math
 import random
 from typing import Dict, List
 
@@ -38,9 +39,11 @@ async def answer_question(context, contestant, question, guessed_choices):
         choice = random.choice(remaining_choices)
         guessed_choices.add(choice)
         correct = choice == question.question.answer
+        print(f"Answering choice '{choice}'")
         await context.answer_question(contestant.contestant_id, choice=choice)
     else:
         key = random.randint(1, 2)
+        print(f"Answering key '{key}'")
         correct = key == 1
         await context.answer_question(contestant.contestant_id, key=key)
 
@@ -95,22 +98,12 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             buzz_winner = active_contestant
         else:
             # Choose one or more random players to answer
-            num_players = random.randint(0, game_data.max_contestants * 6) // 6
+            video = await context.presenter_page.query_selector(".question-question-video")
+            min_val = 0 if video is None else 1
+            num_players = math.ceil(random.randint(min_val, game_data.max_contestants * 6) / 6)
 
             if num_players == 0: # No one buzzes in and time runs out
-                video = await context.presenter_page.query_selector(".question-question-video")
-                print(f"No one buzzes in for this one!")
-
-                if video is not None:
-                    async def wait_for_video():
-                        return await video.evaluate("(vid) => vid.ended")
-
-                    print("Waiting for video to end...")
-                    await context.wait_for_event(wait_for_video, timeout=45)
-
-                sleep_time = active_question.question.category.buzz_time + 3
-
-                await asyncio.sleep(sleep_time)
+                await asyncio.sleep(active_question.question.category.buzz_time + 3)
                 break
 
             shuffled_players = [
@@ -157,7 +150,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             if not correct and not rewind_power.used and random.random() < 0.5:
                 await context.use_power_up(buzz_winner.contestant_id, rewind_power.type.value)
 
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
                 correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
                 await asyncio.sleep(2)
@@ -338,7 +331,7 @@ async def test_random_game(database, locales):
     async with ContextHandler(database, True) as context:
         with database as session:
             # Create game with 3-10 contestants randomly chosen
-            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, rounds=1)
             locales = locales[game_data.pack.language.value]["pages"]
 
             await asyncio.sleep(1)

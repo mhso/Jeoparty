@@ -21,6 +21,7 @@
 
 # Long Term
 - [❌] Create default contestant backgrounds
+- [❌] More specific error messages question pack editor
 - [❌] Make user-friendly mobile page for presenter
 - [❌] Make usage guide for presenter/quiz creators
 - [❌] Make a theme editor

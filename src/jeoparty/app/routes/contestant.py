@@ -11,7 +11,7 @@ from mhooge_flask.routing import make_template_context, make_json_response
 from jeoparty.api.database import Database
 from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Contestant, GameContestant
-from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template
+from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template, get_locale_data
 from jeoparty.api.config import get_avatar_path, get_theme_path, get_bg_image_path, get_buzz_sound_path
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
@@ -115,11 +115,12 @@ def join_lobby():
         if game_data is None:
             return make_json_response({"error": "Failed to join: Game does not exist"}, 404)
 
+        locale = get_locale_data(game_data.pack.language, "contestant/lobby")
         if game_data.password is not None and flask.request.form.get("password") != game_data.password:
-            return make_json_response({"error": "Failed to join: Wrong password"}, 401)
+            return make_json_response({"error": locale["wrong_password"]}, 401)
 
         if game_data.stage == StageType.ENDED:
-            return make_json_response({"error": "Failed to join: Game is over"}, 400)
+            return make_json_response({"error": locale["game_over"]}, 400)
 
         # Ensure no race conditions can occur when contestants join
         with flask.current_app.config["JOIN_LOCK"]:

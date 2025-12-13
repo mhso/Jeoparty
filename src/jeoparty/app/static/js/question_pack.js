@@ -349,6 +349,115 @@ function resizeRoundWrappers(round, orientation) {
     }
 }
 
+function createQuestionView(roundId, categoryId, isFinale=false) {
+    let questionId = getNextId(roundId, categoryId);
+
+    let outerWrapper = document.createElement("div");
+
+    let placeholder = document.querySelector(".question-pack-question-view-placeholder");
+    let wrapper = placeholder.cloneNode(true);
+
+    // Set question ID on the outer wrapper
+    wrapper.classList.remove("question-pack-question-view-placeholder");
+    wrapper.classList.add(`question-pack-question-view-${questionId}`);
+
+    let bgImageElem = wrapper.querySelector(".bg-fill");
+    let categoryData = questionData["rounds"][roundId]["categories"][categoryId];
+    if (Object.hasOwn(categoryData, "bg_image") && categoryData["bg_image"] != null) {
+        bgImageElem.style.backgroundImage = `url(/static/${categoryData["bg_image"]})`;
+        bgImageElem.classList.add("bg-image");
+    }
+
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
+    let questionWrappers = categoryWrapper.querySelectorAll(".question-pack-question-wrapper");
+    let roundIndex = getElementIndex("question-pack-round-wrapper", roundId);
+
+    // Set category name
+    let categoryHeader = wrapper.querySelector(".question-category-span");
+    categoryHeader.textContent = questionData["rounds"][roundId]["categories"][categoryId]["name"];
+
+    // Set value of question
+    let valueInput = wrapper.querySelector(".question-reward-span");
+
+    if (!isFinale) {
+        let baseValue = 100 * (roundIndex + 1);
+        let questionValue = baseValue;
+        questionWrappers.forEach((elem, index) => {
+            let value = Number.parseInt(elem.querySelector(".question-pack-question-value").textContent);
+            if (value != baseValue * (index + 1)) {
+                return;
+            }
+    
+            questionValue += baseValue;
+        });
+
+        valueInput.value = questionValue;
+
+        // If the question value for this new question is larger
+        // than the value for the finale question, update it accordingly
+        let finaleValueElem = document.querySelector(".question-pack-finale-wrapper .question-pack-question-value");
+        if (finaleValueElem != null && questionValue > Number.parseInt(finaleValueElem.textContent)) {
+            finaleValueElem.textContent = questionValue;
+        }
+    }
+    else {
+        let allQuestionElems = document.querySelectorAll(".question-pack-question-value");
+        let maxQuestionValue = 0;
+        allQuestionElems.forEach((elem) => {
+            let val = Number.parseInt(elem.textContent);
+            if (val > maxQuestionValue) {
+                maxQuestionValue = val;
+            }
+        });
+
+        valueInput.value = maxQuestionValue;
+        valueInput.readonly = true;
+    }
+
+    // Set buzz time
+    let countdownText = wrapper.querySelector(".question-countdown-text");
+    countdownText.value = questionData["rounds"][roundId]["categories"][categoryId]["buzz_time"];
+
+    if (isFinale) {
+        let countdownWrapper = wrapper.querySelector(".question-countdown-wrapper");
+
+        let buzzCheckbox = wrapper.querySelector(".question-do-buzz-countdown");
+        buzzCheckbox.checked = false;
+
+        buzzCheckbox.classList.add("d-none");
+        countdownWrapper.classList.add("d-none");
+    }
+
+    // Add onclick event to exit button
+    let exitBtn = wrapper.querySelector(".question-pack-question-view-exit");
+    exitBtn.onclick = function() {
+        cancelCreateQuestion(roundId, categoryId, questionId);
+    }
+
+    // Add onclick event to save button
+    let saveBtn = wrapper.querySelector(".question-pack-question-view-save");
+    saveBtn.onclick = function() {
+        saveQuestion(roundId, categoryId, questionId);
+    }
+
+    // Add onchange event to background image input
+    let bgImageInput = wrapper.querySelector(".question-bg-image-input");
+    bgImageInput.onchange = function(event) {
+        setBackgroundImage(event, roundId, categoryId);
+    }
+
+    outerWrapper.appendChild(wrapper);
+    categoryWrapper.appendChild(outerWrapper);
+
+    if (isFinale) {
+        saveQuestion(roundId, categoryId, questionId, isFinale);
+    }
+    else {
+        showQuestionView(roundId, categoryId, questionId);
+    }
+}
+
 function addQuestion(value, roundId, categoryId, questionId, wrapper) {
     if (questionId == 0) {
         questionData["rounds"][roundId]["categories"][categoryId]["questions"] = [];
@@ -448,6 +557,13 @@ function syncCategoryData(roundId, categoryId) {
         }
     }
 
+    // Update category name in question views
+    let questionViews = categoryWrapper.querySelectorAll(".question-pack-question-view");
+    questionViews.forEach((elem) => {
+        let categoryHeader = elem.querySelector(".question-category-span");
+        categoryHeader.textContent = data["name"];
+    });
+
     if (questionDataCategories.length == categoryId) {
         questionDataCategories.push(data);
     }
@@ -531,7 +647,7 @@ function addCategory(roundId, isFinale) {
     resizeRoundWrappers(roundId, "width");
 
     if (isFinale) {
-        createQuestionView(roundId, category, false);
+        createQuestionView(roundId, category, true);
     }
 }
 
@@ -1592,105 +1708,6 @@ function cancelCreateQuestion(roundId, categoryId, questionId) {
 
     if (newQuestion) {
         categoryWrapper.removeChild(questionWrapper.parentElement);
-    }
-}
-
-function createQuestionView(roundId, categoryId, isFinale=false) {
-    let questionId = getNextId(roundId, categoryId);
-
-    let outerWrapper = document.createElement("div");
-
-    let placeholder = document.querySelector(".question-pack-question-view-placeholder");
-    let wrapper = placeholder.cloneNode(true);
-
-    // Set question ID on the outer wrapper
-    wrapper.classList.remove("question-pack-question-view-placeholder");
-    wrapper.classList.add(`question-pack-question-view-${questionId}`);
-
-    let bgImageElem = wrapper.querySelector(".bg-fill");
-    let categoryData = questionData["rounds"][roundId]["categories"][categoryId];
-    if (Object.hasOwn(categoryData, "bg_image") && categoryData["bg_image"] != null) {
-        bgImageElem.style.backgroundImage = `url(/static/${categoryData["bg_image"]})`;
-        bgImageElem.classList.add("bg-image");
-    }
-
-    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
-    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
-    let questionWrappers = categoryWrapper.querySelectorAll(".question-pack-question-wrapper");
-    let roundIndex = getElementIndex("question-pack-round-wrapper", roundId);
-
-    // Set category name
-    let categoryHeader = wrapper.querySelector(".question-category-span");
-    categoryHeader.textContent = questionData["rounds"][roundId]["categories"][categoryId]["name"];
-
-    // Set value of question
-    let valueInput = wrapper.querySelector(".question-reward-span");
-
-    if (!isFinale) {
-        let baseValue = 100 * (roundIndex + 1);
-        let questionValue = baseValue;
-        questionWrappers.forEach((elem, index) => {
-            let value = Number.parseInt(elem.querySelector(".question-pack-question-value").textContent);
-            if (value != baseValue * (index + 1)) {
-                return;
-            }
-    
-            questionValue += baseValue;
-        });
-
-        valueInput.value = questionValue;
-
-        // If the question value for this new question is larger
-        // than the value for the finale question, update it accordingly
-        let finaleValueElem = document.querySelector(".question-pack-finale-wrapper .question-pack-question-value");
-        if (finaleValueElem != null && questionValue > Number.parseInt(finaleValueElem.textContent)) {
-            finaleValueElem.textContent = questionValue;
-        }
-    }
-    else {
-        let allQuestionElems = document.querySelectorAll(".question-pack-question-value");
-        let maxQuestionValue = 0;
-        allQuestionElems.forEach((elem) => {
-            let val = Number.parseInt(elem.value);
-            if (val > maxQuestionValue) {
-                maxQuestionValue = val;
-            }
-        });
-
-        valueInput.value = maxQuestionValue;
-        valueInput.readonly = true;
-    }
-
-    // Set buzz time
-    let countdownText = wrapper.querySelector(".question-countdown-text");
-    countdownText.value = questionData["rounds"][roundId]["categories"][categoryId]["buzz_time"];
-
-    // Add onclick event to exit button
-    let exitBtn = wrapper.querySelector(".question-pack-question-view-exit");
-    exitBtn.onclick = function() {
-        cancelCreateQuestion(roundId, categoryId, questionId);
-    }
-
-    // Add onclick event to save button
-    let saveBtn = wrapper.querySelector(".question-pack-question-view-save");
-    saveBtn.onclick = function() {
-        saveQuestion(roundId, categoryId, questionId);
-    }
-
-    // Add onchange event to background image input
-    let bgImageInput = wrapper.querySelector(".question-bg-image-input");
-    bgImageInput.onchange = function(event) {
-        setBackgroundImage(event, roundId, categoryId);
-    }
-
-    outerWrapper.appendChild(wrapper);
-    categoryWrapper.appendChild(outerWrapper);
-
-    if (isFinale) {
-        saveQuestion(roundId, categoryId, questionId, isFinale);
-    }
-    else {
-        showQuestionView(roundId, categoryId, questionId);
     }
 }
 

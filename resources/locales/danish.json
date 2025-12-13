@@ -47,7 +47,9 @@
             "welcome_header": "Velkommen til Jeoparty!",
             "placeholder_name": "Dit Navn",
             "color_label": "Din Farve",
-            "join": "Deltag"
+            "join": "Deltag",
+            "wrong_password": "Kunne ikke joine: Forkert password",
+            "game_over": "Kunne ikke joine: Spillet er slut"
         },
         "contestant/game": {
             "waiting_for_start": "Venter på at spillet starter...",

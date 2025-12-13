@@ -16,18 +16,25 @@ from mhooge_flask.database import Base
 
 from jeoparty.api.config import Config, get_theme_path, file_or_fallback
 from jeoparty.api.enums import Language
-from jeoparty.api.orm.models import Game, Question, Theme
+from jeoparty.api.orm.models import Game, Theme
 
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
 
+def get_locale_data(language: Language, page: str):
+    locale_data = flask.current_app.config["LOCALES"].get(language.value)
+    if locale_data:
+        page_data = locale_data["pages"].get(page, {})
+        page_data.update(locale_data["pages"].get("global", {}))
+        return page_data
+    
+    return None
+
 def render_locale_template(template: str, lang_code: Language | None = None, status=200, **variables):
     if lang_code is not None:
-        locale_data = flask.current_app.config["LOCALES"].get(lang_code.value)
         page_key = template.split(".")[0]
-        if locale_data:
-            page_data = locale_data["pages"].get(page_key, {})
-            page_data.update(locale_data["pages"].get("global", {}))
+        page_data = get_locale_data(lang_code, page_key)
+        if page_data:
             variables["_locale"] = page_data
 
     return make_template_context(template, status, **variables)
@@ -121,7 +128,10 @@ def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: 
         for column in model_cls.__table__.columns:
             value = data.get(column.name)
 
-            if column.type.python_type is bool:
+            if value is not None and column.type.python_type is int or column.type.python_type is float:
+                value = column.type.python_type(value)
+
+            elif column.type.python_type is bool:
                 if value == "on":
                     value = True
                 elif value == "off":

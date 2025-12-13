@@ -47,7 +47,9 @@
             "welcome_header": "Welcome to the Jeoparty!",
             "placeholder_name": "Your Name",
             "color_label": "Your Color",
-            "join": "Join"
+            "join": "Join",
+            "wrong_password": "Failed to join: Wrong password",
+            "game_over": "Failed to join: Game is over"
         },
         "contestant/game": {
             "waiting_for_start": "Waiting for the game to start...",

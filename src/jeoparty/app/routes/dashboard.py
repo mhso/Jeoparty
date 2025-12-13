@@ -151,9 +151,17 @@ def create_game():
         if not success:
             return flask.redirect(flask.url_for(".create_game", error=game_model_or_error, _external=True))
 
+        # Check if question pack exists
         pack_data = database.get_question_packs_for_user(user_id, game_model_or_error.pack_id)
         if not pack_data:
-            error = "Error: The selected question pack is invalid."
+            error = "Error when creating game: The selected question pack is invalid."
+            return flask.redirect(flask.url_for(".create_game", error=error, _external=True)) 
+
+        # Check if question pack supports the given rounds
+        pack_rounds = len(pack_data.rounds) - 1 if pack_data.include_finale else len(pack_data.rounds)
+        if game_model_or_error.regular_rounds > pack_rounds:
+            round_plural = "round" if pack_rounds == 1 else "rounds"
+            error = f"Error when creating game: The question pack only supports {pack_rounds} regular {round_plural}."
             return flask.redirect(flask.url_for(".create_game", error=error, _external=True)) 
 
         # Verify that the join code is unique

@@ -3,6 +3,7 @@ from glob import glob
 import os
 import re
 import shutil
+import traceback
 import numpy as np
 import cv2
 from io import BytesIO
@@ -36,11 +37,14 @@ BROWSER_OPTIONS = {
     "ignore_default_args": [
         "--enable-automation"
     ],
+    "firefox_user_prefs": {
+        "media.volume_scale": "0.0",
+    },
     "chromium_sandbox": False,
     "headless": True
 }
 
-PRESENTER_BROWSER = "firefox"
+PRESENTER_BROWSER = "chromium"
 CONTESTANT_BROWSER = "chromium"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
@@ -301,7 +305,7 @@ class ContextHandler:
                 await join_button.click()
         except PlaywrightTimeout:
             error_elem = await contestant_page.query_selector("#contestant-lobby-error")
-            if await error_elem.is_hidden():
+            if error_elem is None or await error_elem.is_hidden():
                 raise
 
         # Get contestant ID from cookie after they joined the lobby
@@ -473,10 +477,17 @@ class ContextHandler:
 
         video = await self.presenter_page.query_selector(f"#question-power-up-video-{power_id}")
 
-        async def power_video_done():
+        # Wait for video to start...
+        async def power_video_started():
+            return await video.evaluate("(e) => !e.paused")
+
+        await self.wait_for_event(power_video_started, timeout=5)
+
+        # ...then wait for it to end
+        async def power_video_ended():
             return await video.evaluate("(e) => e.ended")
 
-        await self.wait_for_event(power_video_done, timeout=15)
+        await self.wait_for_event(power_video_ended, timeout=15)
 
     async def make_wager(self, contestant_id: str, amount: int, dialog_callback=None):
         page = self.contestant_pages[contestant_id]
@@ -1028,16 +1039,21 @@ class ContextHandler:
 
         await asyncio.sleep(3)
 
-        # Create presenter browser and context
-        presenter_browser = await self._create_browser(self.playwright_contexts[0], PRESENTER_BROWSER)
-        self.presenter_context = await presenter_browser.new_context(
-            viewport=PRESENTER_VIEWPORT,
-            record_video_dir=None if not self.record_video else VIDEO_RECORD_PATH,
-        )
+        try:
+            # Create presenter browser and context
+            presenter_browser = await self._create_browser(self.playwright_contexts[0], PRESENTER_BROWSER)
+            self.presenter_context = await presenter_browser.new_context(
+                viewport=PRESENTER_VIEWPORT,
+                record_video_dir=None if not self.record_video else VIDEO_RECORD_PATH,
+            )
 
-        self.presenter_page = await self._login_to_dashboard()
-        self.presenter_page.on("pageerror", self._print_unhandled_error_presenter)
-        self.presenter_page.on("console", self._print_console_output)
+            self.presenter_page = await self._login_to_dashboard()
+            self.presenter_page.on("pageerror", self._print_unhandled_error_presenter)
+            self.presenter_page.on("console", self._print_console_output)
+        except Exception:
+            traceback.print_exc()
+            self.flask_process.terminate()
+            self.flask_process.wait()
 
         await asyncio.sleep(1)
 
@@ -1050,14 +1066,15 @@ class ContextHandler:
         self.flask_process.terminate()
         self.flask_process.wait()
 
-        await self.presenter_context.browser.close()
+        if self.presenter_context:
+            await self.presenter_context.browser.close()
 
         for context in self.contestant_contexts.values():
             await context.close()
 
         await self.playwright_contexts[0].stop()
 
-        if self.record_video:
+        if self.presenter_context and self.record_video:
             # Splice videos of presenter and contestants together
             print("Stiching browser videos together...")
             await self.tile_videos()
