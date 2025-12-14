@@ -198,7 +198,7 @@ async def handle_finale_wager_page(context: ContextHandler, game_data: Game):
         await context.presenter_page.press("body", PRESENTER_ACTION_KEY)    
 
 async def handle_finale_question_page(context: ContextHandler, game_data: Game):
-    assert game_data.round == 3
+    assert game_data.round == game_data.regular_rounds + 1
     assert len(game_data.get_questions_for_round()) == 1
 
     await context.show_question()

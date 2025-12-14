@@ -124,9 +124,12 @@ class ContextHandler:
 
         raise TimeoutError("Event never happened!")
 
-    async def _socket_connected(self):
-        status_elem = await self.presenter_page.query_selector("#connection-status")
-        return await self.presenter_page.evaluate("typeof(socket) !== 'undefined' && socket.connected") and (status_elem is None or await status_elem.is_hidden())
+    async def _socket_connected(self, page: Page | None = None):
+        if page is None:
+            page = self.presenter_page
+
+        status_elem = await page.query_selector("#connection-status")
+        return await page.evaluate("typeof(socket) !== 'undefined' && socket.connected") and (status_elem is None or await status_elem.is_hidden())
 
     async def create_game(
         self,
@@ -308,6 +311,11 @@ class ContextHandler:
             if error_elem is None or await error_elem.is_hidden():
                 raise
 
+        async def socket_connected():
+            return await self._socket_connected(contestant_page)
+
+        await self.wait_for_event(socket_connected)
+
         # Get contestant ID from cookie after they joined the lobby
         cookies = await contestant_page.context.cookies()
         contestant_id = None
@@ -481,7 +489,7 @@ class ContextHandler:
         async def power_video_started():
             return await video.evaluate("(e) => !e.paused")
 
-        await self.wait_for_event(power_video_started, timeout=5)
+        await self.wait_for_event(power_video_started, timeout=8)
 
         # ...then wait for it to end
         async def power_video_ended():

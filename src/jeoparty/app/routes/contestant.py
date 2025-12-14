@@ -128,7 +128,7 @@ def join_lobby():
 
             index = len(game_data.game_contestants)
             if index == game_data.max_contestants:
-                return make_json_response({"error": "Failed to join: Lobby is full"}, 400)
+                return make_json_response({"error": locale["lobby_full"]}, 400)
 
             # Try to get existitng user
             existing_model = None if user_id is None else database.get_contestant_from_id(user_id)

@@ -49,7 +49,8 @@
             "color_label": "Din Farve",
             "join": "Deltag",
             "wrong_password": "Kunne ikke joine: Forkert password",
-            "game_over": "Kunne ikke joine: Spillet er slut"
+            "game_over": "Kunne ikke joine: Spillet er slut",
+            "lobby_full": "Failed to joine: Lobbyen er fuld"
         },
         "contestant/game": {
             "waiting_for_start": "Venter på at spillet starter...",
