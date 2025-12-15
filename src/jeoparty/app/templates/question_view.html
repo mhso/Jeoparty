@@ -31,7 +31,7 @@
         <div>
             <span class="question-category-span">{{ category["name"] }}</span>
             {% if stage == 'question' %}<br>
-            {% if daily_double %}{{ _locale['daily_double'] }}!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %} <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">
+            <span class="question-desc-span">{% if daily_double %}{{ _locale['daily_double'] }}!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %}</span> <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">
             {% endif %}
         </div>
     </h2>
@@ -54,7 +54,15 @@
     <!-- Question answer and explanation -->
     <div class="question-answer-explanation-wrapper">
         <label for="question-editable-answer">Answer</label>
-        <div><span class="input-resizer"></span><input class="question-answer-input resize-target" value="{{ answer }}" name="question-editable-answer"{% if not answer %} placeholder="Answer Goes Here"{% endif %}></div> (<div><span class="input-resizer"></span><input class="question-explanation-input resize-target" {% if "explanation" in extra %}value="{{ extra['explanation'] }}"{% else %}placeholder="Optional Explanation"{% endif %}></div>)
+        
+        <div>
+            <span class="input-resizer"></span><input class="question-answer-input resize-target{% if 'choices' in extra %} d-none{% endif %}" value="{{ answer }}" name="question-editable-answer"{% if not answer %} placeholder="Answer Goes Here"{% endif %}>
+            <select class="question-answer-selection{% if 'choices' not in extra %} d-none{% endif %}">
+                {% for choice in extra["choices"] %}
+                <option value="{{ choice }}"{% if choice == answer %} selected{% endif %}>{{ choice }}</option>
+                {% endfor %}
+            </select>
+        </div> (<div><span class="input-resizer"></span><input class="question-explanation-input resize-target" {% if "explanation" in extra %}value="{{ extra['explanation'] }}"{% else %}placeholder="Optional Explanation"{% endif %}></div>)
     </div>
     {% endif %}
 

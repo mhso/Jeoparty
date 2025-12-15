@@ -79,18 +79,16 @@
                     window.onkeydown = function(e) {
                         {% if first_round %}
                         if (e.code == PRESENTER_ACTION_KEY) {
-                            let startSound = document.getElementById("selection-start-sound");
-                            if (startSound != null) {
-                                startSound.play();
-                            }
+                            let introMedia = document.getElementById("selection-intro-media");
+                            let delay = 100;
+                            if (introMedia != null) {
+                                introMedia.play();
 
-                            chooseStartingPlayer(function(playerId) {
-                                setPlayerTurn(playerId, true);
-                                document.querySelectorAll(".selection-question-box").forEach((elem) => {
-                                    elem.classList.remove("inactive");
-                                });
-                                socket.emit("first_turn", playerId);
-                            });
+                                if (introMedia.dataset.delay != null) {
+                                    delay = Number.parseInt(introMedia.dataset.delay);
+                                }
+                            }
+                            setTimeout(delay, chooseStartingPlayer);
                         }
                         {% endif %}
                         if (arrowKeys.includes(e.code)) {

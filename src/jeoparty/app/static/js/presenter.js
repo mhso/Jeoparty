@@ -1051,8 +1051,12 @@ function afterDailyDoubleWager(amount) {
     if (wrapper.classList.contains("d-none")) {
         return;
     }
-    activeValue = amount;
     wrapper.classList.add("d-none");
+
+    activeValue = amount;
+    let questionDesc = document.querySelector(".question-desc-span");
+    questionDesc.innerHTML = `${localeStrings['for']} <span class="question-reward-span">${amount} ${localeStrings["points"]}</span>`;
+
     showQuestion();
 }
 
@@ -1221,7 +1225,7 @@ function setContestantTextSizeAndColors() {
     }
 }
 
-function chooseStartingPlayer(callback) {
+function chooseStartingPlayer() {
     let playerEntries = document.getElementsByClassName("footer-contestant-entry");
     let minIters = 20;
     let maxIters = 32;
@@ -1242,7 +1246,11 @@ function chooseStartingPlayer(callback) {
                 showStartPlayerCandidate(iter + 1);
             }
             else {
-                callback(playerId);
+                setPlayerTurn(playerId, true);
+                document.querySelectorAll(".selection-question-box").forEach((elem) => {
+                    elem.classList.remove("inactive");
+                });
+                socket.emit("first_turn", playerId);
             }
         }, wait);
     }

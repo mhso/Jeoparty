@@ -451,10 +451,14 @@
 }
 
 .split-input-field select {
+    background-color: rgba(40, 40, 40, 0.75);
     font-size: 16px;
     display: block;
     margin: 0 auto;
     margin-top: 5px;
+    color: white;
+    border-radius: 5px;
+    border-color: gray;
 }
 
 #question-pack-music-wrapper {
@@ -880,6 +884,12 @@
 /*
     QUESTION VIEW
 */
+.question-answer-selection {
+    font-size: inherit;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: inherit;
+}
+
 #question-pack-modal-question-media-wrapper {
     text-align: left;
     font-size: 20px;

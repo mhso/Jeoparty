@@ -1110,11 +1110,15 @@ function setDoBuzzTime(event) {
 function addAnswerChoice(event) {
     let wrapper = getSpecificParent(event.target, "question-view-wrapper");
     let choicesWrapper = wrapper.querySelector(".question-choices-wrapper");
+    let answerSelection = wrapper.querySelector(".question-answer-selection");
 
     let choices = wrapper.querySelectorAll(".question-choice-entry").length;
 
     let choiceEntry = document.createElement("div");
     choiceEntry.className = `question-choice-${choices + 1} question-choice-entry question-editable`;
+
+    let option = document.createElement("option");
+    answerSelection.appendChild(option);
 
     let deleteBtn = document.createElement("button");
     deleteBtn.innerHTML = "&times";
@@ -1129,6 +1133,10 @@ function addAnswerChoice(event) {
     let choiceText = document.createElement("input");
     choiceText.className = "question-choice-text question-editable";
     choiceText.placeholder = "Choice Text Here";
+    choiceText.onchange = function() {
+        option.value = choiceText.value;
+        option.textContent = choiceText.value;
+    };
 
     paragraph.appendChild(choiceNum);
     paragraph.appendChild(choiceText);
@@ -1143,12 +1151,21 @@ function deleteAnswerChoice(event) {
     let wrapper = getSpecificParent(event.target, "question-view-wrapper");
     let choiceEntry = event.target.parentElement;
     let choicesWrapper = choiceEntry.parentElement;
+    let choiceText = choiceEntry.querySelector(".question-choice-text").value;
+    let answerSelection = wrapper.querySelector(".question-answer-selection");
+
+    for (let child of answerSelection.children) {
+        if (child.textContent == choiceText) {
+            answerSelection.removeChild(child);
+            break;
+        }
+    }
 
     choicesWrapper.removeChild(choiceEntry);
 
     let choices = choicesWrapper.querySelectorAll(".question-choice-entry");
     if (choices.length == 0) {
-        choicesWrapper.querySelector(".question-multiple-choice-checkbox").checked = false;
+        wrapper.querySelector(".question-multiple-choice-checkbox").checked = false;
         wrapper.querySelector(".question-choices-indicator").classList.add("d-none");
     }
     else {
@@ -1222,6 +1239,8 @@ function setMultipleChoice(event) {
     let choicesWrapper = wrapper.querySelector(".question-choices-wrapper");
     let choicesIndicator = wrapper.querySelector(".question-choices-indicator");
     let choices = wrapper.querySelectorAll(".question-choice-entry").length;
+    let answerInput = wrapper.querySelector(".question-answer-input");
+    let answerSelection = wrapper.querySelector(".question-answer-selection");
 
     if (checked) {
         if (choices == 0) {
@@ -1229,10 +1248,14 @@ function setMultipleChoice(event) {
         }
         choicesIndicator.classList.remove("d-none");
         choicesWrapper.classList.remove("d-none");
+        answerSelection.classList.remove("d-none");
+        answerInput.classList.add("d-none");
     }
     else {
         choicesWrapper.classList.add("d-none");
         choicesIndicator.classList.add("d-none");
+        answerSelection.classList.add("d-none");
+        answerInput.classList.remove("d-none");
     }
 
     resizeMedia(wrapper);
