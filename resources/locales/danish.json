@@ -79,7 +79,8 @@
             "for": "til",
             "and": "og",
             "daily_double": "Bonus Spørgsmål!",
-            "connecting": "Forbinder til serveren"
+            "connecting": "Forbinder til serveren",
+            "waiting": "Venter på deltagere"
         }
     }
 }

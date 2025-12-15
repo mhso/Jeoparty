@@ -1,13 +1,13 @@
-from collections.abc import Callable
 import json
 from multiprocessing import Lock
 from time import sleep, time
-from typing import Dict, List
+from typing import Dict, List, Callable
 from dataclasses import dataclass, field
 
 import flask
 from flask_socketio import Namespace
 
+from mhooge_flask.routing import socket_io
 from mhooge_flask.logging import logger
 
 from jeoparty.api.database import Database
@@ -21,6 +21,7 @@ class GameMetadata:
     question_asked_time: float = field(default=0, init=False)
     buzz_winner_decided: bool = field(default=False, init=False)
     power_use_decided: bool = field(default=False, init=False)
+    setup_complete: bool = field(default=False, init=None)
 
 @dataclass
 class ContestantMetadata:
@@ -28,7 +29,7 @@ class ContestantMetadata:
     ping: float = 30
     latest_buzz: float | None = field(init=False, default=None)
     _ping_samples: List[float] = field(init=False, default_factory=list)
-    
+
     def calculate_ping(self, time_sent: float, time_received: float):
         if self._ping_samples is None:
             self._ping_samples = []
@@ -49,7 +50,7 @@ def _presenter_event(func):
         with instance.database:
            instance.game_data = instance.database.get_game_from_id(instance.game_id)
            return func(*args, **kwargs)
-    
+
     return wrapper
 
 def _contestants_event(func):
@@ -66,11 +67,11 @@ def _contestants_event(func):
     return wrapper
 
 class GameSocketHandler(Namespace):
-    def __init__(self, game_id: str):
+    def __init__(self, game_id: str, database: Database):
         super().__init__(f"/{game_id}")
         self.game_id = game_id
+        self.database = database
         self.game_data: Game | None = None
-        self.database: Database = flask.current_app.config["DATABASE"]
         self.game_metadata = GameMetadata()
         self.contestant_metadata: Dict[str, ContestantMetadata] = {}
         self.buzz_lock = Lock()
@@ -113,6 +114,7 @@ class GameSocketHandler(Namespace):
             self.enter_room(flask.request.sid, "presenter")
 
             print("Presenter joined")
+            self.game_metadata.setup_complete = False
 
             self.emit("presenter_joined", to=flask.request.sid)
 
@@ -128,6 +130,9 @@ class GameSocketHandler(Namespace):
                 )
                 return
 
+            while self.game_metadata.setup_complete is not None and not self.game_metadata.setup_complete:
+                sleep(0.1)
+
             sid = flask.request.sid
             self.contestant_metadata[user_id] = ContestantMetadata(sid)
 
@@ -140,6 +145,20 @@ class GameSocketHandler(Namespace):
 
             self.emit("contestant_joined", json.dumps(contestant_data), to="presenter")
             self.emit("contestant_joined", to=sid)
+
+            if all(
+                contestant.id in self.contestant_metadata
+                for contestant in game_data.game_contestants
+            ):
+                self.emit("all_contestants_joined", to="presenter")
+
+    @_presenter_event
+    def on_setup_complete(self, refresh: bool):
+        print("Setup complete")
+        self.contestant_metadata = {}
+        self.game_metadata.setup_complete = True
+        if refresh:
+            self.emit("state_changed", to="contestants")
 
     @_presenter_event
     def on_mark_question_active(self, question_id: str):
@@ -516,3 +535,17 @@ class GameSocketHandler(Namespace):
             contestant_data.misses -= 1
 
         self.database.save_models(contestant_data)
+
+def get_namespace_handler(game_id: str) -> GameSocketHandler:
+    if socket_io.server:
+        namespaces = socket_io.server.namespace_handlers.values()
+    else:
+        namespaces = socket_io.namespace_handlers
+
+    namespace_handler = None
+    for namespace in namespaces:
+        if namespace.game_id == game_id:
+            namespace_handler = namespace
+            break
+
+    return namespace_handler

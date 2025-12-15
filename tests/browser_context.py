@@ -311,11 +311,6 @@ class ContextHandler:
             if error_elem is None or await error_elem.is_hidden():
                 raise
 
-        async def socket_connected():
-            return await self._socket_connected(contestant_page)
-
-        await self.wait_for_event(socket_connected)
-
         # Get contestant ID from cookie after they joined the lobby
         cookies = await contestant_page.context.cookies()
         contestant_id = None
@@ -336,6 +331,9 @@ class ContextHandler:
 
         return contestant_page, contestant_id
 
+    async def _setup_complete(self):
+        return await self.presenter_page.evaluate("setupComplete")
+
     async def wait_until_ready(self, wait_for_socket: bool = True):
         """
         Create a stack of context managers so we can wait wait for the presenter
@@ -345,7 +343,7 @@ class ContextHandler:
         stack = AsyncExitStack()
 
         if wait_for_socket:
-            await stack.enter_async_context(self.wait_for_event_context_manager(self._socket_connected))
+            await stack.enter_async_context(self.wait_for_event_context_manager(self._setup_complete))
 
         for page in self.contestant_pages.values():
             await stack.enter_async_context(page.expect_navigation())
@@ -384,16 +382,8 @@ class ContextHandler:
         async with self.presenter_page.expect_navigation():
             await self.presenter_page.goto(url)
 
-    async def show_question(self, is_daily_double=False):
-        if not is_daily_double:
-            # Show the question
-            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-
-        await asyncio.sleep(1)
-
-        question_image = await self.presenter_page.query_selector(".question-question-image")
-        question_video = await self.presenter_page.query_selector(".question-question-video")
-
+    async def show_question(self):
+        # Show the question
         await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
         await asyncio.sleep(1)
@@ -401,12 +391,12 @@ class ContextHandler:
         # Check if question is multiple choice
         answer_choices = await self.presenter_page.evaluate("() => getNumAnswerChoices()")
 
-        if question_image is None and question_video is None:
-            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-        elif answer_choices:
+        if answer_choices:
             for _ in range(answer_choices):
                 await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
                 await asyncio.sleep(0.5)
+        else:
+            await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def answer_question(self, contestant_id: str, *, key: int | None = None, choice: str | None = None):
         contestant_page = self.contestant_pages[contestant_id]
@@ -980,7 +970,8 @@ class ContextHandler:
         contestant_width = 368
         contestant_height = 800
 
-        width = contestant_width * len(self.contestant_pages)
+        margin = 3
+        width = (contestant_width + margin) * len(self.contestant_pages)
         height = presenter_height + contestant_height
         offset_x = (width - presenter_width) // 2
 
@@ -1007,7 +998,7 @@ class ContextHandler:
                     readers_done[index] = True
                     continue
 
-                x = (index - 1) * contestant_frame.shape[1]
+                x = (index - 1) * contestant_frame.shape[1] + (margin * index)
                 y = presenter_height
                 try:
                     final_frame[y:, x:x + contestant_frame.shape[1], :] = contestant_frame

@@ -79,7 +79,8 @@
             "for": "for",
             "and": "and",
             "daily_double": "Daily Double!",
-            "connecting": "Connecting to server"
+            "connecting": "Connecting to server",
+            "waiting": "Waiting for contestants"
         }
     }
 }

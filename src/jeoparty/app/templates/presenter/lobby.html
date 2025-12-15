@@ -54,6 +54,7 @@
                 socket.on("presenter_joined", function() {
                     hideConnectionStatus();
                     socket.on("contestant_joined", contestantJoined);
+                    socket.emit("setup_complete", false);
                 });
 
                 socket.emit("presenter_join", "{{ created_by }}");

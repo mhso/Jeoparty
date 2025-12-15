@@ -77,7 +77,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
     else:
         max_buzz_attempts = game_data.max_contestants
 
-    await context.show_question(active_question.daily_double)
+    await context.show_question()
 
     if not hijack_player and contestants_with_hijack != [] and random.random() < 0.2:
         # Have someone hijack after the question is asked
@@ -99,7 +99,8 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         else:
             # Choose one or more random players to answer
             video = await context.presenter_page.query_selector(".question-question-video")
-            min_val = 0 if video is None else 1
+            question = await context.presenter_page.query_selector(".question-question-header")
+            min_val = 0 if video is None and await question.is_visible() else 1
             num_players = math.ceil(random.randint(min_val, game_data.max_contestants * 6) / 6)
 
             if num_players == 0: # No one buzzes in and time runs out
@@ -321,17 +322,17 @@ async def validate_links(context: ContextHandler):
 
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
-    pack_name = "Julequiz 2025"
+    pack_name = "LoL Jeopardy v6"
     seed = 1337
     random.seed(seed)
 
-    num_contestants = random.randint(3, 10)
+    num_contestants = 4
     contestant_names, contestant_colors = create_contestant_data(num_contestants)
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(database) as context:
         with database as session:
             # Create game with 3-10 contestants randomly chosen
-            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, rounds=1)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, rounds=2)
             locales = locales[game_data.pack.language.value]["pages"]
 
             await asyncio.sleep(1)

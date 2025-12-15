@@ -63,5 +63,14 @@
         {% include theme['template_path'] + '/endscreen.html' ignore missing %}
         {% include theme['template_path'] + '/global.html' ignore missing %}
         {% endif %}
+
+        <script>
+            socket.on("connect", function() {
+                // Called when presenter is ready
+                socket.on("presenter_joined", function () {
+                    socket.emit("setup_complete", true);
+                });
+            });
+        </script>
 </body>
 </html>

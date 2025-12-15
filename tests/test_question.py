@@ -308,6 +308,8 @@ async def test_simultaneous_buzzes(database, locales):
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
 
+            await context.show_question()
+
             await asyncio.sleep(2)
 
             # Try to buzz in at the same time
@@ -494,8 +496,8 @@ async def test_question_aborted(database, locales):
             active_question.active = True
             active_question.question.category.buzz_time = 0
 
-            database.save_models(active_question)
             database.save_models(active_question.question.category)
+            database.save_models(active_question)
 
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
@@ -533,7 +535,7 @@ async def test_daily_double_valid(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(database) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=True)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -563,7 +565,7 @@ async def test_daily_double_valid(database, locales):
             # Make a valid wager
             await context.make_wager(active_player.contestant_id, 600)
 
-            await context.show_question(True)
+            await context.show_question()
 
             # Have the contestant answer correctly
             if active_question.question.extra and "choices" in active_question.question.extra:

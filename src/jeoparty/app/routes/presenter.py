@@ -9,9 +9,9 @@ import requests
 
 from jeoparty.api.database import Database
 from jeoparty.api.config import Config
-from jeoparty.api.enums import PowerUpType, StageType
+from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Game, GameQuestion
-from jeoparty.app.routes.socket import GameSocketHandler
+from jeoparty.app.routes.socket import GameSocketHandler, get_namespace_handler
 from jeoparty.app.routes.shared import (
     redirect_to_login,
     render_locale_template,
@@ -39,16 +39,7 @@ def _request_decorator(func):
         game_id = kwargs.pop("game_id")
 
         # Setup socket namespace for the given game
-        if socket_io.server:
-            namespaces = socket_io.server.namespace_handlers
-        else:
-            namespaces = socket_io.namespace_handlers
-
-        registered = False
-        for namespace in namespaces:
-            if namespace == f"/{game_id}":
-                registered = True
-                break
+        namespace_handler = get_namespace_handler(game_id)
 
         database: Database = flask.current_app.config["DATABASE"]
         with database:
@@ -65,8 +56,11 @@ def _request_decorator(func):
             if user_details[0] != game_data.created_by:
                 return flask.abort(401)
 
-            if not registered:
-                socket_io.on_namespace(GameSocketHandler(game_data.id))
+            if namespace_handler is None:
+                namespace_handler = GameSocketHandler(game_data.id, database)
+                socket_io.on_namespace(namespace_handler)
+
+            namespace_handler.game_metadata.presenter_joined = False
 
             # Inject game data to the route handler
             return func(game_data=game_data, *args, **kwargs)
@@ -135,8 +129,6 @@ def question(game_data: Game):
 
     round_name = game_data.pack.rounds[game_data.round - 1].name
     game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
-
-    socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
     return render_locale_template(
         "presenter/question.html",
@@ -247,7 +239,6 @@ def selection(game_data: Game):
     game_json = game_data.dump(included_relations=[Game.game_contestants], id="game_id")
 
     database.save_game(game_data)
-    socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
     return render_locale_template(
         "presenter/selection.html",
@@ -344,8 +335,6 @@ def endscreen(game_data: Game):
         response = requests.post(f"{base_url}/intfar/lan/jeopardy_winner", json=request_json)
         if response.status_code != 200:
             logger.bind(response=response.text, status=response.status_code).error(f"End of game request to Int-Far failed with status {response.status_code}")
-
-    socket_io.emit("state_changed", to="contestants", namespace=f"/{game_data.id}")
 
     return render_locale_template(
         "presenter/endscreen.html",

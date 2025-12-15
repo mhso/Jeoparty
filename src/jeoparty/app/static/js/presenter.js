@@ -54,6 +54,7 @@ var playerNames = {};
 var playerScores = {};
 let playerColors = {};
 let playersBuzzedIn = [];
+var setupComplete = false;
 
 function canPlayersBuzzIn() {
     return activeStage == "question" && !isDailyDouble;
@@ -87,6 +88,7 @@ function goToPage(url) {
     if (socket) {
         socket.close();
     }
+    setupComplete = false;
     window.location.href = url;
 }
 
@@ -1039,9 +1041,7 @@ function showQuestion() {
             if (questionImage != null) {
                 showImageOrVideo(questionImage);
             }
-            registerAction(function() {
-                afterShowQuestion();
-            });
+            registerAction(afterShowQuestion);
         }
     }
 }

@@ -23,7 +23,7 @@ async def test_finale_result(database, locales):
     contestant_hits = [3, 6, 1, 0]
     contestant_misses = [2, 3, 2, 1]
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(database) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database:

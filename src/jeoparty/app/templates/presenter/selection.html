@@ -66,8 +66,15 @@
             const arrowKeys = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
 
             socket.on("connect", function() {
-                socket.on("presenter_joined", function () {
+                // Called when all contestants are ready
+                socket.on("all_contestants_joined", function () {
                     hideConnectionStatus();
+                    setupComplete = true;
+                });
+
+                // Called when presenter is ready
+                socket.on("presenter_joined", function () {
+                    setConnectionStatusWaiting();
 
                     window.onkeydown = function(e) {
                         {% if first_round %}
@@ -93,7 +100,7 @@
                             goToSelectedCategory();
                         }
                     };
-                    {% if stage == "selection" and not first_round %}
+                    {% if stage == "selection" and not first_round and player_with_turn %}
                     setPlayerTurn("{{ player_with_turn['id'] }}", false);
                     {% elif stage == "finale_wager" %}
                     showFinaleCategory();
@@ -101,6 +108,7 @@
                     {% endif %}
 
                     socket.on("contestant_joined", contestantJoined);
+                    socket.emit("setup_complete", true);
                 });
 
                 socket.emit("presenter_join", "{{ created_by }}");

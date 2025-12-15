@@ -128,7 +128,7 @@ def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: 
         for column in model_cls.__table__.columns:
             value = data.get(column.name)
 
-            if value is not None and column.type.python_type is int or column.type.python_type is float:
+            if value is not None and (column.type.python_type is int or column.type.python_type is float):
                 value = column.type.python_type(value)
 
             elif column.type.python_type is bool:

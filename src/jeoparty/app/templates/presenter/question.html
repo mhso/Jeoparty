@@ -82,8 +82,18 @@
             );
 
             socket.on("connect", function() {
-                socket.on("presenter_joined", function () {
+                // Called when all contestants are ready
+                socket.on("all_contestants_joined", function () {
+                    {% if stage == 'question' %}
+                    socket.emit("enable_powerup", null, "hijack");
+                    {% endif %}
+                    setupComplete = true;
                     hideConnectionStatus();
+                });
+
+                // Called when presenter is ready
+                socket.on("presenter_joined", function () {
+                    setConnectionStatusWaiting();
                     socket.on("buzz_received", addBuzzToFeed);
                     socket.on("buzz_winner", playerBuzzedFirst);
                     socket.on("power_up_used", powerUpUsed);
@@ -95,10 +105,6 @@
                     });
 
                     {% else %}
-                    {% if stage == 'question' %}
-                    socket.emit("enable_powerup", null, "hijack");
-                    {% endif %}
-
                     window.onkeydown = function(e) {
                         if (e.code == PRESENTER_ACTION_KEY) {
                             showQuestion();
@@ -121,6 +127,7 @@
                     {% endif %}
 
                     socket.on("contestant_joined", contestantJoined);
+                    socket.emit("setup_complete", true);
                 });
 
                 socket.emit("presenter_join", "{{ created_by }}");
