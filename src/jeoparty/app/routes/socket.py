@@ -28,6 +28,7 @@ class ContestantMetadata:
     sid: str
     ping: float = 30
     latest_buzz: float | None = field(init=False, default=None)
+    joined: bool = field(init=False, default=True)
     _ping_samples: List[float] = field(init=False, default_factory=list)
 
     def calculate_ping(self, time_sent: float, time_received: float):
@@ -147,7 +148,7 @@ class GameSocketHandler(Namespace):
             self.emit("contestant_joined", to=sid)
 
             if all(
-                contestant.id in self.contestant_metadata
+                contestant.id in self.contestant_metadata and self.contestant_metadata[contestant.id].joined
                 for contestant in game_data.game_contestants
             ):
                 self.emit("all_contestants_joined", to="presenter")
@@ -155,7 +156,9 @@ class GameSocketHandler(Namespace):
     @_presenter_event
     def on_setup_complete(self, refresh: bool):
         print("Setup complete")
-        self.contestant_metadata = {}
+        for metadata in self.contestant_metadata.values():
+            metadata.joined = False
+
         self.game_metadata.setup_complete = True
         if refresh:
             self.emit("state_changed", to="contestants")

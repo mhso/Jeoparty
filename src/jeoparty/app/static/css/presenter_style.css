@@ -583,6 +583,7 @@ h3 {
 .footer-contestant-entry-score {
     font-size: 1.2rem;
     text-align: center;
+    font-weight: 700;
 
     animation-duration: 2s;
     animation-iteration-count: 1;

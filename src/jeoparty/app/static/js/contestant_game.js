@@ -155,6 +155,7 @@ function monitorGame(userId, localeJson) {
     let buzzerLoserImg = document.getElementById("buzzer-loser");
 
     socket.on("state_changed", function() {
+        socket.close();
         window.location.reload();
     });
 

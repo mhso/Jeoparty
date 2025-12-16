@@ -1103,6 +1103,7 @@ function initialize(playerJson, stage, localeJson, pageSpecificJson=null) {
         answerTime = pageSpecificData["answer_time"];
         buzzInTime = pageSpecificData["buzz_time"];
         isDailyDouble = pageSpecificData["daily_double"];
+        console.log("Daily double:", isDailyDouble);
         if (isDailyDouble) {
             answeringPlayer = playerTurn;
             setPlayerTurn(answeringPlayer, false);

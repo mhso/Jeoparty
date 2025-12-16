@@ -15,7 +15,7 @@
 
 # Julequiz
 - [✅] Create christmas-themed backgrounds for contestants
-- [✴️] Record santa intro video when first turn is chosen
+- [✅] Record santa intro video when first turn is chosen
 - [✅] Make it even more christmas-y! Maybe gifts and christmas trees
 - [✅] Replace background image in selection screen with fireplace video
 

@@ -12,7 +12,7 @@ async def test_first_round(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(database) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, join_in_parallel=False, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]

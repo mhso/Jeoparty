@@ -74,7 +74,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         # Have someone use hijack before the question is asked
         hijack_player = random.choice(contestants_with_hijack)
         await context.use_power_up(hijack_player.contestant_id, PowerUpType.HIJACK.value)
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
         max_buzz_attempts = 1
     else:
@@ -82,14 +82,15 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
 
     await context.show_question()
 
-    if not hijack_player and contestants_with_hijack != [] and random.random() < 0.2:
+    if not hijack_player and not active_question.daily_double and contestants_with_hijack != [] and random.random() < 0.2:
         # Have someone hijack after the question is asked
         hijack_player = random.choice(contestants_with_hijack)
         await context.use_power_up(hijack_player.contestant_id, PowerUpType.HIJACK.value)
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
 
         max_buzz_attempts = 1
 
+    video = await context.presenter_page.query_selector(".question-question-video")
     guessed_choices = set()
     players_buzzed = set()
 
@@ -101,7 +102,6 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             buzz_winner = active_contestant
         else:
             # Choose one or more random players to answer
-            video = await context.presenter_page.query_selector(".question-question-video")
             question = await context.presenter_page.query_selector(".question-question-header")
             min_val = 0 if video is None and await question.is_visible() else 1
             num_players = math.ceil(random.randint(min_val, game_data.max_contestants * 6) / 6)

@@ -245,7 +245,6 @@ def selection(game_data: Game):
         game_data.pack.language,
         first_round=first_round,
         round_name=round_data.name,
-        lan_mode=_is_lan_active(game_data),
         **game_json,
         **round_json,
     )
@@ -325,6 +324,7 @@ def endscreen(game_data: Game):
 
     # Send post request to Int-Far if LAN is active
     if _is_lan_active(game_data):
+        print("Sending update to Int-Far")
         base_url = "http://localhost:5000" if "localhost" in flask.request.host else "https://mhooge.com"
         with open(f"{Config.STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
             data = json.load(fp)
@@ -339,7 +339,6 @@ def endscreen(game_data: Game):
     return render_locale_template(
         "presenter/endscreen.html",
         game_data.pack.language,
-        lan_mode=_is_lan_active(game_data),
         **game_json,
         winners=winners_json,
         winner_desc=winner_desc,

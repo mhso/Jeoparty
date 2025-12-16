@@ -38,14 +38,14 @@ BROWSER_OPTIONS = {
     "ignore_default_args": [
         "--enable-automation"
     ],
-    # "firefox_user_prefs": {
-    #     "media.volume_scale": "0.0",
-    # },
+    "firefox_user_prefs": {
+        "media.volume_scale": "0.0",
+    },
     "chromium_sandbox": False,
     "headless": True
 }
 
-PRESENTER_BROWSER = "firefox"
+PRESENTER_BROWSER = "chromium"
 CONTESTANT_BROWSER = "chromium"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
@@ -229,17 +229,20 @@ class ContextHandler:
 
         return page, pack_id
 
-    async def _print_console_output(self, msg: ConsoleMessage):
-        print("Message from console:", msg.text)
+    async def _print_contestant_console_output(self, msg: ConsoleMessage):
+        print("[CONTESTANT] - Message from console:", msg.text)
 
-    async def _print_unhandled_error_contestant(self, error):
+    async def _print_presenter_console_output(self, msg: ConsoleMessage):
+        print("[PRESENTER] - Message from console:", msg.text)
+
+    async def _print_contestant_unhandled_error(self, error):
         message = error.message
         if error.stack:
             message += "\n" + error.stack
 
         raise RuntimeError(message)
 
-    async def _print_unhandled_error_presenter(self, error):
+    async def _print_presenter_unhandled_error(self, error):
         message = error.message
         if error.stack:
             message += "\n" + error.stack
@@ -259,8 +262,8 @@ class ContextHandler:
         video_start = time()
 
         page = await browser_context.new_page()
-        page.on("console", self._print_console_output)
-        page.on("pageerror", self._print_unhandled_error_contestant)
+        page.on("console", self._print_contestant_console_output)
+        page.on("pageerror", self._print_contestant_unhandled_error)
 
         return browser_context, page, video_start
 
@@ -460,6 +463,7 @@ class ContextHandler:
     async def hit_buzzer(self, contestant_id: str):
         page = self.contestant_pages[contestant_id]
 
+        await page.wait_for_selector("#buzzer-active", timeout=10000)
         await page.click("#buzzer-wrapper")
 
         # Wait for buzz to register on presenter page
@@ -1059,8 +1063,8 @@ class ContextHandler:
             self.presenter_video_start = time()
 
             self.presenter_page = await self._login_to_dashboard()
-            self.presenter_page.on("pageerror", self._print_unhandled_error_presenter)
-            self.presenter_page.on("console", self._print_console_output)
+            self.presenter_page.on("pageerror", self._print_presenter_unhandled_error)
+            self.presenter_page.on("console", self._print_presenter_console_output)
         except Exception:
             traceback.print_exc()
             self.flask_process.terminate()

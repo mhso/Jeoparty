@@ -84,7 +84,7 @@
             socket.on("connect", function() {
                 // Called when all contestants are ready
                 socket.on("all_contestants_joined", function () {
-                    {% if stage == 'question' %}
+                    {% if stage == 'question' and not daily_double %}
                     socket.emit("enable_powerup", null, "hijack");
                     {% endif %}
                     setupComplete = true;
