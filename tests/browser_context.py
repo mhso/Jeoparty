@@ -3,6 +3,7 @@ from glob import glob
 import os
 import re
 import shutil
+from time import time
 import traceback
 import numpy as np
 import cv2
@@ -37,14 +38,14 @@ BROWSER_OPTIONS = {
     "ignore_default_args": [
         "--enable-automation"
     ],
-    "firefox_user_prefs": {
-        "media.volume_scale": "0.0",
-    },
+    # "firefox_user_prefs": {
+    #     "media.volume_scale": "0.0",
+    # },
     "chromium_sandbox": False,
     "headless": True
 }
 
-PRESENTER_BROWSER = "chromium"
+PRESENTER_BROWSER = "firefox"
 CONTESTANT_BROWSER = "chromium"
 PRESENTER_VIEWPORT = {"width": 1920, "height": 1080}
 CONTESTANT_VIEWPORT = {"width": 428, "height": 926}
@@ -81,6 +82,8 @@ class ContextHandler:
         self.presenter_page: Page | None = None
         self.contestant_contexts: Dict[str, BrowserContext] = {}
         self.contestant_pages: Dict[str, Page] = {}
+        self.presenter_video_start = 0
+        self.contestant_videos_start = {}
         self.screenshots = 0
         self.pack_folders = []
         self.avatar_images = []
@@ -253,12 +256,13 @@ class ContextHandler:
             has_touch=True,
             record_video_dir=None if not self.record_video else VIDEO_RECORD_PATH,
         )
+        video_start = time()
 
         page = await browser_context.new_page()
         page.on("console", self._print_console_output)
         page.on("pageerror", self._print_unhandled_error_contestant)
 
-        return browser_context, page
+        return browser_context, page, video_start
 
     @asynccontextmanager
     async def wait_for_event_context_manager(self, event):
@@ -276,10 +280,11 @@ class ContextHandler:
         page: Page | None = None
     ) -> Tuple[Page, str]:
         if page is None:
-            contestant_context, contestant_page = await self._setup_contestant_browser()
+            contestant_context, contestant_page, timestamp = await self._setup_contestant_browser()
         else:
             contestant_context = page.context
             contestant_page = page
+            timestamp = time()
 
         url = f"{ContextHandler.BASE_URL}/{join_code}"
         await contestant_page.goto(url)
@@ -328,6 +333,7 @@ class ContextHandler:
         # Safe context and page for contestant
         self.contestant_contexts[contestant_id] = contestant_context
         self.contestant_pages[contestant_id] = contestant_page
+        self.contestant_videos_start[contestant_id] = timestamp
 
         return contestant_page, contestant_id
 
@@ -955,13 +961,13 @@ class ContextHandler:
             return
 
         presenter_reader = cv2.VideoCapture(await presenter_video.path())
-        contestant_readers = [
-            cv2.VideoCapture(await page.video.path())
-            for page in self.contestant_pages.values()
-        ]
+        contestant_readers = {
+            contestant_id: cv2.VideoCapture(await self.contestant_pages[contestant_id].video.path())
+            for contestant_id in self.contestant_pages
+        }
 
-        presenter_frames = presenter_reader.get(cv2.CAP_PROP_FRAME_COUNT)
-        contestant_frames = [reader.get(cv2.CAP_PROP_FRAME_COUNT) for reader in contestant_readers]
+        presenter_fps = presenter_reader.get(cv2.CAP_PROP_FPS)
+        frame_time = 1 / presenter_fps
 
         readers_done = {index: False for index in range(len(contestant_readers) + 1)}
 
@@ -976,8 +982,9 @@ class ContextHandler:
         offset_x = (width - presenter_width) // 2
 
         # Merge all videos in one go
-        writer = cv2.VideoWriter(f"{VIDEO_RECORD_PATH}/combined.mp4", cv2.VideoWriter.fourcc(*"mp4v"), 25.0, (width, height), True)
+        writer = cv2.VideoWriter(f"{VIDEO_RECORD_PATH}/combined.mp4", cv2.VideoWriter.fourcc(*"mp4v"), float(presenter_fps), (width, height), True)
         frame_count = 0
+        curr_time = self.presenter_video_start
         while not all(readers_done.values()):
             ret, presenter_frame = presenter_reader.read()
             if not ret:
@@ -989,8 +996,11 @@ class ContextHandler:
             final_frame[:presenter_frame.shape[0], offset_x:-offset_x, :] = presenter_frame
 
             # Copy contestant frames
-            for index, (reader, frames) in enumerate(zip(contestant_readers, contestant_frames), start=1):
-                if frame_count < presenter_frames - frames or readers_done[index]:
+            for index, contestant_id in enumerate(contestant_readers, start=1):
+                reader = contestant_readers[contestant_id]
+                start = self.contestant_videos_start[contestant_id]
+
+                if curr_time < start or readers_done[index]:
                     continue
 
                 ret, contestant_frame = reader.read()
@@ -1007,8 +1017,9 @@ class ContextHandler:
 
             writer.write(final_frame)
             frame_count += 1
+            curr_time += frame_time
 
-        for reader in [presenter_reader] + contestant_readers:
+        for reader in [presenter_reader] + list(contestant_readers.values()):
             reader.release()
 
         writer.release()
@@ -1045,6 +1056,7 @@ class ContextHandler:
                 viewport=PRESENTER_VIEWPORT,
                 record_video_dir=None if not self.record_video else VIDEO_RECORD_PATH,
             )
+            self.presenter_video_start = time()
 
             self.presenter_page = await self._login_to_dashboard()
             self.presenter_page.on("pageerror", self._print_unhandled_error_presenter)

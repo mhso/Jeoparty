@@ -56,6 +56,9 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
     assert active_question is not None
     assert active_contestant is not None
 
+    if active_question.question.extra and active_question.question.extra.get("choices"):
+        assert active_question.question.answer in active_question.question.extra["choices"]
+
     contestants_with_hijack = [
         contestant for contestant in game_data.game_contestants
         if not contestant.get_power(PowerUpType.HIJACK).used
@@ -322,17 +325,18 @@ async def validate_links(context: ContextHandler):
 
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
-    pack_name = "LoL Jeopardy v6"
+    pack_name = "Julequiz 2025"
+    rounds = 1 if pack_name == "Julequiz 2025" else 2
     seed = 1337
     random.seed(seed)
 
     num_contestants = 4
     contestant_names, contestant_colors = create_contestant_data(num_contestants)
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         with database as session:
             # Create game with 3-10 contestants randomly chosen
-            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, rounds=2)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, rounds=rounds)
             locales = locales[game_data.pack.language.value]["pages"]
 
             await asyncio.sleep(1)
@@ -343,7 +347,13 @@ async def test_random_game(database, locales):
             async def first_turn_chosen():
                 return await context.presenter_page.evaluate("playerTurn != null")
 
-            await context.wait_for_event(first_turn_chosen)
+            await context.wait_for_event(first_turn_chosen, timeout=60)
+
+            intro_media = await context.presenter_page.query_selector("#selection-intro-media")
+            async def intro_media_done():
+                return intro_media is None or await intro_media.evaluate("(e) => e.ended")
+
+            await context.wait_for_event(intro_media_done, timeout=30)
 
             await asyncio.sleep(1)
 

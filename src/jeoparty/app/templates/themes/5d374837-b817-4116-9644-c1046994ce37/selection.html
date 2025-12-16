@@ -9,19 +9,31 @@
         z-index: -1;
         filter: blur(3px) brightness(0.75);
     }
+
+    #selection-intro-media {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100vw;
+        z-index: 5;
+    }
 </style>
 
+{% if not first_round %}
 <video id="jul-selection-fire" autoplay loop muted>
     <source src="{{ url_for('static', filename=theme['data_path'] + '/fireplace.mp4') }}" type="video/mp4">    
 </video>
 
-{% if first_round %}
-<video id="selection-intro-media" data-delay="15000">
-    <source src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/sounds/its_happening.mp3') }}" type="audio/mpeg">
+{% else %}
+<video id="selection-intro-media" data-delay="38000">
+    <source src="{{ url_for('static', _external=True, filename=theme['data_path'] + '/intro_video.webm') }}" type="video/webm">
 </video>
 
 <script>
-    let startSound = document.getElementById("selection-intro-media");
-    startSound.volume = 0.3;
+    let introMedia = document.getElementById("selection-intro-media");
+    introMedia.volume = 0.6;
+    introMedia.onended = function() {
+        introMedia.style.display = "none";
+    };
 </script>
 {% endif %}

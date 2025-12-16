@@ -86,9 +86,10 @@
 
                                 if (introMedia.dataset.delay != null) {
                                     delay = Number.parseInt(introMedia.dataset.delay);
+                                    console.log(delay);
                                 }
                             }
-                            setTimeout(delay, chooseStartingPlayer);
+                            setTimeout(chooseStartingPlayer, delay);
                         }
                         {% endif %}
                         if (arrowKeys.includes(e.code)) {

@@ -1,6 +1,6 @@
 // Create socket bound to a namespace for a specific game ID.
 // 'GAME_ID' is defined before this JS file is imported
-const CONN_ATTEMPTS = 5;
+const CONN_ATTEMPTS = 3;
 var socket;
 for (let i = 0; i < CONN_ATTEMPTS; i++) {
     try {
@@ -1227,11 +1227,11 @@ function setContestantTextSizeAndColors() {
 
 function chooseStartingPlayer() {
     let playerEntries = document.getElementsByClassName("footer-contestant-entry");
-    let minIters = 20;
-    let maxIters = 32;
+    let minIters = 30;
+    let maxIters = 40;
     let iters = minIters + (maxIters - minIters) * Math.random();
-    let minWait = 30;
-    let maxWait = 400;
+    let minWait = 25;
+    let maxWait = 420;
 
     function showStartPlayerCandidate(iter) {
         let wait = minWait + (maxWait - minWait) * (iter / iters);

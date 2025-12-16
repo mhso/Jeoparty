@@ -1,3 +1,4 @@
+from glob import glob
 import os
 import random
 import traceback
@@ -90,22 +91,24 @@ def get_question_answer_sounds(theme: Theme, max_contestants: int):
     return correct_sound, wrong_sounds
 
 def get_question_answer_images(theme: Theme):
+    default_correct = "img/check.png"
+    default_wrong = "img/error.png"
+
     if theme:
-        data_path = get_theme_path(theme.id, False)
+        correct_images = glob(f"{get_theme_path(theme.id)}/correct_icons/*")
+        wrong_images = glob(f"{get_theme_path(theme.id)}/wrong_icons/*")
+        if correct_images == []:
+            correct_image = default_correct
+        else:
+            correct_image = random.choice(correct_images).split("static/")[1]
+
+        if wrong_images == []:
+            wrong_image = default_wrong
+        else:
+            wrong_image = random.choice(wrong_images).split("static/")[1]
     else:
-        data_path = None
-
-    correct_image = file_or_fallback(
-        f"{data_path}/correct_answer.png",
-        "img/check.png",
-        data_path is not None,
-    )
-
-    wrong_image = file_or_fallback(
-        f"{data_path}/wrong_answer.png",
-        "img/error.png",
-        data_path is not None,
-    )
+        correct_image = default_correct
+        wrong_image = default_wrong
 
     return correct_image, wrong_image
 
