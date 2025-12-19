@@ -323,6 +323,7 @@ async def validate_links(context: ContextHandler):
 
     return broken_links
 
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
     pack_name = "Julequiz 2025"

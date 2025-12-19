@@ -3,22 +3,12 @@ import pytest
 
 from jeoparty.api.enums import StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
+from tests import create_contestant_data, create_game
 
 @pytest.mark.asyncio
 async def test_finale_result(database, locales):
     pack_name = "Test Pack"
-    contestant_names = [
-        "Contesto Uno",
-        "Contesto Dos",
-        "Contesto Tres",
-        "Contesto Quatro",
-    ]
-    contestant_colors = [
-        "#1FC466",
-        "#1155EE",
-        "#BD1D1D",
-        "#CA12AF",
-    ]
+    contestant_names, contestant_colors = create_contestant_data()
     contestant_scores = [
         -500, 300, 1200, 0
     ]
@@ -26,17 +16,12 @@ async def test_finale_result(database, locales):
     contestant_answers = ["4", "4", "3", None]
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
-
         with database as session:
-            game_data = database.get_game_from_id(game_id)
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
+
             language_locale = locales[game_data.pack.language.value]
             locale = language_locale["pages"]["presenter/finale"]
             locale.update(language_locale["pages"]["global"])
-
-            # Add contestants to the game
-            for name, color in zip(contestant_names, contestant_colors):
-                await context.join_lobby(game_data.join_code, name, color)
 
             game_data.round = 3
             game_data.stage = StageType.FINALE_RESULT

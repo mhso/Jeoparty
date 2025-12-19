@@ -212,6 +212,20 @@
     text-decoration: none;
 }
 
+.dashboard-cheatsheet-btn {
+    cursor: pointer;
+    position: absolute;
+    background-color: transparent;
+    border: 1px solid transparent;
+    bottom: 5px;
+    right: 5px;
+    padding: 3px;
+}
+
+.dashboard-cheatsheet-btn > img {
+    width: 26px;
+}
+
 .dashboard-delete-btn {
     cursor: pointer;
     position: absolute;
