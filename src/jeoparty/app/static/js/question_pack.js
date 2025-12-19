@@ -210,6 +210,9 @@ function syncQuestionData(round, category, question) {
     if (tipData.length > 0) {
         data["extra"]["tips"] = tipData;
     }
+    else if (Object.hasOwn(data["extra"], "tips") && data["extra"]["tips"].length > 0) {
+        data["extra"]["tips"] = [];
+    }
 
     // Save question image or video
     if (questionMediaInput.files.length == 1) {
@@ -1107,12 +1110,16 @@ function setDoBuzzTime(event) {
     }
 }
 
-function addAnswerChoice(event) {
+function addAnswerChoice(event, maxChoices) {
     let wrapper = getSpecificParent(event.target, "question-view-wrapper");
     let choicesWrapper = wrapper.querySelector(".question-choices-wrapper");
     let answerSelection = wrapper.querySelector(".question-answer-selection");
 
     let choices = wrapper.querySelectorAll(".question-choice-entry").length;
+    if (choices >= maxChoices) {
+        alert(`A maximum of ${maxChoices} choices are allowed.`);
+        return;
+    }
 
     let choiceEntry = document.createElement("div");
     choiceEntry.className = `question-choice-${choices + 1} question-choice-entry question-editable`;
@@ -1126,9 +1133,9 @@ function addAnswerChoice(event) {
 
     let paragraph = document.createElement("p");
 
-    let choiceNum = document.createElement("span");
-    choiceNum.className = "question-choice-number";
-    choiceNum.textContent = `${choices + 1}:`;
+    let choiceId = document.createElement("span");
+    choiceId.className = "question-choice-number";
+    choiceId.textContent = `${letters[choices].toUpperCase()}:`;
 
     let choiceText = document.createElement("input");
     choiceText.className = "question-choice-text question-editable";
@@ -1138,7 +1145,7 @@ function addAnswerChoice(event) {
         option.textContent = choiceText.value;
     };
 
-    paragraph.appendChild(choiceNum);
+    paragraph.appendChild(choiceId);
     paragraph.appendChild(choiceText);
 
     choiceEntry.appendChild(deleteBtn);
@@ -1636,7 +1643,20 @@ function setMediaBorderColor(event) {
     let media = getMedia(wrapper);
     media.classList.add("image-border");
 
+    let removeBorderBtn = wrapper.querySelector(".media-remove-color-btn");
+    removeBorderBtn.classList.remove("d-none");
+
     media.style.borderColor = event.target.value;
+}
+
+function removeMediaColor(event) {
+    event.stopPropagation();
+
+    let wrapper = getSpecificParent(event.target, "media-drag-target");
+    let media = getMedia(wrapper);
+
+    media.classList.remove("image-border");
+    event.target.classList.add("d-none");
 }
 
 function showQuestionView(roundId, categoryId, questionId, show=true) {

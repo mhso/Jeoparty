@@ -137,7 +137,7 @@
     border-radius: 10px;
     border: 1px solid white;
     font-size: 20px;
-    padding: 6px 5px;
+    padding: 6px 10px;
     text-align: left;
     line-height: 1;
     opacity: 0;
@@ -150,6 +150,7 @@
 
 .question-choice-number {
     font-weight: bold;
+    color: orange;
 }
 
 .question-countdown-wrapper {

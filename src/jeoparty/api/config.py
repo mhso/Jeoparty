@@ -20,6 +20,7 @@ class Config:
     FINALE_NAME = "Final Jeoparty!"
     REGULAR_ROUNDS = 2
     DEFAULT_ANSWER_TIME = 6
+    MAX_ANSWER_CHOICES = 8
 
     PROJECT_FOLDER = _get_project_folder()
     SRC_FOLDER = f"{PROJECT_FOLDER}/src/jeoparty"

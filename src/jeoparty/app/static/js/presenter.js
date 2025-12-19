@@ -1060,23 +1060,6 @@ function afterDailyDoubleWager(amount) {
     showQuestion();
 }
 
-function scaleAnswerChoices() {
-    let choiceElems = document.getElementsByClassName("quiz-answer-entry");
-    for (let i = 0; i < choiceElems.length; i++) {
-        let wrapper = choiceElems.item(i)
-        let textElem = wrapper.getElementsByTagName("p").item(0);
-        if (textElem.offsetHeight > wrapper.offsetHeight * 0.75) {
-            wrapper.style.fontSize = "16px";
-            if (textElem.offsetHeight > wrapper.offsetHeight * 0.75) {
-                wrapper.style.paddingTop = "4px";
-            }
-            else {
-                wrapper.style.paddingTop = "16px";
-            }
-        }
-    }
-}
-
 function initialize(playerJson, stage, localeJson, pageSpecificJson=null) {
     let playerData = JSON.parse(playerJson);
     let pageSpecificData = pageSpecificJson == null ? null : JSON.parse(pageSpecificJson);

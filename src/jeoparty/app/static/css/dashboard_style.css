@@ -146,6 +146,7 @@
 
 #dashboard-questions-list-empty, #dashboard-game-list-empty {
     font-style: italic;
+    margin-bottom: 15px;
 }
 
 .dashboard-list-header {
@@ -666,6 +667,7 @@
 }
 
 .question-question-header.question-editable {
+    min-width: 500px;
     color: inherit;
     opacity: 1;
     resize: vertical;
@@ -753,7 +755,7 @@
     color: inherit;
     font-size: inherit;
     width: 78%;
-    margin-left: 5px;
+    margin-left: 2px;
 }
 
 .question-view-wrapper .input-field {
@@ -943,7 +945,14 @@
     background-color: initial !important;
     width: 36px;
     right: 90px;
+    border: none;
     padding: 0;
+}
+
+.media-remove-color-btn {
+    color: white;
+    width: 36px;
+    right: 134px;
 }
 
 .media-control-btn {

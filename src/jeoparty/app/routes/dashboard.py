@@ -320,6 +320,9 @@ def _validate_pack_data(data: Dict[str, Any]) -> str | None:
                     if question_data["answer"] not in extra["choices"]:
                         return f"{base_error}: One of the choices must be equal to the correct answer"
 
+                    if len(extra["choices"]) > Config.MAX_ANSWER_CHOICES:
+                        return f"{base_error}: Amount of answer choices must not be greater than {Config.MAX_ANSWER_CHOICES}"
+
                     for choice in extra["choices"]:
                         if choice == "":
                             return f"{base_error}: Answer choices must not be empty"
@@ -452,7 +455,8 @@ def question_pack(pack_id: str):
         languages=[(lang.value, lang.value.capitalize()) for lang in Language],
         themes=themes_json,
         base_entries=base_entries,
-        mediaSizes=Config.QUESTION_MEDIA_SIZES,
+        media_sizes=Config.QUESTION_MEDIA_SIZES,
+        max_choices=Config.MAX_ANSWER_CHOICES,
         **pack_json,
     )
 

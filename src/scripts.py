@@ -5,6 +5,7 @@ from flask import json
 import requests
 
 from jeoparty.api.config import Config
+from jeoparty.api.database import Database
 
 class ScriptRunner:
     def fetch_resource(self):
@@ -102,6 +103,10 @@ class ScriptRunner:
         response = requests.post(f"http://localhost:5000/intfar/lan/jeopardy_winner", json=request_json)
 
         print(response.text, response.status_code)
+
+    def delete_game(self, game_id: str):
+        database = Database()
+        database.delete_game(game_id)
 
 if __name__ == "__main__":
     PARSER = ArgumentParser()

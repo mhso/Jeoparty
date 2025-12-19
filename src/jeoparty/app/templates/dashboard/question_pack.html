@@ -173,7 +173,7 @@
         questionData["{{ key }}"] = {{ base_entries[key] | tojson }};
         {% endfor %}
         questionData['rounds'] = JSON.parse('{{ rounds | tojson }}');
-        mediaSizes = JSON.parse('{{ mediaSizes | tojson }}');
+        mediaSizes = JSON.parse('{{ media_sizes | tojson }}');
         lastSaveState = JSON.stringify(questionData);
     </script>
 </body>

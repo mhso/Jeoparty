@@ -15,7 +15,7 @@
         {% for category_data in round_data["categories"] %}
         <div class="accordion">
             <button onclick="toggleAccordion(event);">{{ category_data["name"] }}</button>
-            <div>
+            <div class="accordion-target">
                 {% for question_data in category_data["questions"] %}
                 <h2 class="category-header">{{ question_data["value"] }}</h2>
                 <div class="question-wrapper">
@@ -37,8 +37,16 @@
     function toggleAccordion(e) {
         let parent = e.target.parentElement;
         parent.classList.add("active");
-        let div = parent.children[1];
-        div.style.display = div.style.display == "block" ? "none" : "block";
+        let div = parent.querySelector(".accordion-target");
+
+        if (!div.classList.contains("accordion-opened")) {
+            div.classList.add("accordion-opened");
+            e.target.classList.add("selected");
+        }
+        else {
+            div.classList.remove("accordion-opened");
+            e.target.classList.remove("selected");
+        }
     }
 
     function showRoundView(event, round) {
@@ -74,8 +82,12 @@
         margin: 5px;
     }
 
-    .accordion > div {
+    .accordion-target {
         display: none;
+    }
+
+    .accordion-target.accordion-opened {
+        display: block;
     }
 
     .category-header {

@@ -1,13 +1,15 @@
 <div id="connection-status-wrapper">
-    <div id="connection-status">{{ _locale["connecting"] }}</div>
+    <div id="connection-status"></div>
 </div>
 
 <script>
     const statusElem = document.getElementById("connection-status");
+    let statusText = "{{ _locale['connecting'] }}";
+    statusElem.textContent = statusText;
 
     const intervalId = setInterval(function() {
         if (statusElem.textContent.endsWith("...")) {
-            statusElem.textContent = statusElem.textContent.slice(0, statusElem.textContent.length - 3);
+            statusElem.textContent = statusText;
         }
         else {
             statusElem.textContent += ".";
@@ -15,7 +17,7 @@
     }, 1000);
 
     function setConnectionStatusWaiting() {
-        statusElem.textContent = "{{ _locale['waiting'] }}";
+        statusText = "{{ _locale['waiting'] }}";
     }
 
     function hideConnectionStatus() {

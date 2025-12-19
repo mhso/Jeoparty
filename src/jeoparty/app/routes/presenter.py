@@ -138,7 +138,7 @@ def question(game_data: Game):
         correct_sound=correct_sound,
         wrong_sounds=wrong_sounds,
         round_name=round_name,
-        mediaSizes=Config.QUESTION_MEDIA_SIZES,
+        media_sizes=Config.QUESTION_MEDIA_SIZES,
         question_ui_data=question_ui_data,
         **game_json,
         **question_json,
@@ -275,7 +275,7 @@ def finale(game_data: Game):
     return render_locale_template(
         "presenter/finale.html",
         game_data.pack.language,
-        mediaSizes=Config.QUESTION_MEDIA_SIZES,
+        media_sizes=Config.QUESTION_MEDIA_SIZES,
         **game_json,
         **question_json
     )

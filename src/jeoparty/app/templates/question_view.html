@@ -104,13 +104,14 @@
             </button>
 
             <input class="media-color-btn media-control-btn{% if not has_media %} d-none{% endif %}" type="color" onchange="setMediaBorderColor(event);"{% if 'border' in extra %} value="{{ extra['border'] }}"{% endif %}>
+            <button class="media-remove-color-btn media-control-btn{% if not has_media or 'border' not in extra %} d-none{% endif %}" onclick="removeMediaColor(event)">-</button>
 
             <div class="drag-target-preview-wrapper{% if not has_media%} d-none{% endif %}">
                 {% if has_media %}
                     {% if "question_image" in extra %}
-                    <img class="question-media question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" loading="lazy" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                    <img class="question-media question-question-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" loading="lazy" data-media_size="{{ mediaSize }}" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                     {% else %}
-                    <video class="question-media question-question-video question-editable" controls preload="metadata" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}"{% if 'volume' in extra %} data-volume="{{ extra['volume'] }}"{% endif %}>
+                    <video class="question-media question-question-video question-editable{% if 'border' in extra %} image-border{% endif %}" controls preload="metadata" data-media_size="{{ mediaSize }}" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}"{% if 'volume' in extra %} data-volume="{{ extra['volume'] }}"{% endif %}>
                         <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
                     </video>
                     {% endif %}
@@ -134,7 +135,7 @@
 
             <div class="drag-target-preview-wrapper{% if 'answer_image' not in extra %} d-none{% endif %}">
                 {% if "answer_image" in extra %}
-                <img class="question-media question-answer-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" loading="lazy" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+                <img class="question-media question-answer-image question-editable{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" loading="lazy" data-media_size="{{ mediaSize }}" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
                 {% endif %}
             </div>
 
@@ -152,12 +153,12 @@
 
         {% else %}
         {% if "question_image" in extra %}
-        <img class="question-question-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-question-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['question_image'] ) }}" data-media_size="{{ mediaSize }}" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% if "answer_image" in extra %}
-        <img class="question-answer-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <img class="question-answer-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" data-media_size="{{ mediaSize }}" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% endif %}
         {% else %}
-        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" data-media_size="{{ mediaSize }}" style="height: {{ mediaSizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" data-media_size="{{ mediaSize }}" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
             <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
         </video>
         {% endif %}
@@ -172,6 +173,8 @@
     </div>
     {% endif %}
 
+    {% set letters = ["A", "B", "C", "D", "E", "F", "G", "H"] %}
+
     <div class="question-choices-wrapper{% if editable and 'choices' not in extra %} d-none{% endif %}">
         <!-- Answer choices -->
         {% if "choices" in extra %}
@@ -181,14 +184,14 @@
             <button onclick="deleteAnswerChoice(event);">&times;</button>
             {% endif %}
             <p>
-                <span class="question-choice-number">{{ loop.index}}:</span> {{ element("question-choice-text", option) }}
+                <span class="question-choice-number">{{ letters[loop.index0] }}:</span> {{ element("question-choice-text", option) }}
             </p>
         </div>
         {% endfor %}
         {% endif %}
 
         {% if editable %}
-        <button class="question-add-choice" onclick="addAnswerChoice(event)">+</button>
+        <button class="question-add-choice" onclick="addAnswerChoice(event, {{ max_choices }})">+</button>
         {% endif %}
     </div>
 
