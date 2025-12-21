@@ -23,8 +23,6 @@ for (let i = 0; i < CONN_ATTEMPTS; i++) {
     }
 }
 
-const TIME_FOR_DOUBLE_ANSWER = 10;
-const TIME_FOR_WAGERING = 60;
 const TIME_FOR_FINAL_ANSWER = 40;
 const TIME_BEFORE_FIRST_TIP = 4;
 const TIME_BEFORE_EXTRA_TIPS = 4;
@@ -109,26 +107,8 @@ function playWrongSound() {
     }
 }
 
-function placeAnswerImageIfPresent() {
-    let img = document.getElementById("question-answer-image");
-
-    function imgLoaded() {
-        let width = img.getBoundingClientRect().width / 2;
-        img.style.left = `calc(50% - ${width}px)`;
-    }
-
-    if (img != null) {
-        if (img.complete) {
-            imgLoaded();
-        }
-        else {
-            img.addEventListener("load", imgLoaded)
-        }
-    }
-}
-
 function revealAnswerImageIfPresent() {
-    let elem = document.getElementById("question-answer-image");
+    let elem = document.querySelector(".question-answer-image");
     if (elem != null) {
         elem.style.setProperty("display", "block");
         elem.style.setProperty("opacity", 1);
@@ -350,7 +330,10 @@ function correctAnswer() {
 
     // Reduce the value of the question by how few multiple choice answer are left
     let wrongAnswers = document.getElementsByClassName("question-answered-wrong").length;
-    activeValue *= (1 / 2 ** wrongAnswers);
+    if (wrongAnswers > 0) {
+        let choices = getNumAnswerChoices();
+        activeValue -= (activeValue * (wrongAnswers / choices));
+    }
 
     if (hijackBonus) {
         activeValue *= 1.5;
@@ -716,7 +699,7 @@ function afterBuzzIn(playerId) {
 }
 
 function playerBuzzedFirst(playerId) {
-    if (activePowerUp != null && activePowerUp != "hijack") {
+    if (activePowerUp != null && (activePowerUp != "hijack" || answeringPlayer != playerId)) {
         return;
     }
 
@@ -777,7 +760,7 @@ function afterFreezeUsed() {
         freezeWrapper.offsetHeight; // Trigger reflow
         freezeWrapper.style.transition = `opacity ${fadeInDuration}s`;
         freezeWrapper.style.opacity = 0;
-    
+
         setTimeout(function() {
             if (answeringPlayer != null) {
                 freezeWrapper.classList.add("d-none");
@@ -800,6 +783,24 @@ function onRewindUsed(playerId) {
 
     updatePlayerScore(playerId, activeValue);
     updatePlayerBuzzStats(playerId, false, -1);
+
+    // If other players buzzed in at the same time as rewind was used,
+    // refund them their buzzes
+    let afterPlayer = false;
+    let filteredBuzzes = [];
+    for (let playerBuzzed of playersBuzzedIn) {
+        if (afterPlayer) {
+            activePlayers[playerBuzzed] = true;
+        }
+        else {
+            filteredBuzzes.push(playerBuzzed);
+        }
+
+        if (playerBuzzed == playerId) {
+            afterPlayer = true;
+        }
+    }
+    playersBuzzedIn = filteredBuzzes;    
 
     answeringPlayer = playerId;
 }
@@ -825,7 +826,6 @@ function afterHijackUsed(playerId) {
     playerIds.forEach((id) => {
         activePlayers[id] = false;
     });
-
     activePlayers[playerId] = true;
 
     if (!hijackBonus && answeringPlayer != null) {
@@ -922,8 +922,7 @@ function questionAsked(countdownDelay) {
             }
         }
         else if (isDailyDouble || activePowerUp == "hijack") {
-            let timeToAnswer = isDailyDouble ? TIME_FOR_DOUBLE_ANSWER : buzzInTime;
-            startAnswerCountdown(timeToAnswer);
+            startAnswerCountdown(buzzInTime);
         }
         else if (activeStage == "finale_question") {
             // Go to finale screen after countdown is finished if it's round 3

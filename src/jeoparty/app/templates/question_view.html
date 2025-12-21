@@ -23,7 +23,7 @@
         <div>
             <span class="question-category-span">{{ category["name"] }}</span>
             <br>
-            {{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}" autocomplete="false"> <span class="question-reward-span">{{ _locale["points"] }}</span> <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">
+            {{ _locale["for"] }} <span class="input-resizer"></span><input class="question-reward-span resize-target question-editable" type="text" value="{{ value }}" autocomplete="false"> <span class="question-reward-span">{{ _locale["points"] }}</span> <img class="question-choices-indicator{% if 'choices' not in extra %} d-none{% endif %}" src="{{ url_for('static', _external=True, filename='img/list.png') }}">
         </div>
     </h2>
     {% else %}
@@ -31,7 +31,7 @@
         <div>
             <span class="question-category-span">{{ category["name"] }}</span>
             {% if stage == 'question' %}<br>
-            <span class="question-desc-span">{% if daily_double %}{{ _locale['daily_double'] }}!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %}</span> <img class="question-choices-indicator"{% if "choices" not in extra %} class="d-none"{% endif %} src="{{ url_for('static', _external=True, filename='img/list.png') }}">
+            <span class="question-desc-span">{% if daily_double %}{{ _locale['daily_double'] }}!{% else %}{{ _locale["for"] }} <span class="question-reward-span">{{ value }} {{ _locale["points"] }}</span>{% endif %}</span> <img class="question-choices-indicator{% if 'choices' not in extra %} d-none{% endif %}" src="{{ url_for('static', _external=True, filename='img/list.png') }}">
             {% endif %}
         </div>
     </h2>

@@ -20,7 +20,7 @@ _PING_SAMPLES = 10
 class GameMetadata:
     question_asked_time: float = field(default=0, init=False)
     buzz_winner_decided: bool = field(default=False, init=False)
-    power_use_decided: bool = field(default=False, init=False)
+    power_use_decided: PowerUpType | bool | None = field(default=None, init=False)
     setup_complete: bool = field(default=False, init=None)
 
 @dataclass
@@ -181,10 +181,16 @@ class GameSocketHandler(Namespace):
             if active_player_ids[contestant_id]:
                 active_ids.append(contestant_id)
 
-        self.game_metadata.buzz_winner_decided = False
-        self.game_metadata.question_asked_time = time()
+        # Use locking to make sure we don't have a race condition with enabling buzz-in
+        # and handling the use of power-ups at the same time
+        with self.power_lock:
+            if self.game_metadata.power_use_decided in (PowerUpType.HIJACK, PowerUpType.REWIND):
+                return
 
-        self.emit("buzz_enabled", active_ids, to="contestants")
+            self.game_metadata.buzz_winner_decided = False
+            self.game_metadata.question_asked_time = time()
+
+            self.emit("buzz_enabled", active_ids, to="contestants")
 
     @_presenter_event
     def on_enable_powerup(self, user_id: str | None, power_id: str):
@@ -207,7 +213,7 @@ class GameSocketHandler(Namespace):
             power_up.enabled = True
             power_up_models.append(power_up)
 
-        self.game_metadata.power_use_decided = False
+        self.game_metadata.power_use_decided = None
 
         if skip_contestants != [] and user_id is not None:
             return
@@ -234,12 +240,13 @@ class GameSocketHandler(Namespace):
                 power.enabled = False
                 power_up_models.append(power)
 
-        self.game_metadata.power_use_decided = True
+        with self.power_lock:
+            self.game_metadata.power_use_decided = True
 
-        self.database.save_models(*power_up_models)
+            self.database.save_models(*power_up_models)
 
-        send_to = self.contestant_metadata[user_id].sid if user_id is not None else "contestants"
-        self.emit("power_ups_disabled", [power_up.value for power_up in power_ups], to=send_to)
+            send_to = self.contestant_metadata[user_id].sid if user_id is not None else "contestants"
+            self.emit("power_ups_disabled", [power_up.value for power_up in power_ups], to=send_to)
 
     @_presenter_event
     def on_correct_answer(self, user_id: str, value: int):
@@ -316,7 +323,7 @@ class GameSocketHandler(Namespace):
             if self.game_metadata.power_use_decided:
                 return
 
-            self.game_metadata.power_use_decided = True
+            self.game_metadata.power_use_decided = power
 
             power_up = contestant_data.get_power(power)
             if power_up.used: # Contestant has already used this power_up

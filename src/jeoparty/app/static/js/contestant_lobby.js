@@ -1,3 +1,5 @@
+var joining = false;
+
 function setRandomColor() {
     let colorInput = document.getElementById("contestant-lobby-color");
 
@@ -93,6 +95,11 @@ function getRenderedColor(color) {
 }
 
 function joinGame(event) {
+    if (joining) {
+        return;
+    }
+
+    joining = true;
     event.preventDefault();
     requestWakeLock();
 
@@ -129,6 +136,7 @@ function joinGame(event) {
 
         errorMsg.textContent = message;
         errorMsg.classList.remove("d-none");
+        joining = false;
     });
 
     return false;

@@ -332,9 +332,12 @@ def endscreen(game_data: Game):
             token = data["intfar_user_id"]
 
         request_json = {"player_data": game_json["game_contestants"], "disc_id": admin_id, "token": token}
-        response = requests.post(f"{base_url}/intfar/lan/jeopardy_winner", json=request_json)
-        if response.status_code != 200:
-            logger.bind(response=response.text, status=response.status_code).error(f"End of game request to Int-Far failed with status {response.status_code}")
+        try:
+            response = requests.post(f"{base_url}/intfar/lan/jeopardy_winner", json=request_json, timeout=8)
+            if response.status_code != 200:
+                logger.bind(response=response.text, status=response.status_code).error(f"End of game request to Int-Far failed with status {response.status_code}")
+        except (requests.RequestException, requests.Timeout):
+            logger.exception("Failed sending end of game request to Int-Far!")
 
     return render_locale_template(
         "presenter/endscreen.html",
