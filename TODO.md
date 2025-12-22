@@ -6,7 +6,7 @@
 - [✅] Make question media relative to screen size
 - [✅] Finish cheatsheet page
 - [❌] Find some better fonts
-- [❌] Fix hijack race condition bug
+- [❌] Fix hijack race condition bug (and write tests for it)
 - [❌] Cache power-up videos and perhaps more things
 - [❌] Wait for media to load before activing question?
 

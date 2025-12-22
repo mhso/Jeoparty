@@ -160,17 +160,15 @@ function monitorGame(userId, localeJson) {
     });
 
     // Called when question has been asked and buzzing has been enabled.
-    socket.on("buzz_enabled", function(activeIds) {
-        if (activeIds.includes(userId)) {
-            if (!buzzerStatus.classList.contains("d-none")) {
-                if (buzzerResetTimeout) {
-                    clearTimeout(buzzerResetTimeout);
-                }
-                resetBuzzerState(buzzerStatus);
+    socket.on("buzz_enabled", function() {
+        if (!buzzerStatus.classList.contains("d-none")) {
+            if (buzzerResetTimeout) {
+                clearTimeout(buzzerResetTimeout);
             }
-            buzzerInactive.classList.add("d-none");
-            buzzerActive.classList.remove("d-none");
+            resetBuzzerState(buzzerStatus);
         }
+        buzzerInactive.classList.add("d-none");
+        buzzerActive.classList.remove("d-none");
     });
 
     socket.on("buzz_received", function() {

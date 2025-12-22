@@ -699,13 +699,15 @@ function afterBuzzIn(playerId) {
 }
 
 function playerBuzzedFirst(playerId) {
-    if (activePowerUp != null && (activePowerUp != "hijack" || answeringPlayer != playerId)) {
+    if (activePowerUp != null && (activePowerUp != "hijack")) {
+        console.log(">>>>>>>>>>>>>>>>> Nope 1");
         return;
     }
 
     playersBuzzedIn.push(playerId);
 
     if (!activePlayers[playerId] || (answeringPlayer != null && activePowerUp != "hijack")) {
+        console.log(">>>>>>>>>>>>>>>>> Nope 2");
         return;
     }
 
@@ -758,7 +760,7 @@ function afterFreezeUsed() {
 
     setTimeout(function() {
         freezeWrapper.offsetHeight; // Trigger reflow
-        freezeWrapper.style.transition = `opacity ${fadeInDuration}s`;
+        freezeWrapper.style.transition = `opacity ${TIME_FOR_FREEZE - fadeInDuration}s`;
         freezeWrapper.style.opacity = 0;
 
         setTimeout(function() {
@@ -809,11 +811,17 @@ function afterRewindUsed() {
     afterBuzzIn(answeringPlayer);
 }
 
-function onHijackUsed() {
+function onHijackUsed(playerId) {
     pauseCountdown(true);
 
     // If question has not been asked yet, hijack gives bonus points
     hijackBonus = Object.keys(activePlayers).length == 0
+
+    activePlayers = {};
+    playerIds.forEach((id) => {
+        activePlayers[id] = false;
+    });
+    activePlayers[playerId] = true;
 
     if (!hijackBonus && answeringPlayer != null) {
         stopCountdown();
@@ -821,13 +829,6 @@ function onHijackUsed() {
 }
 
 function afterHijackUsed(playerId) {
-    activePlayers = {};
-
-    playerIds.forEach((id) => {
-        activePlayers[id] = false;
-    });
-    activePlayers[playerId] = true;
-
     if (!hijackBonus && answeringPlayer != null) {
         answeringPlayer = playerId;
         afterBuzzIn(playerId);
@@ -854,7 +855,7 @@ function powerUpUsed(playerId, powerId) {
         callback = afterRewindUsed;
     }
     else {
-        onHijackUsed();
+        onHijackUsed(playerId);
         callback = () => afterHijackUsed(playerId);
     }
 
@@ -909,15 +910,15 @@ function questionAsked(countdownDelay) {
         }
 
         if (answeringPlayer == null && canPlayersBuzzIn()) {
+            // Allow presenter to abort the question if no one wants to answer
+            registerAction(function() {
+                wrongAnswer(localeStrings["wrong_answer_cowards"], true);
+            });
+
             hideAnswerIndicator();
             showTip(0);
-            if (buzzInTime == 0) {
-                // Question has no timer, contestants can take their time
-                registerAction(function() {
-                    wrongAnswer(localeStrings["wrong_answer_cowards"], true);
-                });
-            }
-            else {
+
+            if (buzzInTime > 0) {
                 startCountdown(buzzInTime);
             }
         }
@@ -984,6 +985,7 @@ function showImageOrVideo(elem) {
 }
 
 function showQuestion() {
+    window.onkeydown = null;
     if (Object.keys(activePlayers).length == 0) {
         playerIds.forEach((id) => {
             activePlayers[id] = !isDailyDouble;
@@ -1085,7 +1087,6 @@ function initialize(playerJson, stage, localeJson, pageSpecificJson=null) {
         answerTime = pageSpecificData["answer_time"];
         buzzInTime = pageSpecificData["buzz_time"];
         isDailyDouble = pageSpecificData["daily_double"];
-        console.log("Daily double:", isDailyDouble);
         if (isDailyDouble) {
             answeringPlayer = playerTurn;
             setPlayerTurn(answeringPlayer, false);

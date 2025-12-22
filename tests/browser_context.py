@@ -460,23 +460,24 @@ class ContextHandler:
 
         return fastest_contestant, fastest_duration
 
-    async def hit_buzzer(self, contestant_id: str):
+    async def hit_buzzer(self, contestant_id: str, expect_success: bool = True):
         page = self.contestant_pages[contestant_id]
 
         await page.wait_for_selector("#buzzer-active", timeout=10000)
         await page.click("#buzzer-wrapper")
 
-        # Wait for buzz to register on presenter page
-        await self.presenter_page.wait_for_selector(".active-contestant-entry")
-
         buzz_winner_img = await page.query_selector("#buzzer-winner")
         buzz_loser_img = await page.query_selector("#buzzer-loser")
 
-        async def buzzes_incremented():
-            return await buzz_winner_img.is_visible() or await buzz_loser_img.is_visible()
+        async def buzz_registered():
+            return (await buzz_winner_img.is_visible()) or (await buzz_loser_img.is_visible())
 
-        await self.presenter_page.wait_for_selector(".active-contestant-entry")
-        await self.wait_for_event(buzzes_incremented)
+        if expect_success:
+            # Wait for buzz to register on contestant page
+            await self.wait_for_event(buzz_registered)
+
+            # Wait for buzz to register on presenter page
+            await self.presenter_page.wait_for_selector(".active-contestant-entry")
 
         await asyncio.sleep(1)
 

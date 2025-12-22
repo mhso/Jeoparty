@@ -206,7 +206,7 @@ async def test_first_round(database, locales):
                 correct_buzz_player.contestant_id,
                 contestant_names[1],
                 contestant_colors[1],
-                score=active_question.question.value // 2,
+                score=int(active_question.question.value * 0.75),
                 buzzes=1,
                 hits=1,
                 misses=0,
@@ -218,7 +218,7 @@ async def test_first_round(database, locales):
                 correct_buzz_player.id,
                 correct_buzz_player.contestant.name,
                 correct_buzz_player.contestant.color,
-                score=active_question.question.value // 2,
+                score=int(active_question.question.value * 0.75),
                 hits=1,
                 misses=0,
                 has_turn=False,
@@ -260,7 +260,7 @@ async def test_first_round(database, locales):
                 elif contestant == correct_buzz_player:
                     buzzes = 1
                     hits = 1
-                    score = active_question.question.value // 2
+                    score = int(active_question.question.value * 0.75)
                     has_turn = True
 
                 await context.assert_contestant_values(

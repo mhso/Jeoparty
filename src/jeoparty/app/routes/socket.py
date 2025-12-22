@@ -20,7 +20,7 @@ _PING_SAMPLES = 10
 class GameMetadata:
     question_asked_time: float = field(default=0, init=False)
     buzz_winner_decided: bool = field(default=False, init=False)
-    power_use_decided: PowerUpType | bool | None = field(default=None, init=False)
+    power_use_decided: Dict[str, PowerUpType | str | None] | None = field(default=None, init=False)
     setup_complete: bool = field(default=False, init=None)
 
 @dataclass
@@ -174,23 +174,24 @@ class GameSocketHandler(Namespace):
     def on_enable_buzz(self, active_players_string: str):
         active_player_ids = json.loads(active_players_string)
 
-        active_ids = []
+        ids_to_skip = []
         for contestant_id in self.contestant_metadata:
             contestant_metadata = self.contestant_metadata[contestant_id]
             contestant_metadata.latest_buzz = None
-            if active_player_ids[contestant_id]:
-                active_ids.append(contestant_id)
+            if not active_player_ids[contestant_id]:
+                ids_to_skip.append(contestant_metadata.sid)
 
         # Use locking to make sure we don't have a race condition with enabling buzz-in
         # and handling the use of power-ups at the same time
         with self.power_lock:
-            if self.game_metadata.power_use_decided in (PowerUpType.HIJACK, PowerUpType.REWIND):
+            self.game_metadata.question_asked_time = time()
+            power_used = self.game_metadata.power_use_decided
+            self.game_metadata.buzz_winner_decided = False
+    
+            if power_used and power_used["power"] in (PowerUpType.HIJACK, PowerUpType.REWIND):
                 return
 
-            self.game_metadata.buzz_winner_decided = False
-            self.game_metadata.question_asked_time = time()
-
-            self.emit("buzz_enabled", active_ids, to="contestants")
+            self.emit("buzz_enabled", to="contestants", skip_sid=ids_to_skip)
 
     @_presenter_event
     def on_enable_powerup(self, user_id: str | None, power_id: str):
@@ -241,7 +242,10 @@ class GameSocketHandler(Namespace):
                 power_up_models.append(power)
 
         with self.power_lock:
-            self.game_metadata.power_use_decided = True
+            self.game_metadata.power_use_decided = {
+                "power": None,
+                "used_by": None,
+            }
 
             self.database.save_models(*power_up_models)
 
@@ -323,7 +327,10 @@ class GameSocketHandler(Namespace):
             if self.game_metadata.power_use_decided:
                 return
 
-            self.game_metadata.power_use_decided = power
+            self.game_metadata.power_use_decided = {
+                "power": power,
+                "used_by": user_id
+            }
 
             power_up = contestant_data.get_power(power)
             if power_up.used: # Contestant has already used this power_up
@@ -333,8 +340,11 @@ class GameSocketHandler(Namespace):
 
             self.database.save_models(contestant_data, power_up)
 
-            if power in (PowerUpType.HIJACK, PowerUpType.REWIND):
+            if power is PowerUpType.HIJACK:
                 self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
+                self.emit("buzz_enabled", to=contestant_metadata.sid)
+            elif power is PowerUpType.REWIND:
+                self.emit("buzz_disabled", to="contestants")
 
             self.emit("power_ups_disabled", [power.value for power in PowerUpType], to="contestants")
             self.emit("power_up_used", (user_id, power_id), to="presenter")
@@ -374,32 +384,45 @@ class GameSocketHandler(Namespace):
 
         # Make sure no other requests can declare a winner by using a lock
         with self.buzz_lock:
-            if self.game_metadata.buzz_winner_decided:
-                return
+            with self.power_lock:
+                if self.game_metadata.buzz_winner_decided:
+                    return
 
-            self.game_metadata.buzz_winner_decided = True
+                # Abort if currently used power is rewind or is hijack and the current buzzer didn't hijack
+                power_used = self.game_metadata.power_use_decided
+                if (
+                    power_used
+                    and (
+                        power_used["power"] is PowerUpType.REWIND or (
+                            power_used["power"] is PowerUpType.HIJACK and power_used["used_by"] != user_id
+                        )
+                    )
+                ):
+                    return
 
-            earliest_buzz_time = time()
-            earliest_buzz_id = None
-            for cont_id in self.contestant_metadata:
-                cont_metadata = self.contestant_metadata[cont_id]
-                if cont_metadata.latest_buzz is not None and cont_metadata.latest_buzz < earliest_buzz_time:
-                    earliest_buzz_time = cont_metadata.latest_buzz
-                    earliest_buzz_id = cont_id
+                self.game_metadata.buzz_winner_decided = True
 
-            # Reset buzz-in times
-            for c in self.contestant_metadata.values():
-                c.latest_buzz = None
+                earliest_buzz_time = time()
+                earliest_buzz_id = None
+                for cont_id in self.contestant_metadata:
+                    cont_metadata = self.contestant_metadata[cont_id]
+                    if cont_metadata.latest_buzz is not None and cont_metadata.latest_buzz < earliest_buzz_time:
+                        earliest_buzz_time = cont_metadata.latest_buzz
+                        earliest_buzz_id = cont_id
 
-            earliest_buzz_player = self.contestant_metadata[earliest_buzz_id]
+                # Reset buzz-in times
+                for c in self.contestant_metadata.values():
+                    c.latest_buzz = None
 
-            print("Earliest buzz:", earliest_buzz_player.sid, earliest_buzz_time)
+                earliest_buzz_player = self.contestant_metadata[earliest_buzz_id]
 
-            self.emit("buzz_winner", to=earliest_buzz_player.sid)
-            self.emit("buzz_winner", earliest_buzz_id, to="presenter")
-            self.emit("buzz_loser", to="contestants", skip_sid=earliest_buzz_player.sid)
+                print("Earliest buzz:", earliest_buzz_player.sid, earliest_buzz_time)
 
-            self.database.save_models(contestant_data)
+                self.emit("buzz_winner", to=earliest_buzz_player.sid)
+                self.emit("buzz_winner", earliest_buzz_id, to="presenter")
+                self.emit("buzz_loser", to="contestants", skip_sid=earliest_buzz_player.sid)
+
+                self.database.save_models(contestant_data)
 
     @_presenter_event
     def on_undo_answer(self, user_id: str, value: int):
