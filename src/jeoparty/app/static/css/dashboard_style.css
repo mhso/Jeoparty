@@ -219,7 +219,7 @@
     border: 1px solid transparent;
     bottom: 5px;
     right: 5px;
-    padding: 3px;
+    padding: 0 3px;
 }
 
 .dashboard-cheatsheet-btn > img {

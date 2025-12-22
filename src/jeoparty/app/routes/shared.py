@@ -15,7 +15,7 @@ import flask
 from mhooge_flask.routing import make_template_context
 from mhooge_flask.database import Base
 
-from jeoparty.api.config import Config, get_theme_path, file_or_fallback
+from jeoparty.api.config import Config, get_theme_path
 from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Game, Theme
 

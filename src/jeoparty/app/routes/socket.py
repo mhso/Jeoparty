@@ -457,7 +457,7 @@ class GameSocketHandler(Namespace):
                 if used is not None:
                     power.used = used
 
-        self.database.save_models(contestant_data)
+        self.database.save_models(contestant_data, *contestant_data.power_ups)
 
         self.emit("contestant_info_changed", json_str, to=contestant_metadata.sid)
 

@@ -6,12 +6,12 @@
 - [✅] Make question media relative to screen size
 - [✅] Finish cheatsheet page
 - [❌] Find some better fonts
-- [❌] Fix hijack race condition bug (and write tests for it)
-- [❌] Cache power-up videos and perhaps more things
+- [✅] Fix hijack race condition bug (and write tests for it)
+- [✅] Cache power-up videos and perhaps more things
 - [❌] Wait for media to load before activing question?
 
 # Testing
-- [✴️] Test themes
+- [✅] Test themes
 - [✅] Test rewind power-up
 - [✅] Test hijack power-up
 - [✅] Test a full-game playthrough with pseduo-random actions

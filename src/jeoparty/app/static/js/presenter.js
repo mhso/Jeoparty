@@ -255,6 +255,12 @@ function registerAction(callback) {
     }
 }
 
+function playerHasPowerUp(playerId, powerId) {
+    let powersWrapper = document.querySelector(`.footer-contestant-${playerId} .footer-contestant-entry-powers`);
+    let powerUsedElem = powersWrapper.querySelector(`.footer-contestant-power-${powerId} > .footer-contestant-entry-power-used`);
+    return powerUsedElem.classList.contains("d-none");
+}
+
 function afterQuestion() {
     const currAnswer = activeAnswer;
     const currPlayer = answeringPlayer;
@@ -416,7 +422,9 @@ function wrongAnswer(reason, questionOver=false) {
         enablePowerUp(answeringPlayer, "rewind");
     }
 
-    if (Object.values(activePlayers).every(v => !v) || outOfTime) {
+    let allPlayersAnswered = Object.values(activePlayers).every(v => !v);
+    let playerHasRewind = currPlayer != null && playerHasPowerUp(currPlayer, "rewind");
+    if (outOfTime || (allPlayersAnswered && !playerHasRewind)) {
         // No players are eligible to answer, go to next question
         if (outOfTime) {
             valueElem.textContent = "";
@@ -495,7 +503,7 @@ function answerQuestion(event) {
             const timeoutId = setTimeout(function() {
                 elem.classList.remove("question-answering");
                 
-                if (answerElem.textContent === activeAnswer) {
+                if (answerElem.textContent == activeAnswer) {
                     elem.classList.add("question-answered-correct");
                     correctAnswer();
                 }
@@ -603,12 +611,15 @@ function startCountdown(duration, callback=null) {
     }, delay);
 }
 
-function pauseVideo() {
+function pauseOrPlayVideo(pause) {
     let videoElem = document.querySelector(".question-question-video");
     if (videoElem != null) {
         videoElem.onended = null;
-        if (!videoElem.paused) {
+        if (pause && !videoElem.paused) {
             videoElem.pause();
+        }
+        else if (!pause && videoElem.paused && !videoElem.ended) {
+            videoElem.play();
         }
     }
 }
@@ -620,7 +631,7 @@ function pauseBeforeAnswer() {
     disablePowerUp(answeringPlayer, "freeze");
 
     // Pause video if one is playing
-    pauseVideo();
+    pauseOrPlayVideo(true);
 
     // Clear countdown
     stopCountdown();
@@ -678,7 +689,7 @@ function addPowerUseToFeed(playerId, powerId) {
 
 function afterBuzzIn(playerId) {
     // Pause video if one is playing
-    pauseVideo();
+    pauseOrPlayVideo(true);
 
     // Clear buzz-in countdown.
     stopCountdown();
@@ -845,6 +856,8 @@ function powerUpUsed(playerId, powerId) {
 
     console.log(`Player ${playerNames[playerId]} used power '${powerId}'`);
 
+    pauseOrPlayVideo(true);
+
     callback = null;
     if (powerId == "freeze") {
         onFreezeUsed();
@@ -862,6 +875,7 @@ function powerUpUsed(playerId, powerId) {
     addPowerUseToFeed(playerId, powerId);
     showPowerUpVideo(powerId, playerId).then(() => {
         if (callback) callback();
+        pauseOrPlayVideo(false);
     });
     
     let powerIcon = document.querySelector(
@@ -912,6 +926,7 @@ function questionAsked(countdownDelay) {
         if (answeringPlayer == null && canPlayersBuzzIn()) {
             // Allow presenter to abort the question if no one wants to answer
             registerAction(function() {
+                stopCountdown();
                 wrongAnswer(localeStrings["wrong_answer_cowards"], true);
             });
 

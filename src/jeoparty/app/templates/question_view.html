@@ -158,7 +158,7 @@
         <img class="question-answer-image{% if 'border' in extra %} image-border{% endif %}" src="{{ url_for('static', _external=True, filename=extra['answer_image'] ) }}" data-media_size="{{ mediaSize }}" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
         {% endif %}
         {% else %}
-        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}" data-media_size="{{ mediaSize }}" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
+        <video class="question-question-video{% if 'volume' in extra %} volume-{{ extra['volume'] }}{% endif %}{% if 'border' in extra %} image-border{% endif %}" data-media_size="{{ mediaSize }}" preload="auto" style="height: {{ media_sizes[mediaSize] }}vh; {% if "border" in extra %}border-color: {{ extra['border'] }};{% endif %}">
             <source src="{{ url_for('static', _external=True, filename=extra['video']) }}" type="video/{{ video_type }}">
         </video>
         {% endif %}

@@ -44,6 +44,7 @@
     margin-bottom: 20px;
     background-color: rgba(0, 0, 0, 0.7);
     padding: 10px;
+    max-width: 30vw;
 }
 
 .question-category-span {

@@ -36,7 +36,7 @@ def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | st
     if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
         file = flask.request.files["avatar"]
         file_split = file.filename.split(".")
-        if len(file_split) != 2 or file_split[1] not in _VALID_AVATAR_FILETYPES:
+        if len(file_split) != 2 or file_split[1].lower() not in _VALID_AVATAR_FILETYPES:
             return False, "Invalid avatar file type, must be .jpg, .png, or .webp"
 
     return create_and_validate_model(Contestant, params, "joining lobby")
