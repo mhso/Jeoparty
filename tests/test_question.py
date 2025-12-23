@@ -3,7 +3,7 @@ import pytest
 
 from playwright.async_api import Dialog
 
-from jeoparty.api.enums import StageType
+from jeoparty.api.enums import PowerUpType, StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
 
@@ -409,6 +409,8 @@ async def test_all_wrong_buzzes(database, locales):
                     hits=0,
                     misses=1,
                 )
+
+            await asyncio.sleep(5)
 
             await context.assert_question_values(
                 active_question,

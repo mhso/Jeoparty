@@ -169,7 +169,7 @@
     {% if editable %}
     <div class="input-field">
         <label for="multiple-choice" style="display: inline;">Multiple Choice</label>
-        <input class="question-multiple-choice-checkbox" name="multiple-choice" type="checkbox" onclick="setMultipleChoice(event)"{% if 'choices' in extra %} checked{% endif %}>
+        <input class="question-multiple-choice-checkbox" name="multiple-choice" type="checkbox" onclick="toggleMultipleChoice(event)"{% if 'choices' in extra %} checked{% endif %}>
     </div>
     {% endif %}
 
@@ -184,14 +184,14 @@
             <button onclick="deleteAnswerChoice(event);">&times;</button>
             {% endif %}
             <p>
-                <span class="question-choice-number">{{ letters[loop.index0] }}:</span> {{ element("question-choice-text", option) }}
+                <span class="question-choice-number">{{ letters[loop.index0] }}:</span> {{ element("question-choice-text", option, onchange="syncChoiceSelection(event)") }}
             </p>
         </div>
         {% endfor %}
         {% endif %}
 
         {% if editable %}
-        <button class="question-add-choice" onclick="addAnswerChoice(event, {{ max_choices }})">+</button>
+        <button class="question-add-choice" onclick="addAnswerChoice(getSpecificParent(event.target, 'question-view-wrapper'), {{ max_choices }})">+</button>
         {% endif %}
     </div>
 

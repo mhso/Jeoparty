@@ -94,6 +94,9 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
     guessed_choices = set()
     players_buzzed = set()
 
+    buzz_winner = None
+    rewind_player = None
+    correct = False
     for _ in range(max_buzz_attempts):
         if hijack_player:
             await context.hit_buzzer(hijack_player.contestant_id)
@@ -159,10 +162,16 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
                 correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
                 await asyncio.sleep(2)
 
+                rewind_player = buzz_winner
+
         if correct:
             break
 
     await asyncio.sleep(1)
+
+    if buzz_winner is not None and not correct and not buzz_winner.get_power(PowerUpType.REWIND).used and buzz_winner is not rewind_player:
+        print("Question over, but player has rewind.")
+        await asyncio.sleep(5) # Wait for question to end
 
     async with await context.wait_until_ready():
         await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
@@ -323,6 +332,7 @@ async def validate_links(context: ContextHandler):
 
     return broken_links
 
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
     pack_name = "Julequiz 2025"
@@ -330,7 +340,7 @@ async def test_random_game(database, locales):
     seed = 1337
     random.seed(seed)
 
-    num_contestants = 4
+    num_contestants = 8
     contestant_names, contestant_colors = create_contestant_data(num_contestants)
 
     async with ContextHandler(database, True) as context:

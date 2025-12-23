@@ -26,6 +26,7 @@ for (let i = 0; i < CONN_ATTEMPTS; i++) {
 const TIME_FOR_FINAL_ANSWER = 40;
 const TIME_BEFORE_FIRST_TIP = 4;
 const TIME_BEFORE_EXTRA_TIPS = 4;
+const TIME_TO_REWIND_AFTER_QUESTION = 4;
 const TIME_FOR_FREEZE = 40;
 const PRESENTER_ACTION_KEY = "Space"
 
@@ -374,6 +375,15 @@ function correctAnswer() {
     afterAnswer();
 }
 
+function revealAnswer() {
+    revealAnswerImageIfPresent();
+
+    let answerElem = document.getElementById("question-actual-answer");
+    answerElem.classList.remove("d-none");
+
+    afterQuestion();
+}
+
 function wrongAnswer(reason, questionOver=false) {
     // Add undo handler if presenter pressed wrong button
     const currPlayer = answeringPlayer;
@@ -423,21 +433,30 @@ function wrongAnswer(reason, questionOver=false) {
     }
 
     let allPlayersAnswered = Object.values(activePlayers).every(v => !v);
-    let playerHasRewind = currPlayer != null && playerHasPowerUp(currPlayer, "rewind");
-    if (outOfTime || (allPlayersAnswered && !playerHasRewind)) {
+    if (outOfTime || allPlayersAnswered) {
         // No players are eligible to answer, go to next question
-        if (outOfTime) {
+        let playerHasRewind = answeringPlayer != null && playerHasPowerUp(answeringPlayer, "rewind");
+        let delay = 0;
+
+        if (outOfTime) { // If out of time, move on immediately
             valueElem.textContent = "";
         }
+        else if (playerHasRewind) {
+            // If last buzzing player has rewind,
+            // give them a few seconds to use rewind
+            delay = TIME_TO_REWIND_AFTER_QUESTION * 1000;
+        }
 
-        revealAnswerImageIfPresent();
-
-        let answerElem = document.getElementById("question-actual-answer");
-        answerElem.classList.remove("d-none");
-
-        afterQuestion();
+        setTimeout(function() {
+            if (delay == 0 || activePowerUp != "rewind") {
+                revealAnswer();
+                afterAnswer();
+            }
+        }, delay);
     }
-    afterAnswer();
+    else {
+        afterAnswer();
+    }
 }
 
 function hideAnswerIndicator() {
@@ -541,11 +560,12 @@ function answerQuestion(event) {
     }
 }
 
-function setCountdownText(countdownText, seconds, maxSecs) {
-    countdownText.textContent = (maxSecs - seconds);
+function setCountdownText(countdownText, millis, maxMillis) {
+    let seconds = (maxMillis - millis) / 1000;
+    countdownText.textContent = seconds.toFixed(2);
 }
 
-function setCountdownBar(countdownBar, milis, green, red, maxMilis) {
+function setCountdownValues(countdownBar, milis, green, red, maxMilis) {
     let width = (milis / maxMilis) * 100;
     countdownBar.style.width = width + "%";
     countdownBar.style.backgroundColor = "rgb(" + red.toFixed(0) + ", " + green.toFixed(0) + ", 0)";
@@ -567,15 +587,15 @@ function startCountdown(duration, callback=null) {
     let green = 255
     let red = 136;
 
-    let secs = 0;
-    let iteration = 0;
-    let delay = 50;
+    let currTime = 0;
+    let delay = 30;
+    let durationMillis = duration * 1000;
 
-    let totalSteps = (duration * 1000) / delay;
+    let totalSteps = durationMillis / delay;
     let colorDelta = (green + red) / totalSteps;
 
-    setCountdownText(countdownText, secs, duration);
-    setCountdownBar(countdownBar, (secs * 1000) + (iteration * delay), green, red, duration * 1000);
+    setCountdownText(countdownText, currTime, durationMillis);
+    setCountdownValues(countdownBar, currTime, green, red, durationMillis);
 
     countdownPaused = false;
 
@@ -584,12 +604,6 @@ function startCountdown(duration, callback=null) {
             return;
         }
 
-        iteration += 1;
-        if (iteration * delay == 1000) {
-            iteration = 0;
-            secs += 1;
-            setCountdownText(countdownText, secs, duration);
-        }
         if (red < 255) {
             red += colorDelta;
         }
@@ -597,9 +611,12 @@ function startCountdown(duration, callback=null) {
             green -= colorDelta;
         }
 
-        setCountdownBar(countdownBar, (secs * 1000) + (iteration * delay), green, red, duration * 1000);
+        setCountdownValues(countdownBar, currTime, green, red, durationMillis);
+        setCountdownText(countdownText, currTime, durationMillis);
 
-        if (secs >= duration) {
+        currTime += delay;
+
+        if (currTime >= durationMillis) {
             stopCountdown();
             if (callback != null) {
                 callback();
@@ -611,15 +628,12 @@ function startCountdown(duration, callback=null) {
     }, delay);
 }
 
-function pauseOrPlayVideo(pause) {
+function pauseVideo() {
     let videoElem = document.querySelector(".question-question-video");
     if (videoElem != null) {
         videoElem.onended = null;
-        if (pause && !videoElem.paused) {
+        if (!videoElem.paused) {
             videoElem.pause();
-        }
-        else if (!pause && videoElem.paused && !videoElem.ended) {
-            videoElem.play();
         }
     }
 }
@@ -631,7 +645,7 @@ function pauseBeforeAnswer() {
     disablePowerUp(answeringPlayer, "freeze");
 
     // Pause video if one is playing
-    pauseOrPlayVideo(true);
+    pauseVideo();
 
     // Clear countdown
     stopCountdown();
@@ -689,7 +703,7 @@ function addPowerUseToFeed(playerId, powerId) {
 
 function afterBuzzIn(playerId) {
     // Pause video if one is playing
-    pauseOrPlayVideo(true);
+    pauseVideo();
 
     // Clear buzz-in countdown.
     stopCountdown();
@@ -772,7 +786,7 @@ function afterFreezeUsed() {
     setTimeout(function() {
         freezeWrapper.offsetHeight; // Trigger reflow
         freezeWrapper.style.transition = `opacity ${TIME_FOR_FREEZE - fadeInDuration}s`;
-        freezeWrapper.style.opacity = 0;
+        freezeWrapper.style.opacity = 0.15;
 
         setTimeout(function() {
             if (answeringPlayer != null) {
@@ -856,7 +870,11 @@ function powerUpUsed(playerId, powerId) {
 
     console.log(`Player ${playerNames[playerId]} used power '${powerId}'`);
 
-    pauseOrPlayVideo(true);
+    let videoElem = document.querySelector(".question-question-video");
+    let pause = videoElem != null && !videoElem.paused && !videoElem.ended;
+    if (pause) {
+        videoElem.pause();
+    }
 
     callback = null;
     if (powerId == "freeze") {
@@ -874,8 +892,12 @@ function powerUpUsed(playerId, powerId) {
 
     addPowerUseToFeed(playerId, powerId);
     showPowerUpVideo(powerId, playerId).then(() => {
-        if (callback) callback();
-        pauseOrPlayVideo(false);
+        if (callback) {
+            callback();
+        }
+        if (pause) {
+            videoElem.play();
+        }
     });
     
     let powerIcon = document.querySelector(

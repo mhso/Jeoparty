@@ -158,12 +158,18 @@ function syncQuestionData(round, category, question) {
     let wrapper = getQuestionViewWrapper(round, category, question);
 
     let questionText = wrapper.querySelector(".question-question-header").value;
-    let answerText = wrapper.querySelector(".question-answer-input").value;
+    let isMultipleChoice = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
+    let answerText;
+    if (isMultipleChoice) {
+        answerText = wrapper.querySelector(".question-answer-selection").value;
+    }
+    else {
+        answerText = wrapper.querySelector(".question-answer-input").value;
+    }
     let value = wrapper.querySelector(".question-reward-span").value;
     let explanationText = wrapper.querySelector(".question-explanation-input").value;
     let doBuzzTimer = wrapper.querySelector(".question-do-buzz-countdown").checked;
     let buzzTime = wrapper.querySelector(".question-countdown-text").value;
-    let isMultipleChoice = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
     let choices = wrapper.querySelectorAll(".question-choice-text");
     let questionMediaInput = wrapper.querySelector(".question-question-media-input");
     let answerMediaInput = wrapper.querySelector(".question-answer-media-input");
@@ -199,10 +205,16 @@ function syncQuestionData(round, category, question) {
     if (isMultipleChoice) {
         data["extra"]["choices"] = Array.from(choices).map((choice) => choice.value);
     }
+    else if (Object.hasOwn(data["extra"], "choices") && data["extra"]["choices"].length > 0) {
+        delete data["extra"]["choices"];
+    }
 
     // Save explanation
     if (explanationText) {
         data["extra"]["explanation"] = explanationText;
+    }
+    else if (Object.hasOwn(data["extra"], "explanation")) {
+        delete data["extra"]["explanation"];
     }
 
     // Save tips
@@ -211,7 +223,7 @@ function syncQuestionData(round, category, question) {
         data["extra"]["tips"] = tipData;
     }
     else if (Object.hasOwn(data["extra"], "tips") && data["extra"]["tips"].length > 0) {
-        data["extra"]["tips"] = [];
+        delete data["extra"]["tips"];
     }
 
     // Save question image or video
@@ -1110,8 +1122,25 @@ function setDoBuzzTime(event) {
     }
 }
 
-function addAnswerChoice(event, maxChoices) {
-    let wrapper = getSpecificParent(event.target, "question-view-wrapper");
+function syncChoiceSelection(event) {
+    let choiceTextElems = document.querySelectorAll(".question-choice-text");
+    let choiceSelectElems = document.querySelectorAll(".question-answer-selection > option");
+
+    choiceSelectElems.forEach((elem) => {
+        let matched = false;
+        choiceTextElems.forEach((other) => {
+            if (elem.textContent == other.value) {
+                matched = true;
+            }
+        });
+
+        if (!matched) {
+            elem.textContent = event.target.value;
+        }
+    });
+}
+
+function addAnswerChoice(wrapper, maxChoices=4) {
     let choicesWrapper = wrapper.querySelector(".question-choices-wrapper");
     let answerSelection = wrapper.querySelector(".question-answer-selection");
 
@@ -1173,7 +1202,7 @@ function deleteAnswerChoice(event) {
     let choices = choicesWrapper.querySelectorAll(".question-choice-entry");
     if (choices.length == 0) {
         wrapper.querySelector(".question-multiple-choice-checkbox").checked = false;
-        wrapper.querySelector(".question-choices-indicator").classList.add("d-none");
+        setIsMultipleChoice(wrapper, false); 
     }
     else {
         choices.forEach((elem, index) => {
@@ -1239,19 +1268,16 @@ function resizeMedia(wrapper) {
     });
 }
 
-function setMultipleChoice(event) {
-    let wrapper = getSpecificParent(event.target, "question-view-wrapper");
-
-    let checked = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
+function setIsMultipleChoice(wrapper, isMultipleChoice) {
     let choicesWrapper = wrapper.querySelector(".question-choices-wrapper");
     let choicesIndicator = wrapper.querySelector(".question-choices-indicator");
     let choices = wrapper.querySelectorAll(".question-choice-entry").length;
     let answerInput = wrapper.querySelector(".question-answer-input");
     let answerSelection = wrapper.querySelector(".question-answer-selection");
 
-    if (checked) {
+    if (isMultipleChoice) {
         if (choices == 0) {
-            addAnswerChoice(event);
+            addAnswerChoice(wrapper);
         }
         choicesIndicator.classList.remove("d-none");
         choicesWrapper.classList.remove("d-none");
@@ -1264,6 +1290,15 @@ function setMultipleChoice(event) {
         answerSelection.classList.add("d-none");
         answerInput.classList.remove("d-none");
     }
+
+    resizeMedia(wrapper);
+}
+
+function toggleMultipleChoice(event) {
+    let wrapper = getSpecificParent(event.target, "question-view-wrapper");
+
+    let checked = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
+    setIsMultipleChoice(wrapper, checked);
 
     resizeMedia(wrapper);
 }
