@@ -85,6 +85,10 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
     if not hijack_player and not active_question.daily_double and contestants_with_hijack != [] and random.random() < 0.2:
         # Have someone hijack after the question is asked
         hijack_player = random.choice(contestants_with_hijack)
+
+        # Sleep for a random amount of time
+        await asyncio.sleep(random.random() * 3)
+
         await context.use_power_up(hijack_player.contestant_id, PowerUpType.HIJACK.value)
         await asyncio.sleep(2)
 
@@ -94,11 +98,16 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
     guessed_choices = set()
     players_buzzed = set()
 
+    await asyncio.sleep(1)
+
     buzz_winner = None
     rewind_player = None
     correct = False
     for _ in range(max_buzz_attempts):
         if hijack_player:
+            # Sleep for a random amount of time
+            await asyncio.sleep(random.random() * 3)
+
             await context.hit_buzzer(hijack_player.contestant_id)
             buzz_winner = hijack_player
         elif active_question.daily_double:
@@ -119,6 +128,9 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             ]
             random.shuffle(shuffled_players)
             players_buzzing = shuffled_players[:num_players]
+
+            # Sleep for a random amount of time
+            await asyncio.sleep(random.random() * 3)
 
             # Try to buzz in at the same time
             pending = (
@@ -143,13 +155,18 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         if not active_question.daily_double:
             freeze_power = buzz_winner.get_power(PowerUpType.FREEZE)
             if not freeze_power.used and random.random() < 0.3:
+                # Sleep for a random amount of time
+                await asyncio.sleep(random.random() * 3)
+                print("Using freeze!")
                 await context.use_power_up(buzz_winner.contestant_id, freeze_power.type.value)
-                await asyncio.sleep(3)
 
         # Answer correctly or wrong randomly
         correct = await answer_question(context, buzz_winner, active_question, guessed_choices)
 
         await asyncio.sleep(1)
+
+        # Sleep for a random amount of time
+        await asyncio.sleep(random.random() * 3)
 
         # Randomly use rewind if available and answer again
         if not active_question.daily_double:
@@ -332,12 +349,11 @@ async def validate_links(context: ContextHandler):
 
     return broken_links
 
-@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
     pack_name = "Julequiz 2025"
     rounds = 1 if pack_name == "Julequiz 2025" else 2
-    seed = 1337
+    seed = 1234
     random.seed(seed)
 
     num_contestants = 8

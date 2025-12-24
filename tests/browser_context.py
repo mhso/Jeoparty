@@ -38,9 +38,9 @@ BROWSER_OPTIONS = {
     "ignore_default_args": [
         "--enable-automation"
     ],
-    "firefox_user_prefs": {
-        "media.volume_scale": "0.0",
-    },
+    # "firefox_user_prefs": {
+    #     "media.volume_scale": "0.0",
+    # },
     "chromium_sandbox": False,
     "headless": True
 }
@@ -482,7 +482,9 @@ class ContextHandler:
         await asyncio.sleep(1)
 
     async def use_power_up(self, contestant_id: str, power_id: str):
-        await self.contestant_pages[contestant_id].click(f"#contestant-power-btn-{power_id}")
+        page = self.contestant_pages[contestant_id]
+        await page.wait_for_selector(f"#contestant-power-btn-{power_id}:enabled", timeout=10000)
+        await page.click(f"#contestant-power-btn-{power_id}")
 
         video = await self.presenter_page.query_selector(f"#question-power-up-video-{power_id}")
 
@@ -1052,7 +1054,7 @@ class ContextHandler:
 
         self.flask_process = Popen(["pdm", "run", "main.py", "-db", "test.db"], cwd="src")
 
-        await asyncio.sleep(3)
+        await asyncio.sleep(5)
 
         try:
             # Create presenter browser and context

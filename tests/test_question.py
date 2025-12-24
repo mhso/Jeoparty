@@ -3,7 +3,7 @@ import pytest
 
 from playwright.async_api import Dialog
 
-from jeoparty.api.enums import PowerUpType, StageType
+from jeoparty.api.enums import StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
 
@@ -509,7 +509,7 @@ async def test_question_aborted(database, locales):
 
             await asyncio.sleep(2)
 
-            await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+            await context.presenter_page.press("body", "Enter")
             await asyncio.sleep(1)
 
             assert await wrong_answer_elem.is_visible()
@@ -522,7 +522,7 @@ async def test_question_aborted(database, locales):
                 wrong_answer_text=locale["wrong_answer_cowards"],
             )
 
-            # Assert that we go back to selection page after everyone answered wrong
+            # Assert that we go back to selection page after we aborted
             async with context.presenter_page.expect_navigation():
                 await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 

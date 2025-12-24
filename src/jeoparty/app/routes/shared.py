@@ -2,6 +2,7 @@ from glob import glob
 import os
 import random
 import traceback
+from itertools import cycle
 from enum import Enum
 from typing import Any, Dict, List, Tuple, TypeVar
 from os.path import basename
@@ -77,13 +78,16 @@ def get_question_answer_sounds(theme: Theme, max_contestants: int):
             if not sound.correct
         ]
     else:
-        wrong_sounds = []
+        wrong_sounds = [default_wrong]
 
-    # Get as many wrong sounds as there are contestants, adding in default sounds
+    # Get as many wrong sounds as there are contestants, duplicating sounds
     # if we don't have enough custom ones
     if len(wrong_sounds) < max_contestants:
         # Add default wrong answer sound
-        wrong_sounds = wrong_sounds + [default_wrong for _ in range(max_contestants - len(wrong_sounds))]
+        for repeat_sound in cycle(wrong_sounds):
+            wrong_sounds.append(repeat_sound)
+            if len(wrong_sounds) == max_contestants:
+                break
 
     random.shuffle(wrong_sounds)
     wrong_sounds = wrong_sounds[:max_contestants]

@@ -190,11 +190,11 @@ class Database(SQLAlchemyDatabase):
 
     def delete_game(self, game_id: str):
         with self as session:
-            #game_stmt = delete(Game).where(Game.id == game_id)
+            game_stmt = delete(Game).where(Game.id == game_id)
             game_contestant_stmt = delete(GameContestant).where(GameContestant.game_id == game_id)
             game_questions_stmt = delete(GameQuestion).where(GameQuestion.game_id == game_id)
 
-            #session.execute(game_stmt)
+            session.execute(game_stmt)
             session.execute(game_contestant_stmt)
             session.execute(game_questions_stmt)
 

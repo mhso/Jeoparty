@@ -161,6 +161,7 @@ def selection(game_data: Game):
 
     # Check if we are done with all questions in the current round
     questions = game_data.get_questions_for_round()
+    start_of_round = questions != [] and not previous_question and not any(question.used for question in questions)
     end_of_round = questions != [] and all(question.used for question in questions)
 
     is_finale = False
@@ -200,8 +201,8 @@ def selection(game_data: Game):
         # Set the single finale question as the active question
         questions[0].active = True
 
-    first_round = not previous_question and game_data.round == 1 and game_data.get_contestant_with_turn() is None
-    if (not previous_question or end_of_round) and not is_finale:
+    start_of_game = start_of_round and game_data.round == 1 and game_data.get_contestant_with_turn() is None
+    if (start_of_round or end_of_round) and not is_finale:
         # If it's the first question of a new round, select random questions to be daily doubles
         if game_data.use_daily_doubles:
             questions_copy = list(questions)
@@ -243,7 +244,7 @@ def selection(game_data: Game):
     return render_locale_template(
         "presenter/selection.html",
         game_data.pack.language,
-        first_round=first_round,
+        start_of_game=start_of_game,
         round_name=round_data.name,
         **game_json,
         **round_json,

@@ -11,8 +11,7 @@ for (let i = 0; i < CONN_ATTEMPTS; i++) {
                 console.log("Socket will reconnect...");
             }
             else {
-                console.log("Socket is DEAD!!! We try to connect manually...");
-                socket.connect();
+                console.log("Socket is DEAD!!!");
             }
         });
         break;
@@ -725,14 +724,12 @@ function afterBuzzIn(playerId) {
 
 function playerBuzzedFirst(playerId) {
     if (activePowerUp != null && (activePowerUp != "hijack")) {
-        console.log(">>>>>>>>>>>>>>>>> Nope 1");
         return;
     }
 
     playersBuzzedIn.push(playerId);
 
     if (!activePlayers[playerId] || (answeringPlayer != null && activePowerUp != "hijack")) {
-        console.log(">>>>>>>>>>>>>>>>> Nope 2");
         return;
     }
 
@@ -786,7 +783,7 @@ function afterFreezeUsed() {
     setTimeout(function() {
         freezeWrapper.offsetHeight; // Trigger reflow
         freezeWrapper.style.transition = `opacity ${TIME_FOR_FREEZE - fadeInDuration}s`;
-        freezeWrapper.style.opacity = 0.15;
+        freezeWrapper.style.opacity = 0.05;
 
         setTimeout(function() {
             if (answeringPlayer != null) {
@@ -836,11 +833,25 @@ function afterRewindUsed() {
     afterBuzzIn(answeringPlayer);
 }
 
+function isHijackBeforeQuestion() {
+    let questionHeader = document.querySelector(".question-question-header");
+    let questionImage = document.querySelector(".question-question-image");
+    let videoElem = document.querySelector(".question-question-video");
+    if (questionImage != null) {
+        return getComputedStyle(questionImage).opacity < 0.5
+    }
+    if (videoElem != null) {
+        return getComputedStyle(videoElem).opacity < 0.5
+    }
+
+    return questionHeader != null && getComputedStyle(questionHeader).opacity < 0.5;
+}
+
 function onHijackUsed(playerId) {
     pauseCountdown(true);
 
     // If question has not been asked yet, hijack gives bonus points
-    hijackBonus = Object.keys(activePlayers).length == 0
+    hijackBonus = isHijackBeforeQuestion();
 
     activePlayers = {};
     playerIds.forEach((id) => {
@@ -853,13 +864,16 @@ function onHijackUsed(playerId) {
     }
 }
 
-function afterHijackUsed(playerId) {
+function afterHijackUsed(playerId, videoPaused) {
     if (!hijackBonus && answeringPlayer != null) {
         answeringPlayer = playerId;
         afterBuzzIn(playerId);
     }
     else {
         setPlayerTurn(playerId, false);
+        if (videoPaused) { // Unpause question media video if we paused it ealier
+            document.querySelector(".question-question-video").play();
+        }
     }
 
     pauseCountdown(false);
@@ -871,8 +885,8 @@ function powerUpUsed(playerId, powerId) {
     console.log(`Player ${playerNames[playerId]} used power '${powerId}'`);
 
     let videoElem = document.querySelector(".question-question-video");
-    let pause = videoElem != null && !videoElem.paused && !videoElem.ended;
-    if (pause) {
+    let videoPaused = videoElem != null && !videoElem.paused && !videoElem.ended;
+    if (videoPaused) {
         videoElem.pause();
     }
 
@@ -887,16 +901,13 @@ function powerUpUsed(playerId, powerId) {
     }
     else {
         onHijackUsed(playerId);
-        callback = () => afterHijackUsed(playerId);
+        callback = () => afterHijackUsed(playerId, videoPaused);
     }
 
     addPowerUseToFeed(playerId, powerId);
     showPowerUpVideo(powerId, playerId).then(() => {
         if (callback) {
             callback();
-        }
-        if (pause) {
-            videoElem.play();
         }
     });
     
@@ -947,10 +958,12 @@ function questionAsked(countdownDelay) {
 
         if (answeringPlayer == null && canPlayersBuzzIn()) {
             // Allow presenter to abort the question if no one wants to answer
-            registerAction(function() {
-                stopCountdown();
-                wrongAnswer(localeStrings["wrong_answer_cowards"], true);
-            });
+            window.onkeydown = function(e) {
+                if (e.code == "Enter") {
+                    stopCountdown();
+                    wrongAnswer(localeStrings["wrong_answer_cowards"], true);
+                }
+            }
 
             hideAnswerIndicator();
             showTip(0);
@@ -1715,7 +1728,7 @@ function toggleEditContestantInfo(playerId) {
     if (!editable) {
         let hits = Number.parseInt(hitsElem.textContent);
         let misses = Number.parseInt(missesElem.textContent);
-        let score = Number.parseInt(scoreElem.textContent);
+        let score = Number.parseInt(scoreElem.textContent.split(" ")[0]);
 
         let powersUsed = {};
         powersWrapper.forEach((elem) => {

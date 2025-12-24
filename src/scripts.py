@@ -1,11 +1,14 @@
 from argparse import ArgumentParser
 import asyncio
+from glob import glob
+import os
 
 from flask import json
 import requests
 
-from jeoparty.api.config import Config
+from jeoparty.api.config import Config, get_buzz_sound_path
 from jeoparty.api.database import Database
+from jeoparty.api.orm.models import BuzzerSound
 
 class ScriptRunner:
     def fetch_resource(self):
@@ -107,6 +110,36 @@ class ScriptRunner:
     def delete_game(self, game_id: str):
         database = Database()
         database.delete_game(game_id)
+
+    def insert_buzzer_sounds(self, theme_id: str):
+        folder = get_buzz_sound_path(theme_id)
+        sound_files = glob(f"{folder}/*.mp3")
+        database = Database()
+
+        with database as session:
+            models = []
+            for path in sound_files:
+                filename = os.path.basename(path)
+
+                correct = 1
+                while True:
+                    try:
+                        correct = int(input(f"{filename}: "))
+                        if correct in (0, 1):
+                            break
+                    except ValueError:
+                        continue
+
+                models.append(
+                    BuzzerSound(
+                        theme_id=theme_id,
+                        filename=filename,
+                        correct=correct,
+                    )
+                )
+
+            session.add_all(models)
+            session.commit()
 
 if __name__ == "__main__":
     PARSER = ArgumentParser()

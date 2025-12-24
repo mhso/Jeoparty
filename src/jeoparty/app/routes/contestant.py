@@ -219,7 +219,10 @@ def game_view(game_id: str):
             question = None
 
         round_name = game_data.pack.rounds[game_data.round - 1].name
-        first_round = not game_data.get_active_question() and game_data.round == 1 and game_data.get_contestant_with_turn() is None
+
+        questions = game_data.get_questions_for_round()
+        start_of_round = questions != [] and not game_data.get_active_question() and not any(question.used for question in questions)
+        start_of_game = start_of_round and game_data.round == 1 and game_data.get_contestant_with_turn() is None
 
         game_json = game_data.dump(included_relations=[], id="game_id")
 
@@ -235,7 +238,7 @@ def game_view(game_id: str):
 
             game_contestant_json["winner"] = contestant_won
 
-        num_questions_in_round = len(game_data.get_questions_for_round())
+        num_questions_in_round = len(questions)
 
         return render_locale_template(
             "contestant/game.html",
@@ -243,7 +246,7 @@ def game_view(game_id: str):
             ping=30,
             question=question,
             num_questions_in_round=num_questions_in_round,
-            first_round=first_round,
+            start_of_game=start_of_game,
             round_name=round_name,
             **game_json,
             **game_contestant_json,

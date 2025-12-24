@@ -152,10 +152,9 @@
                     socket.on("contestant_joined", function() {
                         pingActive = true;
                         sendPingMessage("{{ user_id }}");
-                        animateWaitingText();
                         monitorGame("{{ user_id }}", '{{ _locale | tojson }}');
     
-                        {% if first_round %}
+                        {% if start_of_game %}
                         socket.on("turn_chosen", function(userId) {
                             let elem = document.getElementById("contestant-turn-desc");
                             if (userId == "{{ user_id }}") {

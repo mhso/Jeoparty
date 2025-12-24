@@ -174,12 +174,12 @@ class GameSocketHandler(Namespace):
     def on_enable_buzz(self, active_players_string: str):
         active_player_ids = json.loads(active_players_string)
 
-        ids_to_skip = []
+        ids_to_skip = set()
         for contestant_id in self.contestant_metadata:
             contestant_metadata = self.contestant_metadata[contestant_id]
             contestant_metadata.latest_buzz = None
             if not active_player_ids[contestant_id]:
-                ids_to_skip.append(contestant_metadata.sid)
+                ids_to_skip.add(contestant_metadata.sid)
 
         # Use locking to make sure we don't have a race condition with enabling buzz-in
         # and handling the use of power-ups at the same time
@@ -188,10 +188,18 @@ class GameSocketHandler(Namespace):
             power_used = self.game_metadata.power_use_decided
             self.game_metadata.buzz_winner_decided = False
     
-            if power_used and power_used["power"] in (PowerUpType.HIJACK, PowerUpType.REWIND):
-                return
+            if power_used:
+                if power_used["power"] is PowerUpType.REWIND:
+                    return
+            
+                if power_used["power"] is PowerUpType.HIJACK:
+                    for contestant_id in self.contestant_metadata:
+                        contestant_metadata = self.contestant_metadata[contestant_id]
 
-            self.emit("buzz_enabled", to="contestants", skip_sid=ids_to_skip)
+                        if contestant_id != power_used["used_by"]:
+                            ids_to_skip.add(contestant_metadata.sid) 
+
+            self.emit("buzz_enabled", to="contestants", skip_sid=list(ids_to_skip))
 
     @_presenter_event
     def on_enable_powerup(self, user_id: str | None, power_id: str):
@@ -342,7 +350,8 @@ class GameSocketHandler(Namespace):
 
             if power is PowerUpType.HIJACK:
                 self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
-                self.emit("buzz_enabled", to=contestant_metadata.sid)
+                if self.game_metadata.buzz_winner_decided:
+                    self.emit("buzz_enabled", to=contestant_metadata.sid)
             elif power is PowerUpType.REWIND:
                 self.emit("buzz_disabled", to="contestants")
 

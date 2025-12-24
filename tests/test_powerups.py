@@ -400,7 +400,7 @@ async def test_rewind_during_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -833,12 +833,14 @@ async def test_hijack_during_question(database, locales):
             await context.answer_question(active_player.contestant_id, key=1)
             await asyncio.sleep(1)
 
+            active_score = ceil(active_question.question.value * 1.5)
+
             for contestant in game_data.game_contestants:
                 is_active = contestant.id == active_player.id
 
                 await context.assert_presenter_values(
                     contestant.id,
-                    score=active_question.question.value if is_active else 0,
+                    score=active_score if is_active else 0,
                     hits=int(is_active),
                     misses=0,
                     has_turn=False,
@@ -847,7 +849,7 @@ async def test_hijack_during_question(database, locales):
 
                 await context.assert_contestant_values(
                     contestant.contestant_id,
-                    score=active_question.question.value if is_active else 0,
+                    score=active_score if is_active else 0,
                     buzzes=int(is_active),
                     hits=int(is_active),
                     misses=0,

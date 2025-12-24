@@ -12,9 +12,9 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/style.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', _external=True, filename='css/contestant_style.css') }}">
     <script src="{{ url_for('static', _external=True, filename='js/jquery.min.js') }}"></script>
-    <script src="{{ url_for('static', _external=True, filename='js/socket_io.js') }}"></script>
     <script src="{{ url_for('static', _external=True, filename='js/wake_lock.js') }}"></script>
     {% if game_id %}
+    <script src="{{ url_for('static', _external=True, filename='js/socket_io.js') }}"></script>
     <script>const GAME_ID = "{{ game_id }}";</script>
     <script src="{{ url_for('static', _external=True, filename='js/contestant_game.js') }}"></script>
     <script>

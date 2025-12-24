@@ -22,7 +22,7 @@
                         <span>{{ category_data["name"] }}</span>
                     </div>
                     {% for question_data in category_data["questions"] %}
-                    <div class="selection-question-box{% if question_data['used'] or first_round %} inactive{% endif %}" onclick="goToQuestion(event.target, '{{ question_data['id'] }}', {{ question_data['daily_double'] | tojson }})">
+                    <div class="selection-question-box{% if question_data['used'] or start_of_game %} inactive{% endif %}" onclick="goToQuestion(event.target, '{{ question_data['id'] }}', {{ question_data['daily_double'] | tojson }})">
                         <span>{{ question_data["value"] }}</span>
                     </div>
                     {% endfor %}
@@ -77,7 +77,7 @@
                     setConnectionStatusWaiting();
 
                     window.onkeydown = function(e) {
-                        {% if first_round %}
+                        {% if start_of_game %}
                         if (e.code == PRESENTER_ACTION_KEY) {
                             let introMedia = document.getElementById("selection-intro-media");
                             let delay = 100;
@@ -98,7 +98,7 @@
                             goToSelectedCategory();
                         }
                     };
-                    {% if stage == "selection" and not first_round and player_with_turn %}
+                    {% if stage == "selection" and not start_of_game and player_with_turn %}
                     setPlayerTurn("{{ player_with_turn['id'] }}", false);
                     {% elif stage == "finale_wager" %}
                     showFinaleCategory();

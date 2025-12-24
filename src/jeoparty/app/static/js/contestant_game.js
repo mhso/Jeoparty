@@ -11,8 +11,7 @@ for (let i = 0; i < CONN_ATTEMPTS; i++) {
                 console.log("Socket will reconnect...");
             }
             else {
-                console.log("Socket is DEAD!!! We try to connect manually...");
-                socket.connect();
+                console.log("Socket is DEAD!!!");
             }
         });
         break;
@@ -320,18 +319,6 @@ function sendPingMessage(userId) {
         socket.emit("ping_request", userId, now);
         sendPingMessage(userId);
     }, 1000);
-}
-
-function animateWaitingText() {
-    // let elem = document.getElementById("contestant-game-waiting");
-    // setInterval(function() {
-    //     if (elem.textContent.endsWith("...")) {
-    //         elem.textContent = elem.textContent.slice(0, elem.textContent.length-3);
-    //     }
-    //     else {
-    //         elem.textContent += ".";
-    //     }
-    // }, 1000);
 }
 
 window.addEventListener("DOMContentLoaded", function() {
