@@ -137,7 +137,7 @@ class Database(SQLAlchemyDatabase):
 
             return session.execute(statement).scalars().all()
 
-    def get_contestant_from_id(self, user_id: str) -> Contestant:
+    def get_contestant_from_id(self, user_id: str) -> Contestant | None:
         with self as session:
             statement = select(Contestant).options(
                 selectinload(Contestant.game_contestants)
@@ -247,6 +247,14 @@ class Database(SQLAlchemyDatabase):
 
             for model in models:
                 session.refresh(model)
+
+    def delete_models(self, *models: Base | List[Base]):
+        with self as session:
+            for model in models:
+                stmt = delete(model.__class__).where(getattr(model.__class__, "id") == getattr(model, "id"))
+                session.execute(stmt)
+
+            session.commit()
 
     def save_game(self, game_model: Game):
         if game_model.stage is StageType.ENDED:

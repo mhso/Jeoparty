@@ -24,8 +24,12 @@ for (let i = 0; i < CONN_ATTEMPTS; i++) {
 
 requestWakeLock();
 
-var pingActive = true;
+var pingActive = false;
 var buzzerResetTimeout = null;
+
+function getBaseURL() {
+    return window.location.protocol + "//" + window.location.hostname + ":" + window.location.port;
+}
 
 function makeDailyDoubleWager(playerId) {
     let btn = document.getElementById("contestant-wager-btn");
@@ -294,6 +298,12 @@ function monitorGame(userId, localeJson) {
         let btn = document.getElementById("contestant-wager-btn");
         btn.disabled = false;
         alert(`${localeData["invalid_wager"]} ${minWager} ${localeData['and']} ${maxWager}`);
+    });
+
+    // Called when contestant was removed/kicked from the game
+    socket.on("contestant_removed", function() {
+        socket.close();
+        window.location.href = `${getBaseURL()}/jeoparty/kicked`;
     });
 }
 

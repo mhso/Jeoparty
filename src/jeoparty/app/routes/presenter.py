@@ -60,8 +60,6 @@ def _request_decorator(func):
                 namespace_handler = GameSocketHandler(game_data.id, database)
                 socket_io.on_namespace(namespace_handler)
 
-            namespace_handler.game_metadata.presenter_joined = False
-
             # Inject game data to the route handler
             return func(game_data=game_data, *args, **kwargs)
 

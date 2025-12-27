@@ -226,6 +226,7 @@ class GameContestant(Base):
     finale_wager: Mapped[Optional[int]] = mapped_column(Integer)
     finale_answer: Mapped[Optional[str]] = mapped_column(String(128))
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now())
+    disconnected: Mapped[bool] = mapped_column(Boolean, default=False)
 
     game = relationship("Game", back_populates="game_contestants")
     contestant = relationship("Contestant", back_populates="game_contestants")

@@ -29,6 +29,7 @@ class ContestantMetadata:
     ping: float = 30
     latest_buzz: float | None = field(init=False, default=None)
     joined: bool = field(init=False, default=True)
+    disconnected: bool = field(init=False, default=False)
     _ping_samples: List[float] = field(init=False, default_factory=list)
 
     def calculate_ping(self, time_sent: float, time_received: float):
@@ -127,28 +128,50 @@ class GameSocketHandler(Namespace):
             if game_contestant is None:
                 logger.warning(
                     f"User '{user_id}' tried to join 'contestant' room, "
-                    f"but is not a game contestant for game with ID '{self.game_id}'"
+                    f"but is not a contestant in game with ID '{self.game_id}'"
                 )
                 return
 
-            while self.game_metadata.setup_complete is not None and not self.game_metadata.setup_complete:
-                sleep(0.1)
+            # Wait for presenter to indicate they are ready (or time out after 20 seconds)
+            timeout = 20
+            sleep_delta = 0.1
+            time_slept = 0
+            while (
+                self.game_metadata.setup_complete is not None
+                and not self.game_metadata.setup_complete
+                and time_slept < timeout
+            ):
+                time_slept += sleep_delta
+                sleep(sleep_delta)
+
+            if time_slept >= timeout:
+                raise TimeoutError()
 
             sid = flask.request.sid
-            self.contestant_metadata[user_id] = ContestantMetadata(sid)
+
+            if user_id not in self.contestant_metadata:
+                self.contestant_metadata[user_id] = ContestantMetadata(sid)
+            else:
+                self.contestant_metadata[user_id].sid = sid
+                self.contestant_metadata[user_id].joined = True
+
+            game_contestant.disconnected = False
+            self.database.save_models(game_contestant)
 
             contestant_data = game_contestant.dump(included_relations=[])
 
             # Add socket_io session ID to contestant and join 'contestants' room
             print(f"User '{contestant_data['name']}' with ID '{user_id}' and SID '{sid}' joined the lobby")
-            self.leave_room(sid, "contestants")
             self.enter_room(sid, "contestants")
 
             self.emit("contestant_joined", json.dumps(contestant_data), to="presenter")
             self.emit("contestant_joined", to=sid)
 
             if all(
-                contestant.id in self.contestant_metadata and self.contestant_metadata[contestant.id].joined
+                (
+                    contestant.disconnected
+                    or (contestant.id in self.contestant_metadata and self.contestant_metadata[contestant.id].joined)
+                )
                 for contestant in game_data.game_contestants
             ):
                 self.emit("all_contestants_joined", to="presenter")
@@ -156,12 +179,89 @@ class GameSocketHandler(Namespace):
     @_presenter_event
     def on_setup_complete(self, refresh: bool):
         print("Setup complete")
+
+        # Reset join status of contestants
         for metadata in self.contestant_metadata.values():
             metadata.joined = False
 
         self.game_metadata.setup_complete = True
         if refresh:
             self.emit("state_changed", to="contestants")
+
+    def handle_socket_disconnect(self, reason: str, user_type: str | None = None, contestant_id: str | None = None):
+        if user_type is None:
+            if contestant_id is not None:
+                # Update contestant in database to indicate they have disconnected
+                game_contestant = self.game_data.get_contestant(game_contestant_id=contestant_id)
+                game_contestant.disconnected = True
+                self.database.save_models(game_contestant)
+
+                disconnected_party = f"Contestant with ID {contestant_id}"
+            else:
+                disconnected_party = "Unknown contestant"
+
+        else:
+            disconnected_party = user_type
+
+        logger.bind(
+            game_id=self.game_id,
+            event="socket_disconnect",
+            reason=reason,
+            contestant_id=contestant_id,
+        ).info(f"{disconnected_party} disconnected: {reason}")
+
+    def on_disconnect(self, reason: str):
+        sid = flask.request.sid
+        rooms = self.rooms(sid)
+        disconnected_contestant = None
+        user_type = None
+
+        if "presenter" not in rooms:
+            for contestant_id in self.contestant_metadata:
+                contestant_metadata = self.contestant_metadata[contestant_id]
+                if contestant_metadata.sid == sid:
+                    disconnected_contestant = contestant_id
+                    break
+        else:
+            user_type = "Presenter"
+
+        self.handle_socket_disconnect(reason, user_type, disconnected_contestant)
+        if disconnected_contestant:
+            self.emit("contestant_disconnected", disconnected_contestant, to="presenter")
+
+    @_presenter_event
+    def on_contestant_join_timeout(self):
+        disconnected_contestants = []
+
+        for contestant in self.game_data.game_contestants:
+            contestant_metadata = self.contestant_metadata.get(contestant.id)
+            if not contestant_metadata or not contestant_metadata.joined:
+                disconnected_contestants.append(contestant.id)
+
+        for contestant_id in disconnected_contestants:
+            self.handle_socket_disconnect("Contestant timed out when trying to join.", contestant_id=contestant_id)
+
+    @_presenter_event
+    def on_presenter_join_timeout(self):
+        self.handle_socket_disconnect("Presenter timed out when trying to join.", "Presenter")
+
+    @_presenter_event
+    def on_remove_contestant(self, user_id: str):
+        contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
+
+        self.database.delete_models(*contestant_data.power_ups, contestant_data)
+
+        sid = self.contestant_metadata[user_id].sid
+
+        # Remove from metadata
+        if user_id in self.contestant_metadata:
+            del self.contestant_metadata[user_id]
+
+        self.emit("contestant_removed", user_id, to="presenter")
+        self.emit("contestant_removed", user_id, to=sid)
+
+        # Remove from contestants room
+        self.leave_room(sid, "contestants")
 
     @_presenter_event
     def on_mark_question_active(self, question_id: str):
@@ -341,7 +441,8 @@ class GameSocketHandler(Namespace):
             }
 
             power_up = contestant_data.get_power(power)
-            if power_up.used: # Contestant has already used this power_up
+            if power_up.used or not power_up.enabled:
+                # Contestant has already used this power_up or it is disabled
                 return
 
             power_up.used = True

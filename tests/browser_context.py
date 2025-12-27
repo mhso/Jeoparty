@@ -3,15 +3,16 @@ from glob import glob
 import os
 import re
 import shutil
-from time import time
 import traceback
-import numpy as np
-import cv2
+import random
+from time import time
 from io import BytesIO
 from subprocess import Popen
 from typing import Dict, List, Literal, Tuple
 from contextlib import AsyncExitStack, asynccontextmanager
 
+import cv2
+import numpy as np
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
 from playwright.async_api import TimeoutError as PlaywrightTimeout
 from PIL import Image
@@ -23,6 +24,8 @@ from jeoparty.api.orm.models import GameContestant, GameQuestion
 from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
 from jeoparty.app.routes.contestant import COOKIE_ID
 from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
+
+random.seed(1337)
 
 BROWSER_OPTIONS = {
     "args": {
@@ -42,7 +45,8 @@ BROWSER_OPTIONS = {
     #     "media.volume_scale": "0.0",
     # },
     "chromium_sandbox": False,
-    "headless": True
+    "headless": True,
+    "slow_mo": random.randint(50, 250),
 }
 
 PRESENTER_BROWSER = "chromium"
@@ -280,7 +284,8 @@ class ContextHandler:
         name: str | None = None,
         color: str | None = None,
         avatar: str | None = None,
-        page: Page | None = None
+        expect_success: bool = True,
+        page: Page | None = None,
     ) -> Tuple[Page, str]:
         if page is None:
             contestant_context, contestant_page, timestamp = await self._setup_contestant_browser()
@@ -311,13 +316,11 @@ class ContextHandler:
         join_button = await contestant_page.query_selector("#contestant-lobby-join")
 
         # Wait for the lobby page to load
-        try:
+        if expect_success:
             async with contestant_page.expect_navigation(wait_until="domcontentloaded", timeout=10000):
                 await join_button.click()
-        except PlaywrightTimeout:
-            error_elem = await contestant_page.query_selector("#contestant-lobby-error")
-            if error_elem is None or await error_elem.is_hidden():
-                raise
+        else:
+            await join_button.click()
 
         # Get contestant ID from cookie after they joined the lobby
         cookies = await contestant_page.context.cookies()
@@ -1054,7 +1057,7 @@ class ContextHandler:
 
         self.flask_process = Popen(["pdm", "run", "main.py", "-db", "test.db"], cwd="src")
 
-        await asyncio.sleep(5)
+        await asyncio.sleep(3)
 
         try:
             # Create presenter browser and context

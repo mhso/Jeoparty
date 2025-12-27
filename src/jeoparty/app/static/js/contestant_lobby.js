@@ -104,11 +104,12 @@ function joinGame(event) {
     requestWakeLock();
 
     let color = document.getElementById("contestant-lobby-color").value;
-    let errorMsg = document.getElementById("contestant-lobby-error");
+    let statusElem = document.getElementById("contestant-lobby-status");
 
     if (!getRenderedColor(color)) {
-        errorMsg.textContent = `Invalid color: '${color}', please provide a valid color.`;
-        errorMsg.classList.remove("d-none");
+        statusElem.textContent = `Invalid color: '${color}', please provide a valid color.`;
+        statusElem.classList.add("error-status");
+        statusElem.classList.remove("d-none");
         return false;
     }
 
@@ -120,10 +121,26 @@ function joinGame(event) {
         {
             data: formData,
             method: "POST",
+            xhrFields: {
+                withCredentials: true
+            },
             contentType: false,
             processData: false,
         }
     ).done(function(response) {
+        let statusText = document.createElement("p");
+        let statusUrl = document.createElement("a");
+
+        statusText.textContent = "Success! You will be redirected soon. If not, click the link below:"
+        statusUrl.textContent = "Click here";
+        statusUrl.href = response["redirect"];
+
+        statusElem.appendChild(statusText);
+        statusElem.appendChild(statusUrl);
+
+        statusElem.classList.add("success-status");
+        statusElem.classList.remove("d-none");
+
         window.location.href = response["redirect"];
     }).fail(function(response) {
         let message;
@@ -134,8 +151,9 @@ function joinGame(event) {
             message = "An unknown error occured, try again later."
         }
 
-        errorMsg.textContent = message;
-        errorMsg.classList.remove("d-none");
+        statusElem.textContent = message;
+        statusElem.classList.add("error-status");
+        statusElem.classList.remove("d-none");
         joining = false;
     });
 

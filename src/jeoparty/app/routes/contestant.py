@@ -2,6 +2,7 @@ from glob import glob
 import os
 import random
 from typing import Any, Dict, Tuple
+from uuid import uuid4
 
 import flask
 from werkzeug.datastructures import FileStorage
@@ -89,11 +90,15 @@ def _save_contestant_avatar(file: FileStorage, user_id: str):
 
     return f"{get_avatar_path(False)}/{filename}"
 
+@contestant_page.route("/kicked")
+def contestant_kicked():
+    return make_template_context("contestant/kicked.html", status=200)
+
 @contestant_page.route("/join", methods=["POST"])
 def join_lobby():
     database: Database = flask.current_app.config["DATABASE"]
 
-    user_id = flask.request.form.get("user_id")
+    user_id = _get_user_id_from_cookie(flask.request.cookies)
     params = dict(flask.request.form)
 
     if user_id is not None:
@@ -129,16 +134,21 @@ def join_lobby():
             index = len(game_data.game_contestants)
             if index == game_data.max_contestants:
                 return make_json_response({"error": locale["lobby_full"]}, 400)
-
+            
             # Try to get existitng user
             existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
 
             user_already_joined = False
             if existing_model is not None:
-                contestant_model.id = existing_model.id
-                contestant_model.avatar = existing_model.avatar
-                contestant_model.bg_image = existing_model.bg_image
-                contestant_model.buzz_sound = existing_model.buzz_sound
+                # If contestant rejoins, override values of contestant model
+                for column in existing_model.__table__.columns:
+                    if column.key == "id":
+                        continue
+
+                    val = getattr(contestant_model, column.key)
+                    setattr(existing_model, column.key, val)
+
+                contestant_model = existing_model
 
                 for contestant in game_data.game_contestants:
                     if contestant.contestant_id == user_id:
@@ -158,7 +168,9 @@ def join_lobby():
 
             # We need the ID of the user to use in the filename of their avatar,
             # so we have to save the contestant twice
-            contestant_model = database.save_or_update(contestant_model, existing_model)
+            session.add(contestant_model)
+            session.flush()
+            session.refresh(contestant_model)
 
             # Update or save contestant avatar
             new_avatar = None
@@ -265,13 +277,13 @@ def lobby(join_code: str):
 
         user_data = {}
         if user_id is not None:
-            user_data = database.get_contestant_from_id(user_id).dump()
+            contestant = database.get_contestant_from_id(user_id)
+            if contestant is not None:
+                user_data = contestant.dump()
 
     if "avatar" not in user_data:
         user_data["avatar"] = f"{get_avatar_path(False)}/questionmark.png"
         user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
-
-    error = flask.request.args.get("error")
 
     return render_locale_template(
         "contestant/lobby.html",
@@ -279,5 +291,4 @@ def lobby(join_code: str):
         **user_data,
         join_code=join_code,
         has_password=game_data.password is not None,
-        error=error,
     )

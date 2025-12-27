@@ -335,3 +335,6 @@ async def test_finale_wager_invalid(database, locales):
                 await dialog.page.evaluate("dialog = true")
 
             await context.make_wager(game_data.game_contestants[1].contestant_id, -100, on_dialog)
+
+async def test_contestant_disconnect(database):
+    pass

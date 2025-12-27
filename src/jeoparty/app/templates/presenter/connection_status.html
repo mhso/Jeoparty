@@ -4,20 +4,42 @@
 
 <script>
     const statusElem = document.getElementById("connection-status");
+    const timeout = 20000
+    const delay = 1000;
+
+    let timeWaited = 0;
+    let waitingForContestants = false;
+    let messageSent = false;
+
     let statusText = "{{ _locale['connecting'] }}";
     statusElem.textContent = statusText;
 
     const intervalId = setInterval(function() {
+        if (timeWaited >= timeout) {
+            if (waitingForContestants) {
+                socket.emit("contestant_join_timeout");
+                hideConnectionStatus();
+                return;
+            }
+            else if (!messageSent) {
+                socket.emit("presenter_join_timeout");
+                messageSent = true;
+            }
+        }
+
         if (statusElem.textContent.endsWith("...")) {
             statusElem.textContent = statusText;
         }
         else {
             statusElem.textContent += ".";
         }
-    }, 1000);
+        timeWaited += delay;
+    }, delay);
 
     function setConnectionStatusWaiting() {
         statusText = "{{ _locale['waiting'] }}";
+        timeWaited = 0;
+        waitingForContestants = true;
     }
 
     function hideConnectionStatus() {

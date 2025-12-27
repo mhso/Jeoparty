@@ -635,8 +635,7 @@ h3 {
     border: solid 2px black;
 }
 
-.footer-contestant-entry-ready {
-    display: none;
+.footer-contestant-icon-overlay {
     position: absolute;
     width: 64px;
     height: 64px;
@@ -647,21 +646,26 @@ h3 {
 }
 
 .footer-contestant-edit-btn {
-    position: absolute;
     cursor: pointer;
-    background-color: #0000008e;
-    width: 64px;
-    top: -32px;
-    left: calc(50% - 32px);
-    z-index: 10;
-    height: 64px;
-    border: none;
-    border-radius: 32px;
 }
 
 .footer-contestant-edit-btn > img {
     width: 60%;
     height: auto;
+}
+
+.footer-contestant-remove-btn {
+    background-color: rgb(181, 7, 7);
+    font-size: 22px;
+    position: absolute;
+    right: 0px;
+    top: 0px;
+    padding: 0 7px;
+    color: white;
+    border-radius: 5px;
+    border: 2px solid white;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 /****************##############****************\

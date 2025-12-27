@@ -930,7 +930,7 @@ function showTip(index) {
         return;
     }
 
-    delay = index == 0 ? TIME_BEFORE_FIRST_TIP : TIME_BEFORE_EXTRA_TIPS;
+    let delay = index == 0 ? TIME_BEFORE_FIRST_TIP : TIME_BEFORE_EXTRA_TIPS;
     setTimeout(function() {
         if (activeAnswer == null) {
             // Question is over, don't show tip
@@ -1296,6 +1296,21 @@ function beginJeopardy() {
     goToPage(getSelectionURL());
 }
 
+function contestantRemoved(playerId) {
+    let wrapper = document.getElementById("footer-contestants");
+    let playerDiv = document.querySelector(`.footer-contestant-${playerId}`);
+
+    wrapper.removeChild(playerDiv);
+}
+
+function removeContestant(playerId) {
+    if (!confirm(localeStrings["confirm_remove"])) {
+        return;
+    }
+
+    socket.emit("remove_contestant", playerId);
+}
+
 function addContestantInGame(contestantData) {
     let avatar = contestantData["avatar"];
 
@@ -1346,6 +1361,19 @@ function addContestantInGame(contestantData) {
         headerElem.appendChild(nameElem);
         headerElem.appendChild(scoreElem);
 
+        // Create avatar images
+        let avatarElem = document.createElement("img");
+        avatarElem.className = "footer-contestant-entry-avatar";
+        avatarElem.src = `${getBaseURL()}/static/${avatar}`;
+
+        let readyElem = document.createElement("img");
+        readyElem.className = "footer-contestant-entry-ready";
+        readyElem.src = `${getBaseURL()}/static/img/check.png`;
+
+        let disconnectedElem = document.createElement("img");
+        disconnectedElem.className = "footer-contestant-entry-disconnected";
+        disconnectedElem.src = `${getBaseURL()}/static/img/disconnected.png`;
+
         // Create edit btn
         let editBtn = document.createElement("button");
         editBtn.className = "footer-contestant-edit-btn d-none";
@@ -1364,14 +1392,13 @@ function addContestantInGame(contestantData) {
         editBtn.appendChild(editImg);
         editBtn.appendChild(saveImg);
 
-        // Create avatar images
-        let avatarElem = document.createElement("img");
-        avatarElem.className = "footer-contestant-entry-avatar";
-        avatarElem.src = `${getBaseURL()}/static/${avatar}`;
-
-        let readyElem = document.createElement("img");
-        readyElem.className = "footer-contestant-entry-ready";
-        readyElem.src = `${getBaseURL()}/static/img/check.png`;
+        // Create button for kicking contestant
+        let removeBtn = document.createElement("button");
+        removeBtn.className = "footer-contestant-remove-btn d-none";
+        removeBtn.innerHTML = "&times;";
+        removeBtn.onclick = function() {
+            removeContestant(id);
+        }
 
         // Create powers div
         let powersWrapper = document.createElement("div");
@@ -1403,9 +1430,11 @@ function addContestantInGame(contestantData) {
 
         div.appendChild(buzzElem);
         div.appendChild(headerElem);
-        div.appendChild(editBtn);
         div.appendChild(avatarElem);
         div.appendChild(readyElem);
+        div.appendChild(disconnectedElem);
+        div.appendChild(editBtn);
+        div.appendChild(removeBtn);
         div.appendChild(powersWrapper);
 
         wrapper.appendChild(div);
@@ -1419,6 +1448,9 @@ function addContestantInGame(contestantData) {
  
         let avatarElem = div.querySelector(".footer-contestant-entry-avatar");
         avatarElem.src = `${getBaseURL()}/static/${avatar}`;
+
+        let disconnectedIcon = div.querySelector(".footer-contestant-entry-disconnected");
+        disconnectedIcon.classList.add("d-none");
     }
 }
 
@@ -1480,6 +1512,18 @@ function contestantJoined(contestantJson) {
     playerColors[contestantId] = contestantData["color"];
 }
 
+function contestantDisconnected(playerId) {
+    console.log("Contestant disconnected:", playerId);
+    
+    if (activeStage == "lobby") {
+        return;
+    }
+
+    let playerDiv = document.querySelector(`.footer-contestant-${playerId}`);
+    let disconnectIcon = playerDiv.querySelector(".footer-contestant-entry-disconnected");
+    disconnectIcon.classList.remove("d-none");
+}
+
 function setPlayerReady(playerId) {
     console.log("Setting ready state for player:", playerId);
 
@@ -1487,7 +1531,7 @@ function setPlayerReady(playerId) {
 
     if (playerEntry) {
         let readyIcon = playerEntry.querySelector(".footer-contestant-entry-ready");
-        readyIcon.style.display = "block";
+        readyIcon.classList.remove("d-none");
     }
 }
 
@@ -1682,20 +1726,22 @@ function hideContestantEditBtn(playerId) {
 function toggleEditContestantInfo(playerId) {
     let wrapper = document.querySelector(`.footer-contestant-${playerId}`);
     let editBtn = wrapper.querySelector(".footer-contestant-edit-btn");
+    let removeBtn = wrapper.querySelector(".footer-contestant-remove-btn");
 
     let saveImage = editBtn.querySelector(".footer-contestant-edit-save");
     let editImage = editBtn.querySelector(".footer-contestant-edit-edit");
 
     let editable;
-
     if (saveImage.classList.contains("d-none")) {
         editImage.classList.add("d-none");
         saveImage.classList.remove("d-none");
+        removeBtn.classList.remove("d-none");
         editable = true;
     }
     else {
         editImage.classList.remove("d-none");
         saveImage.classList.add("d-none");
+        removeBtn.classList.add("d-none");
         editable = false;
     }
 

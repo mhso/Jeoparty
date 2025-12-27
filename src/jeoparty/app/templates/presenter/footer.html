@@ -2,22 +2,27 @@
     <div id="footer-contestants">
         {% for contestant in game_contestants %}
         <div class="footer-contestant-entry footer-contestant-{{ contestant['id'] }}" style="background-color: {{ contestant['color'] }};" onmouseenter="revealContestantEditBtn('{{ contestant['id'] }}');" onmouseleave="hideContestantEditBtn('{{ contestant['id'] }}');">
+
             <div class="footer-contestant-buzzes">
                 <div class="footer-contestant-entry-hits">{{ contestant["hits"] }}</div>
                 <div class="footer-contestant-entry-misses">{{ contestant["misses"] }}</div>
             </div>
+
             <div class="footer-contestant-header">
                 <div class="footer-contestant-entry-name">{{ contestant["name"] }}</div>
                 <div class="footer-contestant-entry-score">{{ contestant["score"] }} {{ _locale["points_short"] }}</div>
             </div>
 
-            <button class="footer-contestant-edit-btn d-none" onclick="toggleEditContestantInfo('{{ contestant['id'] }}');">
+            <img class="footer-contestant-entry-avatar" src="{{ url_for('static', _external=True, filename=contestant['avatar']) }}">
+            <img class="footer-contestant-entry-ready footer-contestant-icon-overlay d-none" src="{{ url_for('static', _external=True, filename='img/check.png') }}">
+            <img class="footer-contestant-entry-disconnected footer-contestant-icon-overlay" src="{{ url_for('static', _external=True, filename='img/disconnected.png') }}">
+
+            <button class="footer-contestant-remove-btn d-none" onclick="removeContestant('{{ contestant['id'] }}')">&times;</button>
+
+            <button class="footer-contestant-edit-btn footer-contestant-icon-overlay d-none" onclick="toggleEditContestantInfo('{{ contestant['id'] }}');">
                 <img src="{{ url_for('static', filename='img/edit.png') }}" class="footer-contestant-edit-edit">
                 <img src="{{ url_for('static', filename='img/save.png') }}" class="footer-contestant-edit-save d-none">
             </button>
-
-            <img class="footer-contestant-entry-avatar" src="{{ url_for('static', _external=True, filename=contestant['avatar']) }}">
-            <img class="footer-contestant-entry-ready" src="{{ url_for('static', _external=True, filename='img/check.png') }}">
 
             <div class="footer-contestant-entry-powers">
                 {% for power_up in contestant['power_ups'] %}

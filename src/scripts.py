@@ -2,13 +2,16 @@ from argparse import ArgumentParser
 import asyncio
 from glob import glob
 import os
+from uuid import uuid4
 
 from flask import json
 import requests
+from sqlalchemy import select
 
 from jeoparty.api.config import Config, get_buzz_sound_path
 from jeoparty.api.database import Database
-from jeoparty.api.orm.models import BuzzerSound
+from jeoparty.api.enums import StageType
+from jeoparty.api.orm.models import BuzzerSound, Game
 
 class ScriptRunner:
     def fetch_resource(self):
@@ -139,6 +142,35 @@ class ScriptRunner:
                 )
 
             session.add_all(models)
+            session.commit()
+
+    def copy_game_state(self, game_id: str):
+        database = Database()
+
+        with database as session:
+            game = database.get_game_from_id(game_id)
+
+            new_game_id = str(uuid4())
+
+            game_questions = []
+            for question in game.game_questions:
+                session.expunge(question)
+
+                question.game_id = new_game_id
+
+                game_questions.append(question)
+
+            session.add_all(game_questions)
+            session.commit()
+
+            session.expunge(game)
+
+            game.id = new_game_id
+            game.title = "Julequiz"
+            game.join_code = "julequiz"
+            game.stage = StageType.LOBBY
+
+            session.add(game)
             session.commit()
 
 if __name__ == "__main__":

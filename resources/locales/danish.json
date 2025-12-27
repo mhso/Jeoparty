@@ -80,7 +80,8 @@
             "and": "og",
             "daily_double": "Bonus Spørgsmål!",
             "connecting": "Forbinder til serveren",
-            "waiting": "Venter på deltagere"
+            "waiting": "Venter på deltagere",
+            "confirm_remove": "Er du sikker på du vil fjerne denne deltager?"
         }
     }
 }

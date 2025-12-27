@@ -156,7 +156,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             freeze_power = buzz_winner.get_power(PowerUpType.FREEZE)
             if not freeze_power.used and random.random() < 0.3:
                 # Sleep for a random amount of time
-                await asyncio.sleep(random.random() * 3)
+                await asyncio.sleep(random.random() * 2)
                 print("Using freeze!")
                 await context.use_power_up(buzz_winner.contestant_id, freeze_power.type.value)
 

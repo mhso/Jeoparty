@@ -106,6 +106,8 @@
                     {% endif %}
 
                     socket.on("contestant_joined", contestantJoined);
+                    socket.on("contestant_disconnected", contestantDisconnected);
+                    socket.on("contestant_removed", contestantRemoved);
                     socket.emit("setup_complete", true);
                 });
 

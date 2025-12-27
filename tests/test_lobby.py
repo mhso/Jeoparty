@@ -3,6 +3,7 @@ import os
 import pytest
 
 from jeoparty.api.config import get_avatar_path
+from jeoparty.api.orm.models import Contestant, GameContestant
 from tests.browser_context import ContextHandler, rgb_to_hex
 
 @pytest.mark.asyncio
@@ -84,6 +85,9 @@ async def test_rejoin(database):
             contestant_id_1 = (await context.join_lobby(game_data.join_code, contestant_name_1, contestant_color_1))[1]
 
             session.refresh(game_data)
+
+            assert len(game_data.game_contestants) == 1
+
             contestant = game_data.game_contestants[0]
 
             await context.assert_contestant_values(
@@ -104,15 +108,22 @@ async def test_rejoin(database):
                 contestant_avatar_1,
             )
 
+            await context.screenshot_views()
+
             # Go back and change contestant name and color and join again
             page = context.contestant_pages[contestant_id_1]
             await page.go_back()
+            await context.screenshot_views()
 
-            contestant_id_2 = (await context.join_lobby(game_data.join_code, contestant_name_2, contestant_color_2, contestant_avatar_2, page))[1]
+            contestant_id_2 = (await context.join_lobby(game_data.join_code, contestant_name_2, contestant_color_2, contestant_avatar_2, page=page))[1]
+            await context.screenshot_views()
 
             assert contestant_id_1 == contestant_id_2
 
             session.refresh(game_data)
+
+            assert len(game_data.game_contestants) == 1
+
             contestant = game_data.game_contestants[0]
 
             expected_avatar = f"{get_avatar_path().split("/app")[1]}/{contestant_id_1}.png"
@@ -139,64 +150,68 @@ async def test_rejoin(database):
 @pytest.mark.asyncio
 async def test_errors(database):
     pack_name = "Test Pack"
+    num_contestants = 4
 
     async with ContextHandler(database) as context:
-        game_id = (await context.create_game(pack_name))[1]
+        game_id = (await context.create_game(pack_name, contestants=num_contestants))[1]
 
         with database as session:
             game_data = database.get_game_from_id(game_id)
 
             # Try to join with too short of a name
             too_short_name = "X"
-            page, contestant_id = await context.join_lobby(game_data.join_code, too_short_name)
+            page, contestant_id = await context.join_lobby(game_data.join_code, too_short_name, expect_success=False)
 
             # Assert that player failed to join
             assert contestant_id is None
             session.refresh(game_data)
             assert game_data.game_contestants == []
 
-            error_elem = await page.query_selector("#contestant-lobby-error")
+            error_elem = await page.query_selector("#contestant-lobby-status")
             assert await error_elem.text_content() == "Error when joining lobby: 'Name' should have at least 2 characters"
 
             # Try to join with too long of a name
             too_long_name = "Contestant With Way Too Long Name"
-            page, contestant_id = await context.join_lobby(game_data.join_code, too_long_name)
+            page, contestant_id = await context.join_lobby(game_data.join_code, too_long_name, expect_success=False)
 
             # Assert that player failed to join
             assert contestant_id is None
             session.refresh(game_data)
             assert game_data.game_contestants == []
 
-            error_elem = await page.query_selector("#contestant-lobby-error")
+            error_elem = await page.query_selector("#contestant-lobby-status")
             assert await error_elem.text_content() == "Error when joining lobby: 'Name' should have at most 16 characters"
 
             # Try to join with a name that has invalid characters
             invalid_name = "Inv@l!d Nam£"
-            page, contestant_id = await context.join_lobby(game_data.join_code, invalid_name)
+            page, contestant_id = await context.join_lobby(game_data.join_code, invalid_name, expect_success=False)
 
             # Assert that player failed to join
             assert contestant_id is None
             session.refresh(game_data)
             assert game_data.game_contestants == []
 
-            error_elem = await page.query_selector("#contestant-lobby-error")
+            error_elem = await page.query_selector("#contestant-lobby-status")
             assert await error_elem.text_content() == "Error when joining lobby: 'Name' contains invalid characters"
 
             # Try to join a lobby that is full
+            for index in range(num_contestants):
+                contestant = Contestant(name=f"Contestant_{index + 1}", color="#FF0000")
+                session.add(contestant)
+                session.flush()
+                session.refresh(contestant)
 
-            # # Try to join with an invalid color
-            # name = "Regular Name"
-            # invalid_color = "redd"
+                game_contestant = GameContestant(game_id=game_id, contestant_id=contestant.id)
+                session.add(game_contestant)
 
-            # async def dialog_callback(dialog: Dialog):
-            #     assert dialog.message == f"Invalid color: '{invalid_color}', please provide a valid color."
-            #     await dialog.accept()
+            session.commit()
 
-            # page.on("dialog", dialog_callback)
+            page, contestant_id = await context.join_lobby(game_data.join_code, "Valid name", expect_success=False)
 
-            # contestant_id = (await context.join_lobby(game_data.join_code, name, invalid_color, page=page))[1]
+            # Assert that player failed to join
+            assert contestant_id is None
+            session.refresh(game_data)
+            assert len(game_data.game_contestants) == num_contestants
 
-            # # Assert that player failed to join
-            # assert contestant_id is None
-            # session.refresh(game_data)
-            # assert game_data.game_contestants == []
+            error_elem = await page.query_selector("#contestant-lobby-status")
+            assert await error_elem.text_content() == "Failed to join: Lobby is full"
