@@ -8,7 +8,7 @@
 - [❌] Find some better fonts
 - [✅] Fix hijack race condition bug (and write tests for it)
 - [✅] Cache power-up videos and perhaps more things
-- [❌] Wait for media to load before activing question?
+- [❌] Fix hijack buzz-in bug
 
 # Testing
 - [✅] Test themes
@@ -24,7 +24,7 @@
 
 # Long Term
 - [❌] Create default contestant backgrounds
-- [❌] More specific error messages question pack editor
+- [❌] More specific error messages in question pack editor
 - [❌] Make user-friendly mobile page for presenter
 - [❌] Make usage guide for presenter/quiz creators
 - [❌] Make a theme editor

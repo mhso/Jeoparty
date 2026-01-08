@@ -21,7 +21,7 @@ class GameMetadata:
     question_asked_time: float = field(default=0, init=False)
     buzz_winner_decided: bool = field(default=False, init=False)
     power_use_decided: Dict[str, PowerUpType | str | None] | None = field(default=None, init=False)
-    setup_complete: bool = field(default=False, init=None)
+    setup_complete: bool | None = field(default=None, init=False)
 
 @dataclass
 class ContestantMetadata:
@@ -192,9 +192,11 @@ class GameSocketHandler(Namespace):
         if user_type is None:
             if contestant_id is not None:
                 # Update contestant in database to indicate they have disconnected
-                game_contestant = self.game_data.get_contestant(game_contestant_id=contestant_id)
-                game_contestant.disconnected = True
-                self.database.save_models(game_contestant)
+                #game_contestant = self.game_data.get_contestant(game_contestant_id=contestant_id)
+    
+                # if not self.game_metadata.contestants_joining:
+                #     game_contestant.disconnected = True
+                #     self.database.save_models(game_contestant)
 
                 disconnected_party = f"Contestant with ID {contestant_id}"
             else:
@@ -236,7 +238,11 @@ class GameSocketHandler(Namespace):
         for contestant in self.game_data.game_contestants:
             contestant_metadata = self.contestant_metadata.get(contestant.id)
             if not contestant_metadata or not contestant_metadata.joined:
+                contestant.disconnected = True
                 disconnected_contestants.append(contestant.id)
+
+        if disconnected_contestants != []:
+            self.database.save_models(*disconnected_contestants)
 
         for contestant_id in disconnected_contestants:
             self.handle_socket_disconnect("Contestant timed out when trying to join.", contestant_id=contestant_id)

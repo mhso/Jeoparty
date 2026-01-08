@@ -755,13 +755,19 @@ function showPowerUpVideo(powerId) {
         let video = document.getElementById(`question-power-up-video-${powerId}`);
         video.classList.remove("d-none");
 
-        video.onended = function() {
-            wrapper.classList.add("d-none");
-            video.classList.add("d-none");
-            resolve();
-        };
-
-        video.play();
+        
+        video.play().then(
+            function() {
+                video.onended = function() {
+                    wrapper.classList.add("d-none");
+                    video.classList.add("d-none");
+                    resolve();
+                };
+            },
+            function() { // If video playback failed, resolve immediately
+                resolve();
+            }
+        );
     });
 }
 
@@ -824,8 +830,7 @@ function onRewindUsed(playerId) {
             afterPlayer = true;
         }
     }
-    playersBuzzedIn = filteredBuzzes;    
-
+    playersBuzzedIn = filteredBuzzes;
     answeringPlayer = playerId;
 }
 

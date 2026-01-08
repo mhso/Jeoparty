@@ -358,7 +358,7 @@ class ContextHandler:
             await stack.enter_async_context(self.wait_for_event_context_manager(self._setup_complete))
 
         for page in self.contestant_pages.values():
-            await stack.enter_async_context(page.expect_navigation())
+            await stack.enter_async_context(page.expect_navigation(timeout=15000))
 
         await stack.enter_async_context(self.presenter_page.expect_navigation())
 

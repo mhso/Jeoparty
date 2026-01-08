@@ -519,7 +519,7 @@ async def test_hijack_before_question(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -548,6 +548,28 @@ async def test_hijack_before_question(database, locales):
                     f"{active_player.contestant.name} {locale['game_feed_power_1']} hijack {locale['game_feed_power_2']}!",
                 ]
             )
+
+            for contestant in game_data.game_contestants:
+                is_active = contestant.id == active_player.id
+                await context.assert_presenter_values(
+                    contestant.id,
+                    score=0,
+                    hits=0,
+                    misses=0,
+                    has_turn=is_active,
+                    used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
+                )
+
+                await context.assert_contestant_values(
+                    contestant.contestant_id,
+                    score=0,
+                    buzzes=0,
+                    hits=0,
+                    misses=0,
+                    buzzer_status="inactive",
+                    used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
+                    enabled_power_ups={"hijack": False, "freeze": False, "rewind": False},
+                )
 
             await context.show_question()
             await asyncio.sleep(1)

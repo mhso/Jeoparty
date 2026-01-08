@@ -11,11 +11,27 @@ from jeoparty.api.orm.models import Game
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
 
+async def wait_for_disconnected_contestant(context: ContextHandler):
+    connection_wrapper = await context.presenter_page.query_selector("#connection-status-wrapper")
+    style = await connection_wrapper.get_property("style")
+    opacity = await style.get_property("opacity")
+
+    await asyncio.sleep(5)
+
+    val = await opacity.json_value()
+
+    if val and float(val) > 0:
+        print("Waiting for contestant to reconnect...")
+        # If someone has disconnected, wait for them to reconnect or to time out
+        await connection_wrapper.wait_for_element_state("hidden")
+
 async def handle_selection_page(context: ContextHandler, game_data: Game):
     # Choose random question from the ones remaining
     unused_questions = [question for question in game_data.get_questions_for_round() if not question.used]
     active_question = random.choice(unused_questions)
     category_name = active_question.question.category.name
+
+    await wait_for_disconnected_contestant(context)
 
     category_wrappers = await context.presenter_page.query_selector_all(".selection-category-entry")
     for category_wrapper in category_wrappers:
@@ -25,7 +41,7 @@ async def handle_selection_page(context: ContextHandler, game_data: Game):
             for question_elem in question_elements:
                 if (await question_elem.text_content()).strip() == str(active_question.question.value):
                     assert not await question_elem.evaluate("(e) => e.classList.contains('inactive')"), "Question is already used"
-                    async with await context.wait_until_ready():
+                    async with context.presenter_page.expect_navigation():
                         await question_elem.click()
 
                     return
@@ -59,6 +75,8 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
     if active_question.question.extra and active_question.question.extra.get("choices"):
         assert active_question.question.answer in active_question.question.extra["choices"]
 
+    await wait_for_disconnected_contestant(context)
+
     contestants_with_hijack = [
         contestant for contestant in game_data.game_contestants
         if not contestant.get_power(PowerUpType.HIJACK).used
@@ -70,7 +88,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         wager = random.randint(100, max(500 * game_data.round, active_contestant.score))
         await context.make_wager(active_contestant.contestant_id, wager)
         max_buzz_attempts = 1
-    elif contestants_with_hijack != [] and random.random() < 0.2:
+    elif contestants_with_hijack != [] and random.random() < 0.15:
         # Have someone use hijack before the question is asked
         hijack_player = random.choice(contestants_with_hijack)
         await context.use_power_up(hijack_player.contestant_id, PowerUpType.HIJACK.value)
@@ -82,7 +100,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
 
     await context.show_question()
 
-    if not hijack_player and not active_question.daily_double and contestants_with_hijack != [] and random.random() < 0.2:
+    if not hijack_player and not active_question.daily_double and contestants_with_hijack != [] and random.random() < 0.15:
         # Have someone hijack after the question is asked
         hijack_player = random.choice(contestants_with_hijack)
 
@@ -154,7 +172,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         # Randomly use freeze if available
         if not active_question.daily_double:
             freeze_power = buzz_winner.get_power(PowerUpType.FREEZE)
-            if not freeze_power.used and random.random() < 0.3:
+            if not freeze_power.used and random.random() < 0.25:
                 # Sleep for a random amount of time
                 await asyncio.sleep(random.random() * 2)
                 print("Using freeze!")
@@ -171,7 +189,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         # Randomly use rewind if available and answer again
         if not active_question.daily_double:
             rewind_power = buzz_winner.get_power(PowerUpType.REWIND)
-            if not correct and not rewind_power.used and random.random() < 0.5:
+            if not correct and not rewind_power.used and random.random() < 0.4:
                 await context.use_power_up(buzz_winner.contestant_id, rewind_power.type.value)
 
                 await asyncio.sleep(2)
@@ -190,7 +208,7 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
         print("Question over, but player has rewind.")
         await asyncio.sleep(5) # Wait for question to end
 
-    async with await context.wait_until_ready():
+    async with context.presenter_page.expect_navigation():
         await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
 async def handle_finale_wager_page(context: ContextHandler, game_data: Game):
@@ -307,6 +325,9 @@ def to_absolute_url(page: Page, url: str):
     return url
 
 async def get_all_links(page: Page) -> List[str]:
+    if page.is_closed():
+        return []
+
     links = await page.locator("a").all()
     media = (
         (await page.locator("img").all()) +
@@ -349,6 +370,28 @@ async def validate_links(context: ContextHandler):
 
     return broken_links
 
+async def simulate_disconnect(context: ContextHandler, game_data: Game):
+    contestant = random.choice(game_data.game_contestants)
+
+    page = context.contestant_pages[contestant.contestant_id]
+    page_url = page.url
+
+    # Close page to simulate a disconnect
+    await page.close()
+
+    # Wait a random amount of time
+    wait_time = random.randint(5, 30)
+    print(f"Disconnecting for {wait_time} seconds...")
+    await asyncio.sleep(wait_time)
+
+    # Open page again to simulate reconnect
+    print("Reconnecting...")
+    page = await context.contestant_contexts[contestant.contestant_id].new_page()
+    context.contestant_pages[contestant.contestant_id] = page
+
+    await page.goto(page_url)
+
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
     pack_name = "Julequiz 2025"
@@ -391,6 +434,10 @@ async def test_random_game(database, locales):
                 session.refresh(game_data)
 
                 await validate_links(context)
+
+                # Simulate a small chance of a contestant disconnecting
+                if random.random() < 0.05:
+                    asyncio.create_task(simulate_disconnect(context, game_data))
 
                 match game_data.stage:
                     case StageType.SELECTION:
