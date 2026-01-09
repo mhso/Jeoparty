@@ -1,3 +1,4 @@
+from enum import Enum
 from glob import glob
 import json
 import os
@@ -10,7 +11,22 @@ def _get_project_folder():
 
     return os.path.abspath(folder)
 
+class Environment(Enum):
+    PRODUCTION = "production"
+    DEVELOPMENT = "development"
+
 class Config:
+    PROJECT_FOLDER = _get_project_folder()
+    SRC_FOLDER = f"{PROJECT_FOLDER}/src/jeoparty"
+
+    STATIC_FOLDER = f"{SRC_FOLDER}/app/static"
+    RESOURCES_FOLDER = f"{PROJECT_FOLDER}/resources/"
+
+    with open(f"{STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
+        secrets = json.load(fp)
+
+    ENV = Environment(secrets["env"])
+
     ROUND_NAMES = [
         "Jeoparty!",
         "Double Jeoparty!",
@@ -22,11 +38,6 @@ class Config:
     DEFAULT_ANSWER_TIME = 6
     MAX_ANSWER_CHOICES = 8
 
-    PROJECT_FOLDER = _get_project_folder()
-    SRC_FOLDER = f"{PROJECT_FOLDER}/src/jeoparty"
-
-    STATIC_FOLDER = f"{SRC_FOLDER}/app/static"
-    RESOURCES_FOLDER = f"{PROJECT_FOLDER}/resources/"
 
     DEFAULT_AVATAR = "questionmark.png"
     DEFAULT_CORRECT_IMAGE = "check.png"

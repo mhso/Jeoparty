@@ -1010,6 +1010,35 @@ function clearMedia() {
     });
 }
 
+function showHighlightError(errorData) {
+    let roundId = errorData["round_id"];
+    let categoryId = Object.hasOwn(errorData, "category_id") ? errorData.category_id : null;
+    let questionId = Object.hasOwn(errorData, "question_id") ? errorData.question_id : null;
+    let element = Object.hasOwn(errorData, "element") ? errorData.element : null;
+
+    let wrapper;
+    if (questionId) {
+        wrapper = getQuestionViewWrapper(roundId, categoryId, questionId);
+    }
+    else {
+        wrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
+    }
+
+    if (!element) {
+        element = wrapper;
+    }
+
+    element.classList.add("error-highlight");
+}
+
+function hideHighlightedError() {
+    let highlightedElement = document.querySelector(".error-highlight");
+    highlightedElement.classList.remove("error-highlight");
+
+    let errorTooltip = document.querySelector(".error-tooltip");
+    errorTooltip.classList.add("d-none");
+}
+
 function saveData(packId) {
     let saveBtn = document.getElementById("question-pack-save-btn");
     saveBtn.disabled = true;
@@ -1058,25 +1087,31 @@ function saveData(packId) {
             showPopup("The question pack was not found on the server or you do not have access to it.", true);
         }
         else if (response.status == 413) {
-            showPopup("Your question pack is too large! Max size is 100 MB.")
+            showPopup("Your question pack is too large, max size is 100 MB. Compress images / videos and try again.")
         }
         else if (response.status == 500) {
             showPopup("Internal server error", true);
         }
         else {
-            let message;
+            let messageData;
             if (error) {
                 if (Object.hasOwn(response, "responseJSON")) {
-                    message = JSON.parse(response["responseText"])["response"];
+                    messageData = JSON.parse(response["responseText"]);
                 }
                 else {
-                    message = "An unknown error occured, try again later."
+                    messageData = {"response": "An unknown error occured, try again later."};
                 }
             }
             else {
-                message = data["response"];
+                messageData = data;
             }
-            showPopup(message, error)
+
+            if (Object.hasOwn(messageData, "round_id") && messageData.round_id != null) {
+                highlightError(messageData);
+            }
+            else {
+                showPopup(messageData["response"], error);
+            }
         }
 
         if (!error) {

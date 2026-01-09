@@ -295,11 +295,31 @@ def _save_pack_files(pack_data:  Dict[str, Any], files: Dict[str, FileStorage]):
 
     return None
 
-def _validate_pack_data(data: Dict[str, Any]) -> str | None:
+def _get_error_data(
+    message: str,
+    round_id: int | None = None,
+    category_id: int | None = None,
+    question_id: int | None = None,
+    element: str | None = None,
+):
+    data: Dict[str, str | int] = {"response": message}
+
+    for key, val in [
+        ("round_id", round_id),
+        ("category_id", category_id),
+        ("question_id", question_id),
+        ("element", element),
+    ]:
+        if val:
+            data[key] = val
+
+    return data
+
+def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
     success, error_or_model = create_and_validate_model(QuestionPack, data, "saving question pack")
 
     if not success:
-        return error_or_model
+        return _get_error_data(error_or_model)
 
     for round_data in data["rounds"]:
         questions_for_round = 0
@@ -316,29 +336,66 @@ def _validate_pack_data(data: Dict[str, Any]) -> str | None:
 
                 if "choices" in extra:
                     if question_data["answer"] not in extra["choices"]:
-                        return f"{base_error}: One of the choices must be equal to the correct answer"
+                        return _get_error_data(
+                            "One of the choices must be equal to the correct answer",
+                            round_data["id"],
+                            category_data["id"],
+                            question_data["id"],
+                            ".question-choices-wrapper",
+                        )
 
                     if len(extra["choices"]) > Config.MAX_ANSWER_CHOICES:
-                        return f"{base_error}: Amount of answer choices must not be greater than {Config.MAX_ANSWER_CHOICES}"
+                        return _get_error_data(
+                            f"Amount of answer choices must not be greater than {Config.MAX_ANSWER_CHOICES}",
+                            round_data["id"],
+                            category_data["id"],
+                            question_data["id"],
+                            ".question-choices-wrapper",
+                        )
 
-                    for choice in extra["choices"]:
+                    for index, choice in enumerate(extra["choices"], start=1):
                         if choice == "":
-                            return f"{base_error}: Answer choices must not be empty"
+                            return _get_error_data(
+                                "Answer choice must not be empty",
+                                round_data["id"],
+                                category_data["id"],
+                                question_data["id"],
+                                f".question-choice-{index}",
+                            )
 
                         if len(choice) > 32:
-                            return f"{base_error}: Answer choices must be less than 32 characters"
+                            return _get_error_data(
+                                "Answer choice must be less than 32 characters",
+                                round_data["id"],
+                                category_data["id"],
+                                question_data["id"],
+                                f".question-choice-{index}",
+                            )
 
                 if ("question_image" in extra or "video" in extra) and "height" not in extra:
-                    return f"{base_error}: The height of an image or video must be specified"
+                    element = ".question-question-image" if "question_image" in extra else ".question-question-video"
+                    return _get_error_data(
+                        "The height of an image or video must be specified",
+                        round_data["id"],
+                        category_data["id"],
+                        question_data["id"],
+                        element
+                    )
 
                 questions_for_round += 1
 
         if error_or_model.include_finale and round_data["round"] == len(data["rounds"]):
             if len(round_data["categories"]) > 1:
-                return f"Error: The finale round must have exactly one category, but has {len(round_data["categories"])}"
+                return _get_error_data(
+                    f"The finale round must have exactly one category, but has {len(round_data["categories"])}",
+                    round_data["id"],
+                )
 
             if questions_for_round > 1:
-                return f"Error: The finale round must have exactly one question, but has {questions_for_round}"
+                return _get_error_data(
+                    f"The finale round must have exactly one question, but has {questions_for_round}",
+                    round_data["id"],
+                )
 
     return None
 
@@ -346,13 +403,13 @@ def _validate_pack_data(data: Dict[str, Any]) -> str | None:
 def save_pack(pack_id: str):
     user_details = get_user_details()
     if user_details is None:
-        return make_json_response("You are not logged in!", 401)
+        return make_json_response(_get_error_data("You are not logged in!"), 401)
 
     database: Database = flask.current_app.config["DATABASE"]
     user_id = user_details[0]
 
     if database.get_question_packs_for_user(user_id, pack_id) is None:
-        return make_json_response("You are not authorized to edit this question package", 401)
+        return make_json_response(_get_error_data("You are not authorized to edit this question package"), 401)
 
     try:
         data: Dict[str, Any] = json.loads(flask.request.form["data"])
@@ -371,12 +428,12 @@ def save_pack(pack_id: str):
 
         error = _validate_pack_data(data)
         if error:
-            logger.error(error)
+            logger.bind(**error).error(error["response"])
             return make_json_response(error, 400)
 
         error = _save_pack_files(data, flask.request.files)
         if error:
-            logger.error(f"Error when saving question media: {error}")
+            logger.bind(**error).error(f"Error when saving question media: {error['response']}")
             return make_json_response(error, 400)
 
         new_ids = database.update_question_pack(data)

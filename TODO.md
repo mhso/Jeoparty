@@ -8,7 +8,7 @@
 - [❌] Find some better fonts
 - [✅] Fix hijack race condition bug (and write tests for it)
 - [✅] Cache power-up videos and perhaps more things
-- [❌] Fix hijack buzz-in bug
+- [❌] Find & fix hijack buzz-in bug
 
 # Testing
 - [✅] Test themes

@@ -8,7 +8,7 @@ from mhooge_flask.routing import socket_io
 import requests
 
 from jeoparty.api.database import Database
-from jeoparty.api.config import Config
+from jeoparty.api.config import Config, Environment
 from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Game, GameQuestion
 from jeoparty.app.routes.socket import GameSocketHandler, get_namespace_handler
@@ -70,8 +70,12 @@ def _request_decorator(func):
 @presenter_page.route("/<game_id>")
 @_request_decorator
 def lobby(game_data: Game):
-    join_url = f"mhooge.com/jeoparty/{game_data.join_code}"
+    if Config.ENV is Environment.PRODUCTION:
+        base_url = "mhooge.com"
+    else:
+        base_url = "localhost:5006"
 
+    join_url = f"{base_url}/jeoparty/{game_data.join_code}"
     game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
 
     return render_locale_template(
