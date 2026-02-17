@@ -73,7 +73,7 @@ def lobby(game_data: Game):
     if Config.ENV is Environment.PRODUCTION:
         base_url = "mhooge.com"
     else:
-        base_url = "localhost:5006"
+        base_url = flask.request.host
 
     join_url = f"{base_url}/jeoparty/{game_data.join_code}"
     game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")

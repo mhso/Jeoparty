@@ -755,7 +755,6 @@ function showPowerUpVideo(powerId) {
         let video = document.getElementById(`question-power-up-video-${powerId}`);
         video.classList.remove("d-none");
 
-        
         video.play().then(
             function() {
                 video.onended = function() {

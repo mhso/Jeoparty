@@ -1,17 +1,28 @@
 from argparse import ArgumentParser
 import json
+import socket
 from os.path import basename
 from glob import glob
-import gevent
 from multiprocessing import Lock
+
+import gevent
 
 from mhooge_flask.logging import logger
 from mhooge_flask import init
 from mhooge_flask.init import Route, SocketIOServerWrapper
 from mhooge_flask.restartable import restartable
 
-from jeoparty.api.config import Config
+from jeoparty.api.config import Config, Environment
 from jeoparty.api.database import Database
+
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+
+    ip = s.getsockname()[0]
+    s.close()
+
+    return ip
 
 def run_app(args):
     routes = [
@@ -44,16 +55,19 @@ def run_app(args):
         join_lock=Lock(),
     )
 
-    ports_file = f"{Config.PROJECT_FOLDER}/../flask_ports.json"
+    # if Config.ENV is Environment.DEVELOPMENT:
+    #     host = get_local_ip()
+    # else:
+    #     host = ""
 
     logger.info("Starting Flask web app.")
-
-    init.run_app(web_app, app_name, ports_file)
+    init.run_app(web_app, app_name, args.port)
 
 @restartable
 def main():
     parser = ArgumentParser()
     parser.add_argument("-db", "--database", default="database.db")
+    parser.add_argument("-p", "--port", type=int, default=5006)
     args = parser.parse_args()
 
     gevent.get_hub().NOT_ERROR += (KeyboardInterrupt,)

@@ -1,12 +1,12 @@
 [project]
-name = "jeopardy"
-version = "0.1.0"
+name = "jeoparty"
+version = "1.0.0"
 description = "Default template for PDM package"
 authors = [
     {name = "Mikkel Sørensen", email = "m_hooge@hotmail.com"},
 ]
 dependencies = [
-    "mhooge-flask @ file:///${PROJECT_ROOT}/../scripts/mhooge_flask",
+    "mhooge-flask @ git+https://github.com/mhso/mhooge-flask.git",
     "flask-socketio>=5.5.1",
     "sqlalchemy>=2.0.43",
     "pytest>=8.4.2",
@@ -18,7 +18,7 @@ dependencies = [
     "playwright>=1.56.0",
     "alembic>=1.17.2",
 ]
-requires-python = "==3.12.*"
+requires-python = ">=3.10"
 readme = "README.md"
 license = {text = "MIT"}
 
