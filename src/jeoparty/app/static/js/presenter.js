@@ -1033,7 +1033,13 @@ function afterShowQuestion() {
 function showImageOrVideo(elem) {
     if (elem.dataset["media_size"] == "maximized") {
         document.querySelector(".question-category-header").style.display = "none";
-        document.querySelector(".question-question-header").style.display = "none";
+
+        let questionHeader = document.querySelector(".question-question-header");
+        let outerWrapper = document.querySelector(".question-view-wrapper");
+        let innerWrapper = document.querySelector(".question-question-image-wrapper");
+        questionHeader.classList.add("question-header-floating");
+        outerWrapper.removeChild(questionHeader);
+        innerWrapper.appendChild(questionHeader);
     }
     elem.style.opacity = 1;
 }

@@ -3,7 +3,7 @@ __pycache__
 __pypackages__
 
 log
-resources/*.db
+resources/database
 src/jeoparty/app/static/*
 !src/jeoparty/app/static/js/
 !src/jeoparty/app/static/css/

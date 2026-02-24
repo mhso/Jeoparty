@@ -2,7 +2,6 @@ from glob import glob
 import os
 import random
 from typing import Any, Dict, Tuple
-from uuid import uuid4
 
 import flask
 from werkzeug.datastructures import FileStorage
@@ -24,7 +23,7 @@ def _save_user_id_to_cookie(user_id: str):
     max_age = 60 * 60 * 24 * 365 # 1 year
     return COOKIE_ID, user_id, max_age
 
-def _get_user_id_from_cookie(cookies) -> str:
+def _get_user_id_from_cookie(cookies) -> str | None:
     if (cid := cookies.get(COOKIE_ID)):
         return str(cid)
 
@@ -134,7 +133,7 @@ def join_lobby():
             index = len(game_data.game_contestants)
             if index == game_data.max_contestants:
                 return make_json_response({"error": locale["lobby_full"]}, 400)
-            
+
             # Try to get existitng user
             existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
 
@@ -191,18 +190,33 @@ def join_lobby():
                 )
                 database.add_contestant_to_game(game_contestant_model, game_data.use_powerups)
 
-        response = make_json_response({"redirect": flask.url_for(".game_view", game_id=game_data.id, _external=True)}, 200)
-
-        # Save user ID to cookie
-        cookie_id, data, max_age = _save_user_id_to_cookie(str(contestant_model.id))
-        response.set_cookie(cookie_id, data, max_age=max_age, samesite="Lax")
+        redirect_url = flask.url_for(
+            ".join_with_id",
+            game_id=game_data.id,
+            user_id=str(contestant_model.id),
+            _external=True
+        )
+        response = make_json_response({"redirect": redirect_url}, 200)
         response.headers.add_header("Access-Control-Allow-Credentials", "true")
+
+    return response
+
+@contestant_page.route("<game_id>/<user_id>/join")
+def join_with_id(game_id: str, user_id: str):
+    response = flask.redirect(flask.url_for(".game_view", game_id=game_id))
+
+    # Save user ID to cookie, if it isn't already saved
+    if not _get_user_id_from_cookie(flask.request.cookies):
+        cookie_id, data, max_age = _save_user_id_to_cookie(user_id)
+        print("Adding cookie: ", cookie_id)
+        response.set_cookie(cookie_id, data, max_age=max_age, samesite="Lax")
 
     return response
 
 @contestant_page.route("/<game_id>/game")
 def game_view(game_id: str):
     user_id = _get_user_id_from_cookie(flask.request.cookies)
+    print("User ID:", user_id)
 
     database: Database = flask.current_app.config["DATABASE"]
 

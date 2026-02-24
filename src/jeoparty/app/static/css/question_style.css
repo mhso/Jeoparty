@@ -47,6 +47,12 @@
     max-width: 30vw;
 }
 
+.question-question-header.question-header-floating {
+    position: absolute;
+    top: 0;
+    z-index: 99;
+}
+
 .question-category-span {
     font-weight: 1000;
     color: rgb(53, 141, 255);

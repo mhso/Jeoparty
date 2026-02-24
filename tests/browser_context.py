@@ -1055,7 +1055,7 @@ class ContextHandler:
         if os.path.exists(f"{VIDEO_RECORD_PATH}/combined.mp4"):
             os.remove(f"{VIDEO_RECORD_PATH}/combined.mp4")
 
-        self.flask_process = Popen(["pdm", "run", "main.py", "-db", "test.db"], cwd="src")
+        self.flask_process = Popen(["pdm", "run", "main.py", "-db", "test.db", "-d"], cwd="src")
 
         await asyncio.sleep(3)
 

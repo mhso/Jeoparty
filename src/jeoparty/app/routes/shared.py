@@ -171,8 +171,8 @@ def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: 
 
 def validate_file(
     file: FileStorage,
-    path: str,
     valid_types: List[str],
+    path: str | None = None,
     default_name: str | None = None,
     allow_overwrite: bool = False,
 ):
@@ -195,9 +195,13 @@ def validate_file(
     else:
         secure_name = default_name    
 
+    if path is not None:
+        full_path = os.path.join(path, secure_name)
+    else:
+        full_path = secure_name
+
     # Validate that the file doesn't exist, if so add a suffix to make it unique
-    full_path = os.path.join(path, secure_name)
-    if not allow_overwrite:
+    if not allow_overwrite and path is not None:
         suffix = 1
         while os.path.exists(full_path):
             split = secure_name.split(".")

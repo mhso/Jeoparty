@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 from typing import List
 
-from sqlalchemy import select, delete, text, update, func
+from sqlalchemy import select, delete, update, func
 from sqlalchemy.orm import selectinload, Session
 
 from mhooge_flask.database import SQLAlchemyDatabase
@@ -25,7 +25,7 @@ def row_factory(cursor, row):
 
 class Database(SQLAlchemyDatabase):
     def __init__(self, db_file="database.db"):
-        super().__init__(f"{Config.RESOURCES_FOLDER}/{db_file}", "api/orm", True, True)
+        super().__init__(f"{Config.RESOURCES_FOLDER}/database/{db_file}", "api/orm", True, True)
 
     def get_question_packs_for_user(self, user_id: str, pack_id: str | None = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:

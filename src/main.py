@@ -41,6 +41,13 @@ def run_app(args):
         with open(filename, "r", encoding="utf-8") as fp:
            locale_data[lang] = json.load(fp)
 
+    if Config.ENV is Environment.DEVELOPMENT and not args.dev:
+        host_url = get_local_ip()
+        flask_url = "0.0.0.0"
+    else:
+        host_url = "localhost"
+        flask_url = ""
+
     # Create Flask app.
     web_app = init.create_app(
         app_name,
@@ -53,20 +60,16 @@ def run_app(args):
         exit_code=0,
         locales=locale_data,
         join_lock=Lock(),
+        host_url=host_url,
     )
-
-    # if Config.ENV is Environment.DEVELOPMENT:
-    #     host = get_local_ip()
-    # else:
-    #     host = ""
-
     logger.info("Starting Flask web app.")
-    init.run_app(web_app, app_name, args.port)
+    init.run_app(web_app, app_name, args.port, flask_url)
 
 @restartable
 def main():
     parser = ArgumentParser()
     parser.add_argument("-db", "--database", default="database.db")
+    parser.add_argument("-d", "--dev", action="store_true")
     parser.add_argument("-p", "--port", type=int, default=5006)
     args = parser.parse_args()
 

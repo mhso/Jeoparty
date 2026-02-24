@@ -247,7 +247,6 @@ class GameSocketHandler(Namespace):
         for contestant_id in disconnected_contestants:
             self.handle_socket_disconnect("Contestant timed out when trying to join.", contestant_id=contestant_id)
 
-    @_presenter_event
     def on_presenter_join_timeout(self):
         self.handle_socket_disconnect("Presenter timed out when trying to join.", "Presenter")
 

@@ -15,7 +15,7 @@ parser.add_argument("--print", action="store_true")
 
 args = parser.parse_args()
 
-if not os.path.exists(f"{Config.RESOURCES_FOLDER}/{args.database}"):
+if not os.path.exists(f"{Config.RESOURCES_FOLDER}/database/{args.database}"):
     print("Database does not seem to exist. Exiting...")
     exit(0)
 

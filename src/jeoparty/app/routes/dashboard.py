@@ -111,23 +111,38 @@ def create_pack():
         if not success:
             return flask.redirect(flask.url_for(".create_pack", error=pack_model_or_error, _external=True))
 
+        lobby_music_filename = "lobby_music.mp3"
+        has_lobby_music = "music" in flask.request.files and flask.request.files["music"].filename
+        if has_lobby_music:
+            file = flask.request.files["music"]
+            allowed_types = ["mp3", "wav"]
+            success, error_or_name = validate_file(file, allowed_types, default_name=lobby_music_filename)
+            if not success:
+                return f"Could not validate question file '{file.filename}': {error_or_name}"
+
+            pack_model_or_error.lobby_music = error_or_name
+
+        # Save the question pack to the database
         database.create_question_pack(pack_model_or_error)
 
         data_path = get_question_pack_data_path(pack_model_or_error.id)
         os.mkdir(data_path)
 
-        if "music" in flask.request.files and flask.request.files["music"].filename:
-            file = flask.request.files["music"]
-
-            path = os.path.join(data_path, "lobby_music.mp3")
+        if has_lobby_music:
+            path = os.path.join(data_path, lobby_music_filename)
             file.save(path)
 
         return flask.redirect(flask.url_for(".question_pack", pack_id=pack_model_or_error.id, _external=True))
 
+    with database:
+        themes_json = [theme.dump(included_relations=[]) for theme in database.get_themes_for_user(user_id, include_public=True)]
+        languages_json = [(lang.value, lang.value.capitalize()) for lang in Language]
+
     return make_template_context(
         "dashboard/create_pack.html",
         user_name=user_name,
-        languages=[(lang.value, lang.value.capitalize()) for lang in Language],
+        languages=languages_json,
+        themes=themes_json,
     )
 
 @dashboard_page.route("/create_game", methods=["GET", "POST"])
@@ -174,14 +189,17 @@ def create_game():
 
         return flask.redirect(flask.url_for("presenter.lobby", game_id=game_model_or_error.id, _external=True))
 
-    questions = database.get_question_packs_for_user(user_id, include_public=True)
+    with database:
+        questions = database.get_question_packs_for_user(user_id, include_public=True)
+        questions_json = [question_pack.dump(included_relations=[]) for question_pack in questions]
+
     error = flask.request.args.get("error")
 
     return make_template_context(
         "dashboard/create_game.html",
         user_name=user_name,
         user_id=user_id,
-        questions=questions,
+        questions=questions_json,
         error=error,
     )
 
@@ -214,7 +232,7 @@ def fetch_resource():
     url = flask.request.args.get("url")
     if url is None:
         return make_text_response("URL not specified, nothing to fetch", 404)
-    
+
     # First try to do an 'options' request to just get content-type header
     content_type = None
     try:
@@ -257,9 +275,9 @@ def _save_pack_media_file(pack_id: str, data: Dict[str, Any], file_key: str, fil
         else:
             allowed_types = ["png", "jpg", "jpeg", "webp"]
 
-        success, error_or_name = validate_file(file, get_question_pack_data_path(pack_id), allowed_types)
+        success, error_or_name = validate_file(file, allowed_types, get_question_pack_data_path(pack_id))
         if not success:
-            return f"Could not save question image '{file.filename}': {error_or_name}"
+            return f"Could not validate question file '{file.filename}': {error_or_name}"
 
         file.save(error_or_name)
         data[file_key] = os.path.basename(error_or_name)
@@ -329,11 +347,6 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
 
                 # Validate that the multiple choice questions should contain
                 # the answer to the question as one of the choices
-                round_name = round_data["name"]
-                category_name = category_data["name"]
-                value = question_data["value"]
-                base_error = f"Error at question for {value} points in {round_name}, {category_name}"
-
                 if "choices" in extra:
                     if question_data["answer"] not in extra["choices"]:
                         return _get_error_data(
@@ -500,7 +513,6 @@ def question_pack(pack_id: str):
             )
 
         themes_json = [theme.dump() for theme in database.get_themes_for_user(user_id, include_public=True)]
-
         base_entries = {k: v for k, v in pack_json.items() if not isinstance(v, list)}
 
     return render_locale_template(

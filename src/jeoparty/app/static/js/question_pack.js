@@ -1618,19 +1618,28 @@ function _maximizeMedia(wrapper, media, maximize=true) {
     let categoryHeader = wrapper.querySelector(".question-category-header");
 
     let mediaSize;
+    let imageWrapper = wrapper.querySelector(".question-question-image-wrapper");
     if (maximize && !media.classList.contains("media-maximized")) {
         // Maximize media
         media.classList.add("media-maximized");
         mediaSize = "maximized";
-        questionHeader.classList.add("d-none");
         categoryHeader.classList.add("d-none");
+
+        questionHeader.classList.add("question-header-floating");
+        wrapper.removeChild(questionHeader);
+        imageWrapper.appendChild(questionHeader);
     }
     else if (!maximize && media.classList.contains("media-maximized")) {
         // Minimize media
         media.classList.remove("media-maximized");
         mediaSize = getDefaultMediaHeight(wrapper);
-        questionHeader.classList.remove("d-none");
         categoryHeader.classList.remove("d-none");
+
+        questionHeader.classList.remove("question-header-floating");
+        imageWrapper.removeChild(questionHeader);
+        let explanationWrapper = wrapper.querySelector(".question-answer-explanation-wrapper")
+        wrapper.insertBefore(questionHeader, explanationWrapper);
+        wrapper.appendChild(questionHeader);
     }
     else {
         return;
