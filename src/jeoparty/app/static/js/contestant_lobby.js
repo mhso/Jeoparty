@@ -113,49 +113,5 @@ function joinGame(event) {
         return false;
     }
 
-    let form = document.getElementById("contestant-join-form");
-    let formData = new FormData(form);
-
-    $.ajax(
-        form.action,
-        {
-            data: formData,
-            method: "POST",
-            xhrFields: {
-                withCredentials: true
-            },
-            contentType: false,
-            processData: false,
-        }
-    ).done(function(response) {
-        let statusText = document.createElement("p");
-        let statusUrl = document.createElement("a");
-
-        statusText.textContent = "Success! You will be redirected soon. If not, click the link below:"
-        statusUrl.textContent = "Click here";
-        statusUrl.href = response["redirect"];
-
-        statusElem.appendChild(statusText);
-        statusElem.appendChild(statusUrl);
-
-        statusElem.classList.add("success-status");
-        statusElem.classList.remove("d-none");
-
-        window.location.href = response["redirect"];
-    }).fail(function(response) {
-        let message;
-        if (Object.hasOwn(response, "responseJSON")) {
-            message = JSON.parse(response["responseText"])["error"];
-        }
-        else {
-            message = "An unknown error occured, try again later."
-        }
-
-        statusElem.textContent = message;
-        statusElem.classList.add("error-status");
-        statusElem.classList.remove("d-none");
-        joining = false;
-    });
-
-    return false;
+    return true;
 }

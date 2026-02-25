@@ -11,7 +11,7 @@ from mhooge_flask.routing import make_template_context, make_json_response
 from jeoparty.api.database import Database
 from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Contestant, GameContestant
-from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template, get_locale_data
+from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template, get_locale_data, is_lan_active
 from jeoparty.api.config import get_avatar_path, get_theme_path, get_bg_image_path, get_buzz_sound_path
 
 contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
@@ -108,23 +108,29 @@ def join_lobby():
 
     if not success:
         if join_code is None:
-            return make_json_response({"error": "Failed to join: Missing join code"}, 400)
+            return flask.abort(400)
 
-        return make_json_response({"error": contestant_model_or_error}, 400)
+        return flask.redirect(flask.url_for(".lobby", join_code=join_code, error=contestant_model_or_error, _external=True))
 
     contestant_model: Contestant = contestant_model_or_error
 
     with database as session:
         game_data = database.get_game_from_code(join_code)
         if game_data is None:
-            return make_json_response({"error": "Failed to join: Game does not exist"}, 404)
+            return flask.redirect(
+                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Game does not exist", _external=True)
+            )
 
         locale = get_locale_data(game_data.pack.language, "contestant/lobby")
         if game_data.password is not None and flask.request.form.get("password") != game_data.password:
-            return make_json_response({"error": locale["wrong_password"]}, 401)
+            return flask.redirect(
+                flask.url_for(".lobby", join_code=join_code, error=locale["wrong_password"], _external=True)
+            )
 
         if game_data.stage == StageType.ENDED:
-            return make_json_response({"error": locale["game_over"]}, 400)
+            return flask.redirect(
+                flask.url_for(".lobby", join_code=join_code, error=locale["game_over"], _external=True)
+            )
 
         # Ensure no race conditions can occur when contestants join
         with flask.current_app.config["JOIN_LOCK"]:
@@ -132,7 +138,9 @@ def join_lobby():
 
             index = len(game_data.game_contestants)
             if index == game_data.max_contestants:
-                return make_json_response({"error": locale["lobby_full"]}, 400)
+                return flask.redirect(
+                    flask.url_for(".lobby", join_code=join_code, error=locale["lobby_full"], _external=True)
+                )
 
             # Try to get existitng user
             existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
@@ -155,8 +163,7 @@ def join_lobby():
                         break
 
             # Get or set background image
-            bg_image = flask.request.form.get("bg_image")
-            bg_image = _get_bg_image(index, bg_image, game_data.pack.theme_id)
+            bg_image = _get_bg_image(index, flask.request.form.get("bg_image"), game_data.pack.theme_id)
 
             contestant_model.bg_image = bg_image
 
@@ -190,33 +197,17 @@ def join_lobby():
                 )
                 database.add_contestant_to_game(game_contestant_model, game_data.use_powerups)
 
-        redirect_url = flask.url_for(
-            ".join_with_id",
-            game_id=game_data.id,
-            user_id=str(contestant_model.id),
-            _external=True
-        )
-        response = make_json_response({"redirect": redirect_url}, 200)
-        response.headers.add_header("Access-Control-Allow-Credentials", "true")
-
-    return response
-
-@contestant_page.route("<game_id>/<user_id>/join")
-def join_with_id(game_id: str, user_id: str):
-    response = flask.redirect(flask.url_for(".game_view", game_id=game_id))
-
-    # Save user ID to cookie, if it isn't already saved
-    if not _get_user_id_from_cookie(flask.request.cookies):
-        cookie_id, data, max_age = _save_user_id_to_cookie(user_id)
-        print("Adding cookie: ", cookie_id)
-        response.set_cookie(cookie_id, data, max_age=max_age, samesite="Lax")
+        # Save user ID to cookie and redirect to game view
+        cookie_id, data, max_age = _save_user_id_to_cookie(contestant_model.id)
+        response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
+        response.set_cookie(cookie_id, data, max_age=max_age)
+        return response
 
     return response
 
 @contestant_page.route("/<game_id>/game")
 def game_view(game_id: str):
     user_id = _get_user_id_from_cookie(flask.request.cookies)
-    print("User ID:", user_id)
 
     database: Database = flask.current_app.config["DATABASE"]
 
@@ -286,7 +277,7 @@ def lobby(join_code: str):
         game_data = database.get_game_from_code(join_code)
         if game_data is None:
             return make_template_context("contestant/nogame.html", status=404)
-
+        
         user_id = _get_user_id_from_cookie(flask.request.cookies)
 
         user_data = {}
@@ -299,10 +290,71 @@ def lobby(join_code: str):
         user_data["avatar"] = f"{get_avatar_path(False)}/questionmark.png"
         user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
 
+    error = flask.request.args.get("error")
+
     return render_locale_template(
         "contestant/lobby.html",
         game_data.pack.language,
         **user_data,
         join_code=join_code,
         has_password=game_data.password is not None,
+        error=error,
     )
+
+@contestant_page.route("/<join_code>/lan")
+def lobby_lan(join_code: str):
+    database: Database = flask.current_app.config["DATABASE"]
+
+    with database:
+        game_data = database.get_game_from_code(join_code)
+        if game_data is None:
+            return make_template_context("contestant/nogame.html", status=404)
+
+        if not is_lan_active(game_data) or not "user_id" in flask.request.args:
+            return flask.abort(404)
+
+        user_id = int(flask.request.args["user_id"])
+
+    names = {
+        115142485579137029: "Dave",
+        172757468814770176: "Murt",
+        219497453374668815: "Tommy",
+        331082926475182081: "Muds",
+        347489125877809155: "Nønø",
+    }
+
+    backgrounds = {
+        115142485579137029: "coven_nami.png",
+        172757468814770176: "pentakill_olaf.png", 
+        331082926475182081: "crime_city_tf.png",
+        219497453374668815: "bard_splash.png",
+        347489125877809155: "gladiator_draven.png",
+    }
+
+    # Sounds played when a specific player buzzes in first
+    buzz_in_sounds = {
+        115142485579137029: "buzz_dave.mp3",
+        172757468814770176: "buzz_murt.mp3",
+        219497453374668815: "buzz_thommy.mp3",
+        331082926475182081: "buzz_muds.mp3",
+        347489125877809155: "buzz_no.mp3",
+    }
+
+    if not user_id in names:
+        return flask.abort(404)
+
+    template = render_locale_template(
+        "contestant/lobby.html",
+        game_data.pack.language,
+        name=names[user_id],
+        buzz_sound=buzz_in_sounds[user_id],
+        bg_image=backgrounds[user_id],
+        join_code=join_code,
+        has_password=game_data.password is not None,
+    )
+
+    response = flask.make_response(template)
+    cookie_id, data, max_age = _save_user_id_to_cookie(str(user_id))
+    response.set_cookie(cookie_id, data, max_age=max_age)
+
+    return response

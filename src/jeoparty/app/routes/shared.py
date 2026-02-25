@@ -20,6 +20,13 @@ from jeoparty.api.config import Config, get_theme_path
 from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Game, Theme
 
+def is_lan_active(game_data: Game):
+    return (
+        game_data.pack.theme is not None
+        and game_data.pack.theme.name == "LAN"
+        and game_data.created_by == Config.ADMIN_ID
+    )
+
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
 

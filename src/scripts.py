@@ -1,12 +1,14 @@
 from argparse import ArgumentParser
 import asyncio
-from glob import glob
+from base64 import b64encode
 import os
+from inspect import iscoroutinefunction
+from glob import glob
 from uuid import uuid4
 
+import cv2
 from flask import json
 import requests
-from sqlalchemy import select
 
 from jeoparty.api.config import Config, get_buzz_sound_path
 from jeoparty.api.database import Database
@@ -190,7 +192,7 @@ if __name__ == "__main__":
 
     func = getattr(TEST_RUNNER, ARGS.func)
 
-    if asyncio.iscoroutinefunction(func):
+    if iscoroutinefunction(func):
         asyncio.run(func(*ARGS.args))
     else:
         func(*ARGS.args)

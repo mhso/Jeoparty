@@ -17,16 +17,10 @@ from jeoparty.app.routes.shared import (
     render_locale_template,
     get_question_answer_sounds,
     get_question_answer_images,
+    is_lan_active,
 )
 
 presenter_page = flask.Blueprint("presenter", __name__, template_folder="templates")
-
-def _is_lan_active(game_data: Game):
-    return (
-        game_data.pack.theme is not None
-        and game_data.pack.theme.name == "LAN"
-        and game_data.created_by == Config.ADMIN_ID
-    )
 
 def _request_decorator(func):
     """
@@ -68,7 +62,11 @@ def _request_decorator(func):
     return wrapper
 
 def _get_intfar_request_params():
-    base_url = "http://localhost:5000" if Config.ENV is Environment.DEVELOPMENT else "https://mhooge.com:5000"
+    base_url = (
+        "http://localhost:5000"
+        if flask.current_app.config["HOST_URL"] == "localhost"
+        else "https://mhooge.com:5000"
+    )
 
     with open(f"{Config.STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
         data = json.load(fp)
@@ -87,21 +85,26 @@ def lobby(game_data: Game):
     else:
         host_url = f"http://{flask.current_app.config["HOST_URL"]}:5006"
 
-    lan_mode = _is_lan_active(game_data)
+    join_url = f"{host_url}/jeoparty/{game_data.join_code}"
+
+    lan_mode = is_lan_active(game_data)
     if lan_mode:
         # Send host URL to Int-Far, if a LAN is active
         base_url, request_json = _get_intfar_request_params()
-        request_json["host"] = host_url
-        print(f"Sending host IP to Int-Far at '{base_url}'")
+
+        request_json["join_url"] = join_url
+        if game_data.password:
+            request_json["password"] = game_data.password
+
+        print(f"Sending info to Int-Far at '{base_url}': {request_json}")
 
         try:
-            response = requests.post(f"{base_url}/intfar/jeoparty/set_hostname", json=request_json, timeout=6)
+            response = requests.post(f"{base_url}/intfar/lan/set_jeoparty_info", json=request_json, timeout=6)
             if response.status_code != 200:
                 logger.bind(response=response.text, status=response.status_code).error(f"Start of game request to Int-Far failed with status {response.status_code}")
         except (requests.RequestException, requests.Timeout):
             logger.exception("Failed sending start of game request to Int-Far!")
 
-    join_url = f"{host_url}/jeoparty/{game_data.join_code}"
     game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
 
     return render_locale_template(
@@ -352,7 +355,7 @@ def endscreen(game_data: Game):
     game_json["game_contestants"].sort(key=lambda c: (-c["score"], c["contestant"]["name"]))
 
     # Send post request to Int-Far if LAN is active
-    if _is_lan_active(game_data):
+    if is_lan_active(game_data):
         print("Sending update to Int-Far")
         base_url, request_json = _get_intfar_request_params()
 
