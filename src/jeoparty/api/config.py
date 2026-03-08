@@ -20,7 +20,7 @@ class Config:
     SRC_FOLDER = f"{PROJECT_FOLDER}/src/jeoparty"
 
     STATIC_FOLDER = f"{SRC_FOLDER}/app/static"
-    RESOURCES_FOLDER = f"{PROJECT_FOLDER}/resources/"
+    RESOURCES_FOLDER = f"{PROJECT_FOLDER}/resources"
 
     with open(f"{STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
         secrets = json.load(fp)

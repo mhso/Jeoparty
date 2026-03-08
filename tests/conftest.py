@@ -146,6 +146,11 @@ def _create_question_packs(database: Database):
 
         return [pack_model_1.id, pack_model_2.id]
 
+@pytest.fixture(scope="session", autouse=True)
+def create_dirs():
+    if not os.path.exists(f"{Config.STATIC_FOLDER}/data/packs"):
+        os.mkdir(f"{Config.STATIC_FOLDER}/data/packs")
+
 @pytest.fixture(scope="session")
 def locales():
     # Load locale data
@@ -154,11 +159,11 @@ def locales():
 @pytest.fixture(scope="function")
 def database():
     db_file = "test.db"
-    db_file_path = f"{Config.RESOURCES_FOLDER}/{db_file}"
+    db_file_path = f"{Config.RESOURCES_FOLDER}/database/{db_file}"
     if os.path.exists(db_file_path):
         os.remove(db_file_path)
 
-    shutil.copy(f"{Config.RESOURCES_FOLDER}/database.db", db_file_path)
+    shutil.copy(f"{Config.RESOURCES_FOLDER}/database/database.db", db_file_path)
     database = Database(db_file)
 
     with database as session:
@@ -179,15 +184,12 @@ def database():
             ]
         )
 
-        pack_ids = _create_question_packs(database)
+        _create_question_packs(database)
 
         yield database
 
-    for pack_id in pack_ids:
-        folder = get_question_pack_data_path(pack_id)
-        shutil.rmtree(folder)
-
     database.engine.dispose()
+
     try:
        os.remove(db_file_path)
     except PermissionError:

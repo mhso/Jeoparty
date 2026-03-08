@@ -323,6 +323,11 @@ def lobby_lan(join_code: str):
         347489125877809155: "Nønø",
     }
 
+    avatars = {
+        user_id: f"img/avatars/{user_id}.jpg"
+        for user_id in names
+    }
+
     backgrounds = {
         115142485579137029: "coven_nami.png",
         172757468814770176: "pentakill_olaf.png", 
@@ -347,6 +352,7 @@ def lobby_lan(join_code: str):
         "contestant/lobby.html",
         game_data.pack.language,
         name=names[user_id],
+        avatar=avatars[user_id],
         buzz_sound=buzz_in_sounds[user_id],
         bg_image=backgrounds[user_id],
         join_code=join_code,

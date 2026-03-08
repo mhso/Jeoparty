@@ -127,6 +127,8 @@ T = TypeVar("T", bound="Base")
 
 def get_validation_error_msg(detail: ErrorDetails):
     loc_fmt = detail["loc"][0].replace("_", " ").capitalize()
+    print(detail)
+    print(loc_fmt)
 
     if detail["type"] == "string_pattern_mismatch":
         return f"'{loc_fmt}' contains invalid characters"

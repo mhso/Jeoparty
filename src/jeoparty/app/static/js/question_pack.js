@@ -154,8 +154,8 @@ function getQuestionViewWrapper(roundId, categoryId, questionId) {
     return document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-view-${questionId}`);
 }
 
-function syncQuestionData(round, category, question) {
-    let wrapper = getQuestionViewWrapper(round, category, question);
+function syncQuestionData(roundId, categoryId, questionId) {
+    let wrapper = getQuestionViewWrapper(roundId, categoryId, questionId);
 
     let questionText = wrapper.querySelector(".question-question-header").value;
     let isMultipleChoice = wrapper.querySelector(".question-multiple-choice-checkbox").checked;
@@ -176,18 +176,18 @@ function syncQuestionData(round, category, question) {
     let tips = wrapper.querySelectorAll(".question-tip-content");
 
     // Set buzz time on category
-    questionData["rounds"][round]["categories"][category]["buzz_time"] = doBuzzTimer ? buzzTime : 0;
-    let questionDataQuestions = questionData["rounds"][round]["categories"][category]["questions"];
+    questionData["rounds"][roundId]["categories"][categoryId]["buzz_time"] = doBuzzTimer ? buzzTime : 0;
+    let questionDataQuestions = questionData["rounds"][roundId]["categories"][categoryId]["questions"];
 
     // Synchronize buzz times across other questions in category
-    let countdownElems = document.querySelectorAll(`.question-pack-round-wrapper-${round} .question-pack-category-wrapper-${category} .question-countdown-text`);
+    let countdownElems = document.querySelectorAll(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-countdown-text`);
     countdownElems.forEach((elem) => {
         elem.value = buzzTime;
     });
 
     let data;
-    if (question < questionDataQuestions.length) {
-        data = questionDataQuestions[question];
+    if (questionId < questionDataQuestions.length) {
+        data = questionDataQuestions[questionId];
         data["question"] = questionText;
         data["answer"] = answerText;
         data["value"] = value;
@@ -288,11 +288,11 @@ function syncQuestionData(round, category, question) {
         }
     }
 
-    if (questionDataQuestions.length == question) {
+    if (questionDataQuestions.length == questionId) {
         questionDataQuestions.push(data);
     }
     else {
-        questionDataQuestions[question] = data;
+        questionDataQuestions[questionId] = data;
     }
 }
 
@@ -473,17 +473,23 @@ function createQuestionView(roundId, categoryId, isFinale=false) {
     }
 }
 
-function addQuestion(value, roundId, categoryId, questionId, wrapper) {
+function addQuestion(roundId, categoryId, questionId, wrapper) {
     if (questionId == 0) {
         questionData["rounds"][roundId]["categories"][categoryId]["questions"] = [];
     }
 
+    wrapper.dataset["qid"] = questionId;
+
     let questionWrapper = document.createElement("div");
     questionWrapper.classList.add("question-pack-question-wrapper");
     questionWrapper.classList.add(`question-pack-question-wrapper-${questionId}`);
+    questionWrapper.draggable = true;
     questionWrapper.onclick = function() {
         showQuestionView(roundId, categoryId, questionId);
     }
+    questionWrapper.ondragstart = (e) => questionDragStart(e, roundId, categoryId, questionId);
+    questionWrapper.onmouseenter = () => showQuestionPreview(roundId, categoryId, questionId, true);
+    questionWrapper.onmouseleave = () => showQuestionPreview(roundId, categoryId, questionId, false);
 
     let deleteBtn = document.createElement("button");
     deleteBtn.className = "question-pack-delete-question-btn delete-button";
@@ -494,7 +500,6 @@ function addQuestion(value, roundId, categoryId, questionId, wrapper) {
     };
 
     let questionElem = document.createElement("div");
-    questionElem.textContent = value;
     questionElem.classList.add("question-pack-question-value");
     questionElem.classList.add(`question-pack-question-value-${questionId}`);
     questionElem.readonly = true;
@@ -502,7 +507,31 @@ function addQuestion(value, roundId, categoryId, questionId, wrapper) {
     questionWrapper.appendChild(deleteBtn);
     questionWrapper.appendChild(questionElem);
 
+    let questionDropzone = document.createElement("div");
+    questionDropzone.className = "question-pack-question-dropzone";
+    questionDropzone.ondragover = questionDragOver;
+    questionDropzone.ondragleave = questionDragLeave;
+    questionDropzone.ondrop = questionDragDrop;
+
+    let questionPreview = document.createElement("div");
+    questionPreview.className = `question-pack-question-preview question-pack-question-preview-${questionId} d-none`;
+    
+    let previewQuestion = document.createElement("h3");
+    previewQuestion.textContent = "Question Preview";
+    let previewAnswer = document.createElement("h4");
+    previewAnswer.textContent = "Answer Preview";
+
+    questionPreview.appendChild(previewQuestion);
+    questionPreview.appendChild(previewAnswer);
+
+    if (questionId == 0) {
+        let dropzoneCopy = questionDropzone.cloneNode();
+        dropzoneCopy.classList.add("question-first-dropzone");
+        wrapper.appendChild(dropzoneCopy);
+    }
     wrapper.appendChild(questionWrapper);
+    wrapper.appendChild(questionDropzone);
+    wrapper.appendChild(questionPreview);
 
     resizeRoundWrappers(roundId, "height");
 }
@@ -1452,7 +1481,6 @@ function handleURLDataTransfers(event) {
 
         function rejectIfDone() {
             processedItems += 1;
-            console.log("Done with", processedItems, "/", event.dataTransfer.items.length);
             if (processedItems == event.dataTransfer.items.length) {
                 reject();
             }
@@ -1768,7 +1796,7 @@ function showQuestionView(roundId, categoryId, questionId, show=true) {
     }
 }
 
-function orderQuestions(roundId, categoryId) {
+function sortQuestions(roundId, categoryId) {
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
     let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
 
@@ -1797,21 +1825,26 @@ function saveQuestion(roundId, categoryId, questionId) {
     }
 
     if (newQuestion) {
-        addQuestion(valueInput.value, roundId, categoryId, questionId, viewWrapper.parentElement);
-    }
-    else {
-        let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
-        let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
-        let questionElem = categoryWrapper.querySelector(`.question-pack-question-value-${questionId}`);
-
-        questionElem.textContent = valueInput.value;
+        addQuestion(roundId, categoryId, questionId, viewWrapper.parentElement);
     }
 
-    orderQuestions(roundId, categoryId);
+    let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} > .question-pack-round-body`);
+    let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId} > .question-pack-category-body`);
+    let questionElem = categoryWrapper.querySelector(`.question-pack-question-value-${questionId}`);
+    let previewElem = categoryWrapper.querySelector(`.question-pack-question-preview-${questionId}`);
+
+    questionElem.textContent = valueInput.value;
+    
+    sortQuestions(roundId, categoryId);
 
     // Sync data and close view
     syncQuestionData(roundId, categoryId, questionId);
     dataChanged();
+
+    // Update preview text
+    previewElem.querySelector("h3").textContent = questionData["rounds"][roundId]["categories"][categoryId]["questions"][questionId]["question"];
+    previewElem.querySelector("h4").textContent = questionData["rounds"][roundId]["categories"][categoryId]["questions"][questionId]["answer"];
+
     showQuestionView(roundId, categoryId, questionId, false);
 }
 
@@ -1831,6 +1864,115 @@ function cancelCreateQuestion(roundId, categoryId, questionId) {
     if (newQuestion) {
         categoryWrapper.removeChild(questionWrapper.parentElement);
     }
+}
+
+function showQuestionPreview(roundId, categoryId, questionId, show) {
+    const elem = document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId} .question-pack-question-preview-${questionId}`);
+    if (show) {
+        let allWrappers = document.querySelectorAll(".question-pack-question-preview");
+        allWrappers.forEach((elem) => elem.classList.add("d-none"));
+        elem.classList.remove("d-none");
+    }
+    else {
+        elem.classList.add("d-none");
+    }
+}
+
+function questionDragStart(event, roundId, categoryId, questionId) {
+    event.dataTransfer.setData("text", `${roundId}-${categoryId}-${questionId}`);
+}
+
+function questionDragOver(event) {
+    event.preventDefault();
+    event.target.dataset["drop_active"] = "true";
+}
+
+function questionDragLeave(event) {
+    event.target.dataset["drop_active"] = "false";
+}
+
+function questionDragDrop(event) {
+    event.preventDefault();
+    const [roundId, categoryId, questionId] = event.dataTransfer.getData("text").split("-");
+
+    const categoryWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId} .question-pack-category-wrapper-${categoryId}`);
+    const draggedElem = categoryWrapper.querySelector(`.question-pack-question-wrapper-${questionId}`);
+    const elemParent = draggedElem.parentElement;
+    const grandParent = elemParent.parentElement;
+
+    event.target.dataset["drop_active"] = "false";
+    if (event.target.parentElement === elemParent) {
+        return;
+    }
+
+    let oldIndex = Array.from(grandParent.children).indexOf(elemParent);
+    grandParent.removeChild(elemParent);
+
+    const targetParent = event.target.parentElement;
+
+    let refElem;
+    if (event.target.classList.contains("question-first-dropzone")) {
+        refElem = targetParent;
+    }
+    else {
+        refElem = targetParent.nextElementSibling;
+    }
+
+    grandParent.insertBefore(elemParent, refElem);
+
+    let newIndex = Array.from(grandParent.children).indexOf(elemParent);
+
+    // Update values to reflect the new order
+    let baseValue = null;
+    let questionWrappers = categoryWrapper.querySelectorAll(".question-pack-question-wrapper");
+    questionWrappers.forEach((elem) => {
+        let value = Number.parseInt(elem.querySelector(".question-pack-question-value").textContent);
+        if (baseValue == null || value < baseValue) {
+            baseValue = value;
+        }
+    });
+
+    let elementsToUpdate = [];
+    questionWrappers.forEach((elem, index) => {
+        if (newIndex > oldIndex && index < newIndex) {
+            elementsToUpdate.push(elem);
+        }
+        else if (newIndex < oldIndex && index > newIndex) {
+            elementsToUpdate.push(elem);
+        }
+    });
+
+    elementsToUpdate.forEach((elem) => {
+        let valueElem = elem.querySelector(".question-pack-question-value");
+        let viewValue = elem.parentElement.querySelector(".question-pack-question-view .question-reward-span");
+        let value = Number.parseInt(valueElem.textContent);
+        let newValue = newIndex > oldIndex ? value - baseValue : value + baseValue;
+        valueElem.textContent = newValue.toString()
+        viewValue.value = newValue.toString();
+        syncQuestionData(roundId, categoryId, elem.parentElement.dataset["qid"]);
+    });
+
+    let valueElem = draggedElem.querySelector(".question-pack-question-value");
+    let viewValue = elemParent.querySelector(".question-pack-question-view .question-reward-span");
+    valueElem.textContent = (baseValue * (newIndex + 1)).toString();
+    viewValue.value = (baseValue * (newIndex + 1)).toString();
+    syncQuestionData(roundId, categoryId, elemParent.dataset["qid"]);
+
+    if (oldIndex == 0) {
+        let firstDropzone = elemParent.querySelector(".question-first-dropzone");
+        elemParent.removeChild(firstDropzone);
+        let firstParent = questionWrappers[0].parentElement;
+        firstParent.insertBefore(firstDropzone, firstParent.firstChild);
+    }
+    else if (newIndex == 0) {
+        let firstParent = questionWrappers[1].parentElement;
+        let firstDropzone = firstParent.querySelector(".question-first-dropzone");
+        firstParent.removeChild(firstDropzone);
+
+        elemParent.insertBefore(firstDropzone, elemParent.firstChild);
+    }
+
+    dataChanged();
 }
 
 $.ready(function() {

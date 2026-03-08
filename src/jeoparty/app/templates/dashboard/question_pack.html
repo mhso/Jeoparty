@@ -106,17 +106,34 @@
 
                                 <div class="question-pack-category-body">
                                     {% for question_data in category["questions"] %}
-                                    <div>
-                                        <div class="question-pack-question-wrapper question-pack-question-wrapper-{{ loop.index0 }}" onclick="showQuestionView({{ round_num }}, {{ category_num }}, {{ loop.index0 }})">
+                                    <div data-qid="{{ loop.index0 }}">
+                                        {% if loop.index0 == 0 %}
+                                        <div class="question-pack-question-dropzone question-first-dropzone" ondragover="questionDragOver(event)" ondragleave="questionDragLeave(event)" ondrop="questionDragDrop(event)"></div>
+                                        {% endif %}
+
+                                        <div
+                                            class="question-pack-question-wrapper question-pack-question-wrapper-{{ loop.index0 }}"
+                                            onclick="showQuestionView({{ round_num }}, {{ category_num }}, {{ loop.index0 }})"
+                                            draggable="true"
+                                            ondragstart="questionDragStart(event, {{ round_num }}, {{ category_num }}, {{ loop.index0 }});"
+                                            onmouseenter="showQuestionPreview({{ round_num }}, {{ category_num }}, {{ loop.index0 }}, true);"
+                                            onmouseleave="showQuestionPreview({{ round_num }}, {{ category_num }}, {{ loop.index0 }}, false)"
+                                        >
                                             <button class="question-pack-delete-question-btn delete-button" onclick="deleteQuestion(event, {{ round_num }}, {{ category_num }}, {{ loop.index0 }}); event.stopPropagation();">&times;</button>
                                             <div class="question-pack-question-value question-pack-question-value-{{ loop.index0 }}">{{ question_data['value'] }}</div>
                                         </div>
-    
+
+                                        <div class="question-pack-question-dropzone" ondragover="questionDragOver(event)" ondragleave="questionDragLeave(event)" ondrop="questionDragDrop(event)"></div>
+                                        
                                         {% set question = question_data["question"] %}
                                         {% set answer = question_data["answer"] %}
                                         {% set value = question_data["value"] %}
                                         {% set extra = question_data["extra"] %}
-    
+                                        <div class="question-pack-question-preview question-pack-question-preview-{{ loop.index0 }} d-none">
+                                            <h3>{{ question }}</h3>
+                                            <h4>{{ answer }}</h4>
+                                        </div>
+                                        
                                         <div class="question-pack-question-view question-pack-question-view-{{ loop.index0 }} d-none">
                                             <button class="question-pack-question-view-exit" onclick="cancelCreateQuestion({{ round_num }}, {{ category_num }}, {{ loop.index0 }});">&times;</button>
                                             {% include 'question_view.html' %}

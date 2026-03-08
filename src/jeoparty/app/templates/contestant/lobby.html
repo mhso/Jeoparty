@@ -34,7 +34,7 @@
             </form>
         </div>
 
-        <div id="contestant-lobby-status" class="d-none"></div>
+        <div id="contestant-lobby-status" class="d-none">{% if error %}{{ error }}{% endif %}</div>
     </body>
     
     {% if not color %}

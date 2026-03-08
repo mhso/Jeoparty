@@ -100,7 +100,6 @@ function joinGame(event) {
     }
 
     joining = true;
-    event.preventDefault();
     requestWakeLock();
 
     let color = document.getElementById("contestant-lobby-color").value;
