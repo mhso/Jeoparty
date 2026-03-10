@@ -7,6 +7,14 @@ podman stop -i jeoparty_test
 podman build . -t jeoparty_test:latest --target test --env DEPGROUP=dev
 podman image prune -f
 
+bind_mounts=( "./tests/screenshots" "./tests/videos" )
+for path in "${bind_mounts[@]}"
+do
+    if [[ ! -d "$path" ]]; then
+        mkdir "$path"
+    fi
+done
+
 podman run \
     --name jeoparty_test \
     -i \
