@@ -542,18 +542,25 @@
     position: relative;
 }
 
-.question-pack-categories-placeholder {
+.question-pack-categories-placeholder, .question-pack-categories-copy {
     text-align: center;
     font-size: 16px;
     display: block;
     margin: 0 auto;
-    background-color: blue;
     padding: 10px;
     border-radius: 5px;
     border: 2px solid white;
     cursor: pointer;
     color: white;
-    margin-bottom: 5px;
+    margin-bottom: 15px;
+}
+
+.question-pack-categories-placeholder {
+    background-color: blue;
+}
+
+.question-pack-categories-copy {
+    background-color: rgb(78, 32, 206);
 }
 
 .question-pack-categories-placeholder:hover {

@@ -428,7 +428,7 @@ def save_pack(pack_id: str):
         data: Dict[str, Any] = json.loads(flask.request.form["data"])
 
         if not data["include_finale"]:
-            data["rounds"][-1] = None
+            data["rounds"] = [round_data for round_data in data["rounds"] if round_data["round"] <= len(data["rounds"])]
 
         # Add missing entries
         data["created_by"] = user_id

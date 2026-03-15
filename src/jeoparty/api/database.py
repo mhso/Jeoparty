@@ -340,7 +340,6 @@ class Database(SQLAlchemyDatabase):
             session.execute(update_stmt)
 
             # Unpack rounds, categories, and questions into separate models
-            round_num = 1
             for round_index, round_data in enumerate(data["rounds"]):
                 round_data["pack_id"] = pack_model.id
 
@@ -357,7 +356,6 @@ class Database(SQLAlchemyDatabase):
                     else:
                         category_models.append(category_data)
 
-                round_data["round"] = round_num
                 del round_data["categories"]
                 new_round_model = QuestionRound(**round_data)
 
@@ -439,8 +437,6 @@ class Database(SQLAlchemyDatabase):
                             )
 
                     category_index += 1
-
-                round_num += 1
 
             # Perform deletes if there are any
             for model, model_id in data_to_delete:

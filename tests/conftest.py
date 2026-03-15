@@ -10,7 +10,7 @@ from mhooge_flask.auth import get_hashed_password
 from jeoparty.api.config import Config, get_question_pack_data_path, get_locale_data
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
-from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question, QuestionRound, Theme
+from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question, QuestionRound
 from tests.config import PRESENTER_USER_ID, PRESENTER_USERNAME, PRESENTER_PASSWORD
 
 def _create_question_packs(database: Database):

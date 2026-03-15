@@ -95,6 +95,10 @@
                             {% if is_finale %}Add Finale Question{% else %}Add a Category{% endif %}
                         </button>
 
+                        <button class="question-pack-categories-copy{% if round_data['categories'] or is_finale %} d-none{% endif %}" onclick="copyCategories({{ round_num }});">
+                            Copy Previous Categories
+                        </button>
+
                         <div class="question-pack-round-body">
                             {% for category in round_data["categories"] %}
                             {% set category_num = loop.index0 %}
