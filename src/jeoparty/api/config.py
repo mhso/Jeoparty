@@ -46,7 +46,7 @@ class Config:
     ADMIN_ID = "71532753897030078646156925193385"
 
     VALID_NAME_CHARACTERS = re.compile(r"^[a-zA-Z0-9æøåÆØÅ_\-' ]*$")
-    VALID_TITLE_CHARACTERS = re.compile(r"^[a-zA-Z0-9æøåÆØÅé_\/\-'!?\+\(\),\.:\& ]*$")
+    VALID_TITLE_CHARACTERS = re.compile(r"^[a-zA-Z0-9æøåÆØÅé_\/\-'!?\+\(\),\.:\&\% ]*$")
 
     # Predefined sizes of question images/videos,
     # relative to the viewheight of the screen
@@ -90,5 +90,5 @@ def get_locale_data():
 def file_or_fallback(file: str, fallback: str, condition: bool):
     if condition and os.path.exists(f"{Config.STATIC_FOLDER}/{file}"):
         return file
-    
+
     return fallback

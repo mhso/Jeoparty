@@ -5,6 +5,7 @@ var wrapperHeight = 0;
 var wrapperWidth = 0;
 var mediaSizes = {};
 
+const DEFAULT_BUZZ_TIME = 10;
 const letters = Array.from("abcdefghijklmnopqrstuvwxyz0123456789")
 const imageFileTypes = [
     "image/apng",
@@ -568,7 +569,7 @@ function deleteQuestion(event, roundId, categoryId, questionId) {
     resizeRoundWrappers(roundId, "height");
 }
 
-function syncCategoryData(roundId, categoryId) {
+function syncCategoryData(roundId, categoryId, isFinale = false) {
     let roundWrapper = document.querySelector(`.question-pack-round-wrapper-${roundId}`);
     let categoryWrapper = roundWrapper.querySelector(`.question-pack-category-wrapper-${categoryId}`);
     let name = categoryWrapper.querySelector(".question-pack-category-name").value;
@@ -576,7 +577,7 @@ function syncCategoryData(roundId, categoryId) {
     let bgImageInput = categoryWrapper.querySelector(".question-bg-image-input");
 
     let questionDataCategories = questionData["rounds"][roundId]["categories"];
-    let defaultBuzzTime = includeFinale && roundId == questionData["rounds"].length - 1 ? 0 : 10;
+    let defaultBuzzTime = includeFinale && isFinale ? 0 : DEFAULT_BUZZ_TIME;
 
     let data;
     if (categoryId < questionDataCategories.length) {
@@ -623,7 +624,6 @@ function addCategory(roundId, isFinale) {
 
     let category = getNextId(roundId);
     let categoryNum = roundWrapper.querySelectorAll(".question-pack-category-wrapper").length;
-    console.log(roundWrapper);
     if (categoryNum == 0) {
         questionData["rounds"][roundId]["categories"] = [];
 
@@ -658,7 +658,7 @@ function addCategory(roundId, isFinale) {
     input.classList.add("question-pack-category-name");
     input.placeholder = "Category Name"
     input.onchange = function() {
-        syncCategoryData(roundId, category);
+        syncCategoryData(roundId, category, isFinale);
         dataChanged();
     };
 
@@ -689,7 +689,7 @@ function addCategory(roundId, isFinale) {
 
     input.focus();
 
-    syncCategoryData(roundId, category)
+    syncCategoryData(roundId, category, isFinale);
     dataChanged();
 
     resizeRoundWrappers(roundId, "width");
@@ -834,7 +834,7 @@ function addRound() {
     placeholderBtn.textContent = "Click here to add a category";
     placeholderBtn.classList = "question-pack-categories-placeholder";
     placeholderBtn.onclick = function() {
-        addCategory(round);
+        addCategory(round, false);
     }
 
     let copyBtn = document.createElement("button");
@@ -1243,12 +1243,15 @@ function setDoBuzzTime(event) {
 
     let checked = wrapper.querySelector(".question-do-buzz-countdown").checked;
     let countdownWrapper = wrapper.querySelector(".question-countdown-wrapper");
+    let buzzTimeElem = wrapper.querySelector(".question-countdown-text");
 
     if (checked) {
         countdownWrapper.classList.remove("d-none");
+        buzzTimeElem.value = DEFAULT_BUZZ_TIME;
     }
     else {
         countdownWrapper.classList.add("d-none");
+        buzzTimeElem.value = 0;
     }
 }
 
@@ -1271,7 +1274,7 @@ function syncChoiceSelection(event) {
     });
 }
 
-function addAnswerChoice(wrapper, maxChoices=4) {
+function addAnswerChoice(wrapper, text=null, maxChoices=4) {
     let choicesWrapper = wrapper.querySelector(".question-choices-wrapper");
     let answerSelection = wrapper.querySelector(".question-answer-selection");
 
@@ -1285,6 +1288,10 @@ function addAnswerChoice(wrapper, maxChoices=4) {
     choiceEntry.className = `question-choice-${choices + 1} question-choice-entry question-editable`;
 
     let option = document.createElement("option");
+    if (text != null) {
+        option.value = text;
+        option.textContent = text;
+    }
     answerSelection.appendChild(option);
 
     let deleteBtn = document.createElement("button");
@@ -1300,6 +1307,9 @@ function addAnswerChoice(wrapper, maxChoices=4) {
     let choiceText = document.createElement("input");
     choiceText.className = "question-choice-text question-editable";
     choiceText.placeholder = "Choice Text Here";
+    if (text != null) {
+        choiceText.value = text;
+    }
     choiceText.onchange = function() {
         option.value = choiceText.value;
         option.textContent = choiceText.value;
@@ -1408,7 +1418,8 @@ function setIsMultipleChoice(wrapper, isMultipleChoice) {
 
     if (isMultipleChoice) {
         if (choices == 0) {
-            addAnswerChoice(wrapper);
+            let text = answerInput.value || null;
+            addAnswerChoice(wrapper, text);
         }
         choicesIndicator.classList.remove("d-none");
         choicesWrapper.classList.remove("d-none");
@@ -1876,9 +1887,22 @@ function sortQuestions(roundId, categoryId) {
         }
     )
 
-    sortedElements.forEach((elem) => {
+    sortedElements.forEach((elem, index) => {
+        let firstDropzone = elem.querySelector(".question-first-dropzone");
+        if (index == 0 && firstDropzone == null) {
+            let firstDropzone = document.createElement("div");
+            firstDropzone.className = "question-pack-question-dropzone question-first-dropzone";
+            firstDropzone.ondragover = questionDragOver;
+            firstDropzone.ondragleave = questionDragLeave;
+            firstDropzone.ondrop = questionDragDrop;
+            elem.insertBefore(firstDropzone, elem.firstChild);
+        }
+        else if (index > 0 && firstDropzone != null) {
+            elem.removeChild(firstDropzone);
+        }
+
         categoryWrapper.appendChild(elem);
-    })
+    });
 }
 
 function saveQuestion(roundId, categoryId, questionId) {

@@ -191,7 +191,7 @@
         {% endif %}
 
         {% if editable %}
-        <button class="question-add-choice" onclick="addAnswerChoice(getSpecificParent(event.target, 'question-view-wrapper'), {{ max_choices }})">+</button>
+        <button class="question-add-choice" onclick="addAnswerChoice(getSpecificParent(event.target, 'question-view-wrapper'), null, {{ max_choices }})">+</button>
         {% endif %}
     </div>
 
@@ -204,13 +204,12 @@
     {% endif %}
 
     <!-- Countdown wrapper -->
-    <div class="question-countdown-wrapper{% if editable %} question-editable{% endif %}">
+    <div class="question-countdown-wrapper{% if editable %} question-editable{% endif %}{% if category['buzz_time'] == 0 %} d-none{% endif %}">
         <div class="question-countdown-frozen d-none">
             <img src="{{ url_for('static', _external=True, filename='img/frozen.png') }}">
         </div>
         <div class="question-countdown-filled{% if editable %} question-editable{% endif %}"></div>
-        {% if category['buzz_time'] > 0 %}{% set extra_args = {} %}{% else %}{% set extra_args = {'disabled': true} %}{% endif %}
-        {{ element("question-countdown-text", category['buzz_time'], 'div', **extra_args) }}
+        {{ element("question-countdown-text", category['buzz_time'], 'div') }}
     </div>
     
     <!-- Question tips -->
