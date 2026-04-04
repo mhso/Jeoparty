@@ -120,7 +120,9 @@ h1 {
 
 #contestant-lobby-avatar-wrapper {
     position: relative;
-    display: inline-block;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
     overflow: hidden;
     width: 128px;
     height: 128px;
@@ -140,7 +142,6 @@ h1 {
 
 #contestant-lobby-avatar-img {
     display: block;
-    width: 100%;
 }
 
 #contestant-lobby-name {

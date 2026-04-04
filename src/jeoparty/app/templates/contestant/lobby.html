@@ -29,6 +29,8 @@
 
                 <!-- Optional parameters -->
                 {% if id %}<input name="user_id" type="hidden" value="{{ id }}">{% endif %}
+                {% if buzz_sound %}<input name="buzz_sound" type="hidden" value="{{ buzz_sound }}">{% endif %}
+                {% if bg_image %}<input name="bg_image" type="hidden" value="{{ bg_image }}">{% endif %}
     
                 <input id="contestant-lobby-join" type="submit" value="{{ _locale['join'] }}">
             </form>
@@ -39,8 +41,21 @@
     
     {% if not color %}
     <script>
+        {% if not color %}
         // Set random contestant color
         setRandomColor();
+        {% endif %}
+        {% if avatar %}
+        let avatarImg = document.getElementById("contestant-lobby-avatar-img");
+        avatarImg.onload = function() {
+            if (avatarImg.offsetWidth > avatarImg.offsetHeight) {
+                avatarImg.style.height = "100%";
+            }
+            else {
+                avatarImg.style.width = "100%";
+            }
+        }
+        {% endif %}
     </script>
     {% endif %}
 </html>

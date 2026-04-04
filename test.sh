@@ -19,6 +19,7 @@ podman run \
     --name jeoparty_test \
     -i \
     --rm \
+    -v ./src/jeoparty/app/static/data/packs:/jeoparty/src/jeoparty/app/static/data/packs \
     -v ./tests/screenshots:/jeoparty/tests/screenshots \
     -v ./tests/videos:/jeoparty/tests/videos \
     jeoparty_test:latest

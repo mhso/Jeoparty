@@ -1,25 +1,5 @@
 var joining = false;
 
-function setRandomColor() {
-    let colorInput = document.getElementById("contestant-lobby-color");
-
-    let randRed = (Math.random() * 255).toString(16).split(".")[0];
-    if (randRed == "0") {
-        randRed = "00";
-    }
-    let randGreen = (Math.random() * 255).toString(16).split(".")[0];
-    if (randGreen == "0") {
-        randGreen = "00";
-    }
-    let randBlue = (Math.random() * 255).toString(16).split(".")[0];
-    if (randBlue == "0") {
-        randBlue = "00";
-    }
-
-    colorInput.type = "color";
-    colorInput.value = `#${randRed}${randGreen}${randBlue}`;
-}
-
 const fileTypes = [
   "image/apng",
   "image/gif",
@@ -113,4 +93,24 @@ function joinGame(event) {
     }
 
     return true;
+}
+
+function setRandomColor() {
+    let colorInput = document.getElementById("contestant-lobby-color");
+
+    let randRed = (Math.random() * 255).toString(16).split(".")[0];
+    if (randRed == "0") {
+        randRed = "00";
+    }
+    let randGreen = (Math.random() * 255).toString(16).split(".")[0];
+    if (randGreen == "0") {
+        randGreen = "00";
+    }
+    let randBlue = (Math.random() * 255).toString(16).split(".")[0];
+    if (randBlue == "0") {
+        randBlue = "00";
+    }
+
+    colorInput.type = "color";
+    colorInput.value = `#${randRed}${randGreen}${randBlue}`;
 }

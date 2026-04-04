@@ -12,18 +12,22 @@ from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
 
 async def wait_for_disconnected_contestant(context: ContextHandler):
-    connection_wrapper = await context.presenter_page.query_selector("#connection-status-wrapper")
-    style = await connection_wrapper.get_property("style")
-    opacity = await style.get_property("opacity")
+    contestants = await context.presenter_page.query_selector_all(".footer-contestant-entry")
+    disconnected_contestants = []
+    for contestant_wrapper in contestants:
+        disconnected_img = await contestant_wrapper.query_selector(".footer-contestant-entry-disconnected")
+        if await disconnected_img.is_visible():
+            disconnected_contestants.append(disconnected_img)
 
-    await asyncio.sleep(5)
+    print("Anyone discconected?", disconnected_contestants != [])
 
-    val = await opacity.json_value()
+    if disconnected_contestants == []:
+        return
 
-    if val and float(val) > 0:
-        print("Waiting for contestant to reconnect...")
-        # If someone has disconnected, wait for them to reconnect or to time out
-        await connection_wrapper.wait_for_element_state("hidden")
+    print("Waiting for contestant to reconnect...")
+    # If someone has disconnected, wait for them to reconnect or to time out
+    for disconnected_img in disconnected_contestants:
+        await disconnected_img.wait_for_element_state("hidden", timeout=60000)
 
 async def handle_selection_page(context: ContextHandler, game_data: Game):
     # Choose random question from the ones remaining
@@ -46,7 +50,8 @@ async def handle_selection_page(context: ContextHandler, game_data: Game):
 
                     return
 
-    assert False, "Could not find active question in selection"
+    question_desc = f"{active_question.question.category.name} for {active_question.question.value}"
+    assert False, f"Could not find active question in selection: {question_desc}"
 
 async def answer_question(context, contestant, question, guessed_choices):
     # Answer correctly or wrong randomly
@@ -311,6 +316,8 @@ async def handle_finale_result_page(context: ContextHandler, game_data: Game):
 
 async def handle_endscreen_page(context: ContextHandler):
     # Play confetti video
+    await asyncio.sleep(2)
+
     await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     await asyncio.sleep(5)
@@ -391,15 +398,14 @@ async def simulate_disconnect(context: ContextHandler, game_data: Game):
 
     await page.goto(page_url)
 
-@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
-    pack_name = "Julequiz 2025"
+    pack_name = "LoL Jeopardy v7"
     rounds = 1 if pack_name == "Julequiz 2025" else 2
     seed = 1234
     random.seed(seed)
 
-    num_contestants = 8
+    num_contestants = 4
     contestant_names, contestant_colors = create_contestant_data(num_contestants)
 
     async with ContextHandler(database, True) as context:
@@ -446,6 +452,7 @@ async def test_random_game(database, locales):
                             assert game_data.round == curr_round + 1
                             questions_in_round = len(game_data.get_questions_for_round())
                             question_index = 0
+                            curr_round += 1
 
                         await handle_selection_page(context, game_data)
                     case StageType.QUESTION:

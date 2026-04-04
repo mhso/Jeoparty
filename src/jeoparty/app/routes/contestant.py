@@ -148,12 +148,9 @@ def join_lobby():
             user_already_joined = False
             if existing_model is not None:
                 # If contestant rejoins, override values of contestant model
-                for column in existing_model.__table__.columns:
-                    if column.key == "id":
-                        continue
-
-                    val = getattr(contestant_model, column.key)
-                    setattr(existing_model, column.key, val)
+                for column in ("name", "color"):
+                    val = getattr(contestant_model, column)
+                    setattr(existing_model, column, val)
 
                 contestant_model = existing_model
 
@@ -164,7 +161,6 @@ def join_lobby():
 
             # Get or set background image
             bg_image = _get_bg_image(index, flask.request.form.get("bg_image"), game_data.pack.theme_id)
-
             contestant_model.bg_image = bg_image
 
             # Set buzz sound, if given
@@ -305,16 +301,6 @@ def lobby(join_code: str):
 def lobby_lan(join_code: str):
     database: Database = flask.current_app.config["DATABASE"]
 
-    with database:
-        game_data = database.get_game_from_code(join_code)
-        if game_data is None:
-            return make_template_context("contestant/nogame.html", status=404)
-
-        if not is_lan_active(game_data) or not "user_id" in flask.request.args:
-            return flask.abort(404)
-
-        user_id = int(flask.request.args["user_id"])
-
     names = {
         115142485579137029: "Dave",
         172757468814770176: "Murt",
@@ -324,7 +310,7 @@ def lobby_lan(join_code: str):
     }
 
     avatars = {
-        user_id: f"img/avatars/{user_id}.jpg"
+        user_id: f"img/avatars/{user_id}.png"
         for user_id in names
     }
 
@@ -345,22 +331,44 @@ def lobby_lan(join_code: str):
         347489125877809155: "buzz_no.mp3",
     }
 
-    if not user_id in names:
-        return flask.abort(404)
+    with database as session:
+        game_data = database.get_game_from_code(join_code)
+        if game_data is None:
+            return make_template_context("contestant/nogame.html", status=404)
 
-    template = render_locale_template(
-        "contestant/lobby.html",
-        game_data.pack.language,
-        name=names[user_id],
-        avatar=avatars[user_id],
-        buzz_sound=buzz_in_sounds[user_id],
-        bg_image=backgrounds[user_id],
-        join_code=join_code,
-        has_password=game_data.password is not None,
-    )
+        if not is_lan_active(game_data) or not "user_id" in flask.request.args:
+            return flask.abort(404)
+
+        user_id = int(flask.request.args["user_id"])
+        user_id_str = str(user_id)
+
+        if not database.get_contestant_from_id(user_id_str):
+            contestant = Contestant(
+                id=user_id_str,
+                name=names[user_id],
+                color="#000000",
+                avatar=avatars[user_id],
+            )
+
+            session.add(contestant)
+            session.commit()
+
+        if not user_id in names:
+            return flask.abort(404)
+
+        template = render_locale_template(
+            "contestant/lobby.html",
+            game_data.pack.language,
+            name=names[user_id],
+            avatar=avatars[user_id],
+            buzz_sound=buzz_in_sounds[user_id],
+            bg_image=backgrounds[user_id],
+            join_code=join_code,
+            has_password=game_data.password is not None,
+        )
 
     response = flask.make_response(template)
-    cookie_id, data, max_age = _save_user_id_to_cookie(str(user_id))
+    cookie_id, data, max_age = _save_user_id_to_cookie(user_id_str)
     response.set_cookie(cookie_id, data, max_age=max_age)
 
     return response

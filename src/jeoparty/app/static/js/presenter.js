@@ -1377,16 +1377,16 @@ function addContestantInGame(contestantData) {
         avatarElem.src = `${getBaseURL()}/static/${avatar}`;
 
         let readyElem = document.createElement("img");
-        readyElem.className = "footer-contestant-entry-ready";
+        readyElem.className = "footer-contestant-entry-ready footer-contestant-icon-overlay";
         readyElem.src = `${getBaseURL()}/static/img/check.png`;
 
         let disconnectedElem = document.createElement("img");
-        disconnectedElem.className = "footer-contestant-entry-disconnected";
+        disconnectedElem.className = "footer-contestant-entry-disconnected footer-contestant-icon-overlay";
         disconnectedElem.src = `${getBaseURL()}/static/img/disconnected.png`;
 
         // Create edit btn
         let editBtn = document.createElement("button");
-        editBtn.className = "footer-contestant-edit-btn d-none";
+        editBtn.className = "footer-contestant-edit-btn d-none footer-contestant-icon-overlay";
         editBtn.onclick = function() {
             toggleEditContestantInfo(contestantData["id"]);
         }
