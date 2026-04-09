@@ -269,6 +269,8 @@ def game_view(game_id: str):
 def lobby(join_code: str):
     database: Database = flask.current_app.config["DATABASE"]
 
+    user_data = {}
+
     with database:
         game_data = database.get_game_from_code(join_code)
         if game_data is None:
@@ -276,7 +278,6 @@ def lobby(join_code: str):
         
         user_id = _get_user_id_from_cookie(flask.request.cookies)
 
-        user_data = {}
         if user_id is not None:
             contestant = database.get_contestant_from_id(user_id)
             if contestant is not None:
@@ -285,6 +286,12 @@ def lobby(join_code: str):
     if "avatar" not in user_data:
         user_data["avatar"] = f"{get_avatar_path(False)}/questionmark.png"
         user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
+
+    if "bg_image" in user_data:
+        user_data["bg_image"] = os.path.basename(user_data["bg_iamge"])
+
+    if "buzz_sound" in user_data:
+        user_data["buzz_sound"] = os.path.basename(user_data["buzz_sound"])
 
     error = flask.request.args.get("error")
 

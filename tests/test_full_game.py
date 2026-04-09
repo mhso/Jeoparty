@@ -320,7 +320,9 @@ async def handle_endscreen_page(context: ContextHandler):
 
     await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-    await asyncio.sleep(5)
+    await asyncio.sleep(15)
+
+    await context.screenshot_views()
 
 def to_absolute_url(page: Page, url: str):
     http_split = page.url.split("://")

@@ -1696,10 +1696,10 @@ function startWinnerParty() {
     registerAction(function() {
         const endscreenSound = document.getElementById("endscreen-sound");
         if (endscreenSound) {
-            endscreenSound.play();
             endscreenSound.onended = function() {
                 startEndscreenAnimation();
             }
+            endscreenSound.play();
         }
         else {
             startEndscreenAnimation();

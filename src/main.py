@@ -42,7 +42,6 @@ def run_app(args):
            locale_data[lang] = json.load(fp)
 
     if Config.ENV is Environment.DEVELOPMENT and not args.dev:
-        Config.ENV = Environment.PRODUCTION
         host_url = get_local_ip()
         flask_url = "0.0.0.0"
     else:

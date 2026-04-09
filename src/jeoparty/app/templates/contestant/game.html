@@ -2,7 +2,7 @@
 <html>
     {% include 'contestant/head.html' %}
     
-    <body>
+    <body{% if bg_image %} style="background-color: transparent"{% endif %}>
         {% if bg_image %}
         <div id="bg-image" style="background-image: url({{ url_for('static', _external=True, filename=bg_image) }});"></div>
         {% endif %}
