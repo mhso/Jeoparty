@@ -52,7 +52,7 @@
         <!-- Buzz-in sounds for contestants -->
         {% for contestant in game_contestants %}
         {% if contestant.buzz_sound %}
-        <audio id="question-buzzer-{{ contestant['contestant_id'] }}">
+        <audio id="question-buzzer-{{ contestant['id'] }}">
             <source src="{{ url_for('static', _external=True, filename=contestant['buzz_sound']) }}" type="audio/mpeg">
         </audio>
         {% endif %}

@@ -177,9 +177,13 @@ def join_lobby():
             # Update or save contestant avatar
             new_avatar = None
             if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
+                print("Yep")
                 new_avatar = _save_contestant_avatar(flask.request.files["avatar"], contestant_model.id)
             elif existing_model is None or existing_model.avatar is None:
+                print("Yep 2")
                 new_avatar = _get_default_avatar(index, game_data.pack.theme_id)
+
+            print(new_avatar)
 
             if new_avatar is not None:
                 contestant_model.avatar = new_avatar

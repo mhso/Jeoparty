@@ -262,6 +262,8 @@ function playerHasPowerUp(playerId, powerId) {
 }
 
 function afterQuestion() {
+    disablePowerUp();
+
     const currAnswer = activeAnswer;
     const currPlayer = answeringPlayer;
 

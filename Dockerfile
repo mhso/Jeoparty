@@ -39,7 +39,7 @@ COPY tests ./tests
 COPY resources/database/database.db ./resources/database/database.db
 
 # Run the tests
-CMD ["pdm", "run", "pytest", "tests/test_full_game.py", "-s"]
+CMD ["pdm", "run", "pytest"]
 
 # -=-=-=- Production Stage -=-=-=-
 FROM base AS prod
