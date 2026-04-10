@@ -375,13 +375,3 @@ def endscreen(game_data: Game):
         winners=winners_json,
         winner_desc=winner_desc,
     )
-
-@presenter_page.route("/<game_id>/cheatsheet")
-@_request_decorator
-def cheatsheet(game_data: Game):
-    all_round_data = []
-    for round_data in game_data.pack.rounds:
-        round_json = round_data.dump()
-        all_round_data.append(round_json)
-
-    return render_locale_template("presenter/cheatsheet.html", rounds=all_round_data)

@@ -464,6 +464,27 @@ def save_pack(pack_id: str):
 
     return make_json_response({"response": "Question pack saved successfully.", "ids": new_ids}, 200)
 
+@dashboard_page.route("/pack/<pack_id>/cheatsheet")
+def cheatsheet(pack_id: str):
+    user_details = get_user_details()
+    if user_details is None:
+        return make_json_response("You are not logged in!", 401)
+
+    database: Database = flask.current_app.config["DATABASE"]
+    user_id = user_details[0]
+
+    with database:
+        pack_data: QuestionPack | None = database.get_question_packs_for_user(user_id, pack_id)
+        if pack_data is None:
+            return flask.abort(404)
+
+        all_round_data = []
+        for round_data in pack_data.rounds:
+            round_json = round_data.dump()
+            all_round_data.append(round_json)
+
+    return render_locale_template("dashboard/cheatsheet.html", rounds=all_round_data)
+
 @dashboard_page.route("/pack/<pack_id>/delete", methods=["POST"])
 def delete_pack(pack_id: str):
     user_details = get_user_details()
