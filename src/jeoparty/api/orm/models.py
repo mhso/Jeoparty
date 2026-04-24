@@ -3,7 +3,7 @@ import os
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from sqlalchemy import String, Integer, Float, Boolean, DateTime, Enum, JSON, ForeignKey, case
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, Enum, JSON, ForeignKey
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from mhooge_flask.database import Base
@@ -16,8 +16,6 @@ from jeoparty.api.config import (
     get_buzz_sound_path,
     file_or_fallback,
 )
-
-power_up_order_case = {power_up.name: index for index, power_up in enumerate(PowerUpType)}
 
 class Theme(Base):
     __tablename__ = "themes"
@@ -205,6 +203,20 @@ class GamePowerUp(Base):
             )
         }
 
+class GameQuestion(Base):
+    __tablename__ = "game_questions"
+
+    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id", ondelete="CASCADE"), primary_key=True)
+    question_id: Mapped[str] = mapped_column(String(64), ForeignKey("questions.id"), primary_key=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=False)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    daily_double: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    game = relationship("Game", back_populates="game_questions")
+    question = relationship("Question", back_populates="game_questions")
+
+    __serialize_relationships__ = [question]
+
 class GameContestant(Base):
     __tablename__ = "game_contestants"
     __validate_fields__ = {
@@ -216,8 +228,8 @@ class GameContestant(Base):
     }
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: str(uuid4()))
-    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id", ondelete="CASCADE"), primary_key=True)
-    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("contestants.id", ondelete="CASCADE"), primary_key=True)
+    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id", ondelete="CASCADE"))
+    contestant_id: Mapped[str] = mapped_column(String(64), ForeignKey("contestants.id", ondelete="CASCADE"))
     has_turn: Mapped[bool] = mapped_column(Boolean, default=False)
     score: Mapped[int] = mapped_column(Integer, default=0)
     buzzes: Mapped[int] = mapped_column(Integer, default=0)
@@ -230,7 +242,7 @@ class GameContestant(Base):
 
     game = relationship("Game", back_populates="game_contestants")
     contestant = relationship("Contestant", back_populates="game_contestants")
-    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete", order_by=case(power_up_order_case, value=GamePowerUp.type))
+    power_ups = relationship("GamePowerUp", back_populates="contestant", cascade="all, delete", order_by=GamePowerUp.type)
 
     __serialize_relationships__ = [contestant, power_ups]
 
@@ -253,20 +265,6 @@ class GameContestant(Base):
 
         return None
 
-class GameQuestion(Base):
-    __tablename__ = "game_questions"
-
-    game_id: Mapped[str] = mapped_column(String(64), ForeignKey("games.id", ondelete="CASCADE"), primary_key=True)
-    question_id: Mapped[str] = mapped_column(String(64), ForeignKey("questions.id"), primary_key=True)
-    active: Mapped[bool] = mapped_column(Boolean, default=False)
-    used: Mapped[bool] = mapped_column(Boolean, default=False)
-    daily_double: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    game = relationship("Game", back_populates="game_questions")
-    question = relationship("Question", back_populates="game_questions")
-
-    __serialize_relationships__ = [question]
-
 class Game(Base):
     __tablename__ = "games"
     __validate_fields__ = {
@@ -280,7 +278,7 @@ class Game(Base):
     pack_id: Mapped[str] = mapped_column(String(64), ForeignKey("question_packs.id"))
     title: Mapped[str] = mapped_column(String(32))
     join_code: Mapped[str] = mapped_column(String(64))
-    regular_rounds: Mapped[int] = mapped_column(Integer, default=Config.REGULAR_ROUNDS)
+    regular_rounds: Mapped[int] = mapped_column(Integer, default=Config.DEFAULT_REGULAR_ROUNDS)
     max_contestants: Mapped[int] = mapped_column(Integer)
     answer_time: Mapped[int] = mapped_column(Integer, default=Config.DEFAULT_ANSWER_TIME)
     use_daily_doubles: Mapped[bool] = mapped_column(Boolean, default=True)

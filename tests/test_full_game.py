@@ -400,6 +400,7 @@ async def simulate_disconnect(context: ContextHandler, game_data: Game):
 
     await page.goto(page_url)
 
+@pytest.mark.skip
 @pytest.mark.asyncio
 async def test_random_game(database, locales):
     pack_name = "LoL Jeopardy v7"

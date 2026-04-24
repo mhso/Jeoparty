@@ -21,8 +21,8 @@ podman run \
     --name jeoparty \
     -i \
     -p $port:$port \
+    --network=host \
     -v ./log:/jeoparty/log \
-    -v ./resources/database:/jeoparty/resources/database \
     -v ./src/jeoparty/app/static/data/packs:/jeoparty/src/jeoparty/app/static/data/packs \
     -v ./src/jeoparty/app/static/img/avatars:/jeoparty/src/jeoparty/app/static/img/avatars \
     jeoparty:latest

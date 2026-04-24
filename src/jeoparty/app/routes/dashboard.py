@@ -527,7 +527,7 @@ def question_pack(pack_id: str):
             pack_json["rounds"].append(
                 {
                     "pack_id": pack_data.id,
-                    "name": Config.ROUND_NAMES[-1],
+                    "name": Config.DEFAULT_ROUND_NAMES[-1],
                     "round": 2,
                     "categories": [],
                 }

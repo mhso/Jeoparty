@@ -1,19 +1,19 @@
 from argparse import ArgumentParser
 import asyncio
-from base64 import b64encode
 import os
 from inspect import iscoroutinefunction
 from glob import glob
 from uuid import uuid4
 
-import cv2
 from flask import json
 import requests
+from sqlalchemy import text
+from mhooge_flask.database import Base
 
 from jeoparty.api.config import Config, get_buzz_sound_path
-from jeoparty.api.database import Database
-from jeoparty.api.enums import StageType
-from jeoparty.api.orm.models import BuzzerSound, Game
+from jeoparty.api.database import Database, start_ssh_tunnel
+from jeoparty.api.enums import Environment, StageType
+from jeoparty.api.orm.models import BuzzerSound
 
 class ScriptRunner:
     def fetch_resource(self):
@@ -113,13 +113,13 @@ class ScriptRunner:
         print(response.text, response.status_code)
 
     def delete_game(self, game_id: str):
-        database = Database()
+        database = Database(Config())
         database.delete_game(game_id)
 
     def insert_buzzer_sounds(self, theme_id: str):
         folder = get_buzz_sound_path(theme_id)
         sound_files = glob(f"{folder}/*.mp3")
-        database = Database()
+        database = Database(Config())
 
         with database as session:
             models = []
@@ -147,7 +147,7 @@ class ScriptRunner:
             session.commit()
 
     def copy_game_state(self, game_id: str):
-        database = Database()
+        database = Database(Config())
 
         with database as session:
             game = database.get_game_from_id(game_id)
@@ -174,6 +174,76 @@ class ScriptRunner:
 
             session.add(game)
             session.commit()
+
+    def test_db_conn(self):
+        with Database(Config()) as session:
+            result = session.execute(text("SELECT 1"))
+            print(result)
+
+    def dev_etl(self):
+        from sqlalchemy import select, insert
+
+        prod_config = Config(Environment.PRODUCTION)
+        dev_config = Config(Environment.DEVELOPMENT)
+
+        prod_database = Database(prod_config)
+        dev_database = Database(dev_config)
+        with prod_database as prod_session:
+            with dev_database as dev_session:
+                Base.metadata.drop_all(dev_database.engine)
+                Base.metadata.create_all(dev_database.engine)
+
+                tables = list(Base.metadata.tables.keys())
+                tables.remove("game_power_ups")
+                tables.append("game_power_ups")
+
+                for table_name in tables:
+                    table = Base.metadata.tables[table_name]
+                    print(f"Transfering data from '{table_name}'")
+
+                    results = prod_session.execute(select(table))
+                    for row in results:
+                        dev_session.execute(insert(table).values(row))
+
+                    dev_session.commit()
+
+    def transfer_to_postgres(self):
+        from sqlalchemy import create_engine, select, insert
+        from sqlalchemy.orm import sessionmaker
+
+        try:
+            tunnel = start_ssh_tunnel()
+
+            database = Database(Config(Environment.PRODUCTION))
+            with database as session_postgres:
+                engine_sqlite = create_engine(f"sqlite:///{Config.RESOURCES_FOLDER}/database/database.db")
+                with sessionmaker(bind=engine_sqlite)() as session_sqlite:
+                    Base.metadata.drop_all(database.engine)
+                    Base.metadata.create_all(database.engine)
+
+                    tables = list(Base.metadata.tables.keys())
+
+                    # Move some tables to the back of the list since they depend on other tables
+                    tables_to_reorder = ["game_contestants", "game_power_ups", "game_questions"]
+
+                    for table in tables_to_reorder:
+                        tables.remove(table)
+                        tables.append(table)
+
+                    for table_name in tables:
+                        table = Base.metadata.tables[table_name]
+                        print(f"Transfering data from '{table_name}'")
+
+                        results = session_sqlite.execute(select(table))
+                        for row in results:
+                            session_postgres.execute(insert(table).values(row))
+
+                        session_postgres.commit()
+
+                engine_sqlite.dispose()
+        finally:
+            tunnel.kill()
+            tunnel.wait()
 
 if __name__ == "__main__":
     PARSER = ArgumentParser()

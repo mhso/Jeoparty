@@ -177,13 +177,9 @@ def join_lobby():
             # Update or save contestant avatar
             new_avatar = None
             if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
-                print("Yep")
                 new_avatar = _save_contestant_avatar(flask.request.files["avatar"], contestant_model.id)
             elif existing_model is None or existing_model.avatar is None:
-                print("Yep 2")
                 new_avatar = _get_default_avatar(index, game_data.pack.theme_id)
-
-            print(new_avatar)
 
             if new_avatar is not None:
                 contestant_model.avatar = new_avatar
@@ -291,11 +287,11 @@ def lobby(join_code: str):
         user_data["avatar"] = f"{get_avatar_path(False)}/questionmark.png"
         user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
 
-    if "bg_image" in user_data:
-        user_data["bg_image"] = os.path.basename(user_data["bg_iamge"])
+    if (bg_image := user_data.get("bg_image")):
+        user_data["bg_image"] = os.path.basename(bg_image)
 
-    if "buzz_sound" in user_data:
-        user_data["buzz_sound"] = os.path.basename(user_data["buzz_sound"])
+    if (buzz_sound := user_data.get("buzz_sound")):
+        user_data["buzz_sound"] = os.path.basename(buzz_sound)
 
     error = flask.request.args.get("error")
 

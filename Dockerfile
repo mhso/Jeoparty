@@ -27,7 +27,6 @@ RUN curl -sSL https://pdm-project.org/install.sh | bash && pdm install --$DEPGRO
 
 # Copy code and resources
 COPY src ./src
-COPY resources/schema.sql ./resources/schema.sql
 COPY resources/locales ./resources/locales
 
 # -=-=-=- Test Stage -=-=-=-
@@ -36,7 +35,6 @@ FROM base AS test
 RUN pdm run playwright install chromium
 
 COPY tests ./tests
-COPY resources/database/database.db ./resources/database/database.db
 
 # Run the tests
 CMD ["pdm", "run", "pytest"]
@@ -49,4 +47,4 @@ EXPOSE $PORT
 
 # Run the server
 WORKDIR /jeoparty/src
-CMD ["pdm", "run", "main.py", "-p", "${PORT}"]
+CMD ["pdm", "run", "main.py", "-p", "${PORT}", "-e", "production"]

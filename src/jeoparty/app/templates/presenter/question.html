@@ -57,6 +57,7 @@
         </audio>
         {% endif %}
         {% endfor %}
+    
         <!-- Correct/wrong answers sounds -->
         {% if stage == "question" %}
         <audio id="question-sound-correct">
@@ -84,11 +85,7 @@
             socket.on("connect", function() {
                 // Called when all contestants are ready
                 socket.on("all_contestants_joined", function () {
-                    {% if stage == 'question' and not daily_double %}
-                    socket.emit("enable_powerup", null, "hijack");
-                    {% endif %}
-                    setupComplete = true;
-                    hideConnectionStatus();
+                    finalizeSetup();
                 });
 
                 // Called when presenter is ready

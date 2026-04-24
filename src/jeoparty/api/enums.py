@@ -1,5 +1,9 @@
 from enum import Enum
 
+class Environment(Enum):
+    PRODUCTION = "production"
+    DEVELOPMENT = "development"
+    TESTING = "testing"
 
 class StageType(Enum):
     LOBBY = "lobby"

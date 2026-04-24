@@ -1,24 +1,26 @@
 from argparse import ArgumentParser
-import os
+import json
 
 from jeoparty.api.config import Config
+from jeoparty.api.enums import Environment
 from jeoparty.api.database import Database
 
 from mhooge_flask.query_db import query_or_repl
 
+with open(f"{Config.STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
+    secrets = json.load(fp)
+
 parser = ArgumentParser()
 
-parser.add_argument("-db", "--database", default="database.db")
+parser.add_argument("-e", "--env", default=secrets["env"])
 parser.add_argument("--query", default=None, type=str, nargs="+")
 parser.add_argument("--raw", action="store_true")
 parser.add_argument("--print", action="store_true")
 
 args = parser.parse_args()
 
-if not os.path.exists(f"{Config.RESOURCES_FOLDER}/database/{args.database}"):
-    print("Database does not seem to exist. Exiting...")
-    exit(0)
+env = Environment(args.env)
 
-database = Database(args.database)
+database = Database(Config(env))
 
 query_or_repl(database, args.query, args.raw, args.print)

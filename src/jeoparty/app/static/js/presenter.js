@@ -1123,6 +1123,28 @@ function afterDailyDoubleWager(amount) {
     showQuestion();
 }
 
+function finalizeSetup() {
+    hideConnectionStatus();
+
+    if (activeStage == 'question' && !isDailyDouble) {
+        // Wait for power-up video to load before enabling hijack
+        let powerUpVideo = document.getElementById("question-power-up-video-hijack");
+        if (powerUpVideo.readyState == HTMLMediaElement.HAVE_ENOUGH_DATA) {
+            enablePowerUp(null, "hijack");
+            setupComplete = true;
+        }
+        else {
+            powerUpVideo.oncanplaythrough = function() {
+                enablePowerUp(null, "hijack");
+                setupComplete = true;
+            }
+        }
+    }
+    else {
+        setupComplete = true;
+    }
+}
+
 function initialize(playerJson, stage, localeJson, pageSpecificJson=null) {
     let playerData = JSON.parse(playerJson);
     let pageSpecificData = pageSpecificJson == null ? null : JSON.parse(pageSpecificJson);

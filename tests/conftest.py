@@ -6,10 +6,11 @@ from sqlalchemy import text
 pytest.register_assert_rewrite("tests.browser_context")
 
 from mhooge_flask.auth import get_hashed_password
+from mhooge_flask.database import Base
 
 from jeoparty.api.config import Config, get_question_pack_data_path, get_locale_data
 from jeoparty.api.database import Database
-from jeoparty.api.enums import Language
+from jeoparty.api.enums import Environment, Language
 from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question, QuestionRound
 from tests.config import PRESENTER_USER_ID, PRESENTER_USERNAME, PRESENTER_PASSWORD
 
@@ -156,19 +157,21 @@ def locales():
     # Load locale data
     return get_locale_data()
 
-@pytest.fixture(scope="function")
-def database():
-    db_file = "test.db"
-    db_file_path = f"{Config.RESOURCES_FOLDER}/database/{db_file}"
-    if os.path.exists(db_file_path):
-        os.remove(db_file_path)
+@pytest.fixture(scope="session")
+def config():
+    return Config(Environment.TESTING)
 
-    shutil.copy(f"{Config.RESOURCES_FOLDER}/database/database.db", db_file_path)
-    database = Database(db_file)
+@pytest.fixture(scope="function")
+def database(config):
+    database = Database(config)
 
     with database as session:
+        # Drop and recreate tables
+        Base.metadata.drop_all(database.engine)
+        Base.metadata.create_all(database.engine)
+
         # Create presenter user
-        hashed_pw = get_hashed_password(PRESENTER_PASSWORD, f"{Config.SRC_FOLDER}/app/static/secret.json")
+        hashed_pw = get_hashed_password(PRESENTER_PASSWORD, f"{config.STATIC_FOLDER}/secret.json")
         database.create_user(PRESENTER_USER_ID, PRESENTER_USERNAME, hashed_pw)
 
         session.execute(text(f"UPDATE themes SET created_by = '{PRESENTER_USER_ID}'"))
@@ -189,8 +192,3 @@ def database():
         yield database
 
     database.engine.dispose()
-
-    try:
-       os.remove(db_file_path)
-    except PermissionError:
-        pass

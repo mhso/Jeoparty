@@ -15,13 +15,29 @@ do
     fi
 done
 
+POSTGRES_IMAGE="postgres:16.13-trixie"
+
+podman stop -i postgres_test
+
+podman run \
+    --name postgres_test \
+    -d \
+    --rm \
+    -p 127.0.0.1:5432:5432 \
+    -e POSTGRES_PASSWORD=password \
+    -e POSTGRES_USER=mikkel \
+    $POSTGRES_IMAGE
+
 podman run \
     --name jeoparty_test \
     -i \
     --rm \
+    --network=host \
     -v ./src/jeoparty/app/static/data/packs:/jeoparty/src/jeoparty/app/static/data/packs \
     -v ./tests/screenshots:/jeoparty/tests/screenshots \
     -v ./tests/videos:/jeoparty/tests/videos \
     jeoparty_test:latest
+
+podman stop -i postgres_test
 
 popd

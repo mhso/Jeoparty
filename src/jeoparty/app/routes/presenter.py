@@ -8,8 +8,8 @@ from mhooge_flask.routing import socket_io
 import requests
 
 from jeoparty.api.database import Database
-from jeoparty.api.config import Config, Environment
-from jeoparty.api.enums import StageType
+from jeoparty.api.config import Config
+from jeoparty.api.enums import Environment, StageType
 from jeoparty.api.orm.models import Game, GameQuestion
 from jeoparty.app.routes.socket import GameSocketHandler, get_namespace_handler
 from jeoparty.app.routes.shared import (
@@ -61,12 +61,8 @@ def _request_decorator(func):
 
     return wrapper
 
-def _get_intfar_request_params():
-    base_url = (
-        "http://localhost:5000"
-        if flask.current_app.config["HOST_URL"] == "localhost"
-        else "https://mhooge.com:5000"
-    )
+def _get_intfar_request_params(config: Config):
+    base_url = f"{config.internal_host_url}:5000"
 
     with open(f"{Config.STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
         data = json.load(fp)
@@ -80,17 +76,14 @@ def _get_intfar_request_params():
 @presenter_page.route("/<game_id>")
 @_request_decorator
 def lobby(game_data: Game):
-    if Config.ENV is Environment.PRODUCTION:
-        host_url = "https://mhooge.com"
-    else:
-        host_url = f"http://{flask.current_app.config["HOST_URL"]}:5006"
+    config: Config = flask.current_app.config["APP_CONFIG"]
 
-    join_url = f"{host_url}/jeoparty/{game_data.join_code}"
+    join_url = f"{config.external_host_url}/jeoparty/{game_data.join_code}"
 
     lan_mode = is_lan_active(game_data)
     if lan_mode:
         # Send host URL to Int-Far, if a LAN is active
-        base_url, request_json = _get_intfar_request_params()
+        base_url, request_json = _get_intfar_request_params(config)
 
         request_json["join_url"] = join_url
         if game_data.password:

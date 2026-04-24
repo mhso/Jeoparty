@@ -1,14 +1,18 @@
 from datetime import datetime
-import json
 from typing import List
+from subprocess import PIPE, Popen
+from time import sleep
+import socket
+import json
 
 from sqlalchemy import select, delete, update, func
-from sqlalchemy.orm import selectinload, Session
+from sqlalchemy.orm import Session, selectinload
 
 from mhooge_flask.database import SQLAlchemyDatabase
+from mhooge_flask.logging import logger
 
 from jeoparty.api.config import Config
-from jeoparty.api.enums import StageType
+from jeoparty.api.enums import Environment, StageType
 from jeoparty.api.orm.models import *
 
 def format_value(key, value):
@@ -23,9 +27,33 @@ def row_factory(cursor, row):
     fields = [column[0] for column in cursor.description]
     return {key: format_value(key, value) for key, value in zip(fields, row)}
 
+def start_ssh_tunnel():
+    cmd = ["pdm", "run", f"{Config.SRC_FOLDER}/ssh_tunnel.py"]
+    ssh_tunnel = Popen(cmd, text=True, stdout=PIPE)
+    os.set_blocking(ssh_tunnel.stdout.fileno(), False)
+
+    for _ in range(10):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('localhost', 5432)) == 0:
+                return ssh_tunnel
+
+        sleep(1)
+
+    return ssh_tunnel
+
 class Database(SQLAlchemyDatabase):
-    def __init__(self, db_file="database.db"):
-        super().__init__(f"{Config.RESOURCES_FOLDER}/database/{db_file}", "api/orm", True, True)
+    def __init__(self, config: Config):
+        self.config = config
+        self.ssh_tunnel = None
+        if config.env is Environment.DEVELOPMENT:
+            self.ssh_tunnel = start_ssh_tunnel()
+
+        super().__init__(config.db_conn_str, "api/orm", True, True)
+
+        db_name = self.engine.url.database
+        db_host = self.engine.url.host
+        db_port = self.engine.url.port
+        logger.info(f"Connected to database '{db_name}' at '{db_host}:{db_port}'")
 
     def get_question_packs_for_user(self, user_id: str, pack_id: str | None = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:
@@ -158,9 +186,9 @@ class Database(SQLAlchemyDatabase):
 
             rounds_to_create = []
             if pack_model.rounds == []:
-                rounds_to_create = [(1, Config.ROUND_NAMES[0])]
+                rounds_to_create = [(1, self.config.DEFAULT_ROUND_NAMES[0])]
                 if pack_model.include_finale:
-                    rounds_to_create.append((2, Config.FINALE_NAME))
+                    rounds_to_create.append((2, self.config.DEFAULT_FINALE_NAME))
 
             for (round_num, name) in rounds_to_create:
                 session.add(QuestionRound(pack_id=pack_model.id, name=name, round=round_num))
