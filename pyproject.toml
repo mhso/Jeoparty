@@ -1,10 +1,14 @@
 [project]
 name = "jeoparty"
-version = "1.0.0"
-description = "Default template for PDM package"
+version = "1.1.0"
+description = "Jeoparty quiz game, now with uv"
 authors = [
     {name = "Mikkel Sørensen", email = "m_hooge@hotmail.com"},
 ]
+requires-python = ">=3.12"
+readme = "README.md"
+license = {text = "MIT"}
+
 dependencies = [
     "mhooge-flask @ git+https://github.com/mhso/mhooge-flask.git",
     "flask-socketio>=5.5.1",
@@ -16,9 +20,6 @@ dependencies = [
     "psycopg[binary]>=3.3.3",
     "paramiko>=4.0.0",
 ]
-requires-python = ">=3.10"
-readme = "README.md"
-license = {text = "MIT"}
 
 [dependency-groups]
 dev = [
@@ -28,6 +29,9 @@ dev = [
     "playwright>=1.56.0",
 ]
 
+[tool.uv]
+package = false
+
 [tool.pytest.ini_options]
 pythonpath = [
     "src"
@@ -36,6 +40,3 @@ testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
 asyncio_default_fixture_loop_scope = "module"
 asyncio_default_test_loop_scope = "module"
-
-[tool.pdm]
-distribution = false

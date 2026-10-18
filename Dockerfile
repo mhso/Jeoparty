@@ -16,14 +16,14 @@ RUN apt update \
     && apt install -y libxkbcommon0 \
     && apt install -y libasound2t64
 
-# Copy pyproject.toml
-COPY pyproject.toml pdm.lock ./
-
 # Set environment variables
-ENV PDM_HOME=/bin
+ENV UV_INSTALL_DIR=/bin
 
-# Download PDM and install requirements
-RUN curl -sSL https://pdm-project.org/install.sh | bash && pdm install --$DEPGROUP
+# Copy pyproject.toml
+COPY pyproject.toml uv.lock ./
+
+# Download uv and install requirements
+RUN curl -LsSf https://astral.sh/uv/install.sh | bash && uv sync --no-dev
 
 # Copy code and resources
 COPY src ./src
@@ -32,19 +32,16 @@ COPY resources/locales ./resources/locales
 # -=-=-=- Test Stage -=-=-=-
 FROM base AS test
 
-RUN pdm run playwright install chromium
+RUN uv run playwright install chromium
 
 COPY tests ./tests
 
 # Run the tests
-CMD ["pdm", "run", "pytest"]
+CMD ["uv", "run", "pytest"]
 
 # -=-=-=- Production Stage -=-=-=-
 FROM base AS prod
 
-# Expose the provided port for Flask
-EXPOSE $PORT
-
 # Run the server
 WORKDIR /jeoparty/src
-CMD ["pdm", "run", "main.py", "-p", "${PORT}", "-e", "production"]
+CMD uv run main.py -p ${PORT} -e production

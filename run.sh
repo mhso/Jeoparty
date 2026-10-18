@@ -20,7 +20,6 @@ done
 podman run \
     --name jeoparty \
     -i \
-    -p $port:$port \
     --network=host \
     -v ./log:/jeoparty/log \
     -v ./src/jeoparty/app/static/data/packs:/jeoparty/src/jeoparty/app/static/data/packs \

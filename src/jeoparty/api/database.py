@@ -28,7 +28,7 @@ def row_factory(cursor, row):
     return {key: format_value(key, value) for key, value in zip(fields, row)}
 
 def start_ssh_tunnel():
-    cmd = ["pdm", "run", f"{Config.SRC_FOLDER}/ssh_tunnel.py"]
+    cmd = ["uv", "run", f"{Config.SRC_FOLDER}/ssh_tunnel.py"]
     ssh_tunnel = Popen(cmd, text=True, stdout=PIPE)
     os.set_blocking(ssh_tunnel.stdout.fileno(), False)
 
@@ -48,7 +48,7 @@ class Database(SQLAlchemyDatabase):
         if config.env is Environment.DEVELOPMENT:
             self.ssh_tunnel = start_ssh_tunnel()
 
-        super().__init__(config.db_conn_str, "api/orm", True, True)
+        super().__init__(config.db_conn_str, "api/orm", f"{self.config.RESOURCES_FOLDER}/database", True, True)
 
         db_name = self.engine.url.database
         db_host = self.engine.url.host
@@ -69,7 +69,9 @@ class Database(SQLAlchemyDatabase):
                 selectinload(QuestionPack.rounds).
                 selectinload(QuestionRound.categories).
                 selectinload(QuestionCategory.questions)
-            ).filter(*filters)
+            ).filter(
+                *filters
+            ).order_by(QuestionPack.created_at)
 
             data = session.execute(statement).scalars().all()
 

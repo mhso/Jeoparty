@@ -16,12 +16,18 @@ from jeoparty.api.enums import Environment
 from jeoparty.api.database import Database
 
 def run_app(args):
-    routes = [
-        Route("dashboard", "dashboard_page"),
-        Route("contestant", "contestant_page"),
-        Route("presenter", "presenter_page", "presenter"),
-        Route("login", "login_page")
-    ]
+    routes = []
+    for prefix in ("", "api"):
+        folder = f".{prefix}" if prefix else ""
+        presenter = f"{prefix}/presenter" if prefix else "presenter"
+        routes.extend(
+            [
+                Route("dashboard", "dashboard_page", prefix=prefix or "root", folder=f"routes{folder}"),
+                Route("contestant", "contestant_page", prefix=prefix or "root", folder=f"routes{folder}"),
+                Route("presenter", "presenter_page", presenter, folder=f"routes{folder}"),
+                Route("login", "login_page", prefix=prefix or "root", folder=f"routes{folder}"),
+            ]
+        )
 
     override_env = None
     if args.env:

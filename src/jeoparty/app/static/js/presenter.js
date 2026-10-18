@@ -4,7 +4,7 @@ const CONN_ATTEMPTS = 3;
 var socket;
 for (let i = 0; i < CONN_ATTEMPTS; i++) {
     try {
-        socket = io(`/${GAME_ID}`, {"transports": ["websocket", "polling"], "rememberUpgrade": true, "timeout": 5000});
+        socket = io(`/${GAME_ID}`, {"transports": ["websocket"], "rememberUpgrade": true, "timeout": 5000});
         socket.on("connect_error", function(err) {
             console.error("Presenter socket connection error:", err);
             if (socket.active) {

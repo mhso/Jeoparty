@@ -308,6 +308,7 @@ def finale(game_data: Game):
 @presenter_page.route("/<game_id>/endscreen")
 @_request_decorator
 def endscreen(game_data: Game):
+    config: Config = flask.current_app.config["APP_CONFIG"]
     database: Database = flask.current_app.config["DATABASE"]
     game_data.stage = StageType.ENDED
 
@@ -350,7 +351,7 @@ def endscreen(game_data: Game):
     # Send post request to Int-Far if LAN is active
     if is_lan_active(game_data):
         print("Sending update to Int-Far")
-        base_url, request_json = _get_intfar_request_params()
+        base_url, request_json = _get_intfar_request_params(config)
 
         request_json["player_data"] = game_json["game_contestants"]
 

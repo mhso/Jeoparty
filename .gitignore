@@ -9,6 +9,3 @@ src/jeoparty/app/static/*
 !src/jeoparty/app/static/css/
 tests/videos
 tests/screenshots
-
-.pdm-python
-.pdm-config
