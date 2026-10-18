@@ -218,6 +218,8 @@ class Database(SQLAlchemyDatabase):
             session.commit()
             session.refresh(game_model)
 
+            return game_model
+
     def delete_game(self, game_id: str):
         with self as session:
             game_stmt = delete(Game).where(Game.id == game_id)
