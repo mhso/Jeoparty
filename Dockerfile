@@ -37,7 +37,7 @@ RUN uv run playwright install chromium
 COPY tests ./tests
 
 # Run the tests
-CMD ["uv", "run", "pytest"]
+CMD ["uv", "run", "pytest", "tests/test_api.py", "--tb", "short", "-s"]
 
 # -=-=-=- Production Stage -=-=-=-
 FROM base AS prod

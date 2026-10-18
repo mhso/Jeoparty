@@ -1,6 +1,9 @@
 import os
 import shutil
+from subprocess import Popen
+from time import sleep
 import pytest
+import requests
 from sqlalchemy import text
 
 pytest.register_assert_rewrite("tests.browser_context")
@@ -192,3 +195,22 @@ def database(config):
         yield database
 
     database.engine.dispose()
+
+def _wait_for_server():
+    attempts = 20
+    for _ in range(attempts):
+        try:
+            requests.get("http://localhost:5006/jeoparty/api/ping", timeout=1)
+            return
+        except requests.RequestException:
+            sleep(0.5)
+
+@pytest.fixture(scope="session", autouse=True)
+def app():
+    process = Popen(["uv", "run", "main.py", "-e" "testing"], cwd="src")
+    _wait_for_server()
+
+    yield
+
+    process.terminate()
+    process.wait()

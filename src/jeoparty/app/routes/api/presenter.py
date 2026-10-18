@@ -22,45 +22,6 @@ from jeoparty.app.routes.shared import (
 
 presenter_page = flask.Blueprint("presenter_api", __name__, template_folder="templates")
 
-def _request_decorator(func):
-    """
-    Decorator for ensuring the following before a request:
-    - The user is logged in and authorized
-    - Game data exists and is cached
-    - SocketIO namespace is set up for the given game
-    """
-    def wrapper(*args, **kwargs):
-        game_id = kwargs.pop("game_id")
-
-        # Setup socket namespace for the given game
-        namespace_handler = get_namespace_handler(game_id)
-
-        database: Database = flask.current_app.config["DATABASE"]
-        with database:
-            # Ensure user is logged in or redirect to login
-            if (user_details := get_user_details()) is None:
-                return redirect_to_login(f"presenter.{func.__name__}", game_id=game_id)
-
-            # Retrieve the game data for the given game ID or abort if it is missing
-            game_data = database.get_game_from_id(game_id)
-            if game_data is None:
-                return flask.abort(404)
-
-            # Verify the user actually created the game
-            if user_details[0] != game_data.created_by:
-                return flask.abort(401)
-
-            if namespace_handler is None:
-                namespace_handler = GameSocketHandler(game_data.id, database)
-                socket_io.on_namespace(namespace_handler)
-
-            # Inject game data to the route handler
-            return func(game_data=game_data, *args, **kwargs)
-
-    wrapper.__setattr__("__name__", func.__name__)
-
-    return wrapper
-
 def _get_intfar_request_params(config: Config):
     base_url = f"{config.internal_host_url}:5000"
 
@@ -152,6 +113,19 @@ def _get_selection_state(game_data: Game):
 
     return selection_json
 
+def _get_endscreen_state(game_data: Game):
+    winners = game_data.get_game_winners()
+
+    return [
+        {
+            "id": winner.id,
+            "name": winner.contestant.name,
+            "color": winner.contestant.color,
+            "avatar": winner.contestant.avatar,
+        }
+        for winner in winners
+    ]
+
 def _get_game_state(game_data: Game):
     # Shared data cross stages
     game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
@@ -178,6 +152,9 @@ def _get_game_state(game_data: Game):
 
     elif game_data.stage is StageType.SELECTION:
         state_json["round"] = _get_selection_state(game_data)
+
+    elif game_data.stage is StageType.ENDED:
+        state_json["winners"] = _get_endscreen_state(game_data)
 
     return make_json_response(game_json, 200)
 

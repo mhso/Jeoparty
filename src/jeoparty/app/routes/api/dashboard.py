@@ -502,4 +502,8 @@ def question_pack(pack_id: str):
 
 @dashboard_page.route("/themes")
 def themes():
-    pass
+    return "Not implemented yet", 200
+
+@dashboard_page.route("/ping")
+def ping():
+    return "OK"

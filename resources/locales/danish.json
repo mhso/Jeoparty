@@ -48,6 +48,7 @@
             "placeholder_name": "Dit Navn",
             "color_label": "Din Farve",
             "join": "Deltag",
+            "missing_game": "Kunne ikke joine: Et spil med den kode findes ikke",
             "wrong_password": "Kunne ikke joine: Forkert password",
             "game_over": "Kunne ikke joine: Spillet er slut",
             "lobby_full": "Failed to joine: Lobbyen er fuld"

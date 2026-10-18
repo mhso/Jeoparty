@@ -7,14 +7,12 @@ import traceback
 import random
 from time import time
 from io import BytesIO
-from subprocess import Popen
 from typing import Dict, List, Literal, Tuple
 from contextlib import AsyncExitStack, asynccontextmanager
 
 import cv2
 import numpy as np
 from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
-from playwright.async_api import TimeoutError as PlaywrightTimeout
 from PIL import Image
 from sqlalchemy import Enum
 
@@ -1055,10 +1053,6 @@ class ContextHandler:
         if os.path.exists(f"{VIDEO_RECORD_PATH}/combined.mp4"):
             os.remove(f"{VIDEO_RECORD_PATH}/combined.mp4")
 
-        self.flask_process = Popen(["uv", "run", "main.py", "-e" "testing"], cwd="src")
-
-        await asyncio.sleep(3)
-
         try:
             # Create presenter browser and context
             presenter_browser = await self._create_browser(self.playwright_contexts[0], PRESENTER_BROWSER)
@@ -1073,8 +1067,6 @@ class ContextHandler:
             self.presenter_page.on("console", self._print_presenter_console_output)
         except Exception:
             traceback.print_exc()
-            self.flask_process.terminate()
-            self.flask_process.wait()
 
         await asyncio.sleep(1)
 
@@ -1083,9 +1075,6 @@ class ContextHandler:
     async def __aexit__(self, *args):
         while any(not task.done() for task in self._browser_tasks):
             await asyncio.sleep(0.1)
-
-        self.flask_process.terminate()
-        self.flask_process.wait()
 
         if self.presenter_context:
             await self.presenter_context.browser.close()

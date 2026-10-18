@@ -2,15 +2,36 @@ import flask
 from mhooge_flask import auth
 from mhooge_flask.routing import make_json_response
 
+from jeoparty.api.config import Config
+from jeoparty.api.enums import Environment
+
 login_page = flask.Blueprint("login_api", __name__)
 
 @login_page.route("/login", methods=["POST"])
 def login():
-    return auth.login_json(flask.request.form, "user", "pass")
+    config: Config = flask.current_app.config["APP_CONFIG"]
+
+    return auth.login_json(
+        flask.request.form,
+        "user",
+        "pass",
+        httponly=True,
+        samesite="Lax",
+        secure=config.env is Environment.PRODUCTION,
+    )
 
 @login_page.route("/signup", methods=["POST"])
 def signup():
-    return auth.signup_json(flask.request.form, "user", "pass")
+    config: Config = flask.current_app.config["APP_CONFIG"]
+
+    return auth.signup_json(
+        flask.request.form,
+        "user",
+        "pass",
+        httponly=True,
+        samesite="Lax",
+        secure=config.env is Environment.PRODUCTION,
+    )
 
 @login_page.route("/logout", methods=["POST"])
 def logout():
