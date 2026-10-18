@@ -89,11 +89,54 @@ def _save_contestant_avatar(file: FileStorage, user_id: str):
 
     return f"{get_avatar_path(False)}/{filename}"
 
+@contestant_page.route("/lobby/<join_code>")
+def lobby(join_code: str):
+    database: Database = flask.current_app.config["DATABASE"]
+
+    user_id = _get_user_id_from_cookie(flask.request.cookies)
+
+    with database:
+        game_data = database.get_game_from_code(join_code)
+        if game_data is None:
+            return make_json_response("No game exists with the given join code.", 404)
+
+        index = len(game_data.game_contestants)
+
+        response_json = {
+            "game_id": game_data.id,
+            "join_code": join_code,
+            "title": game_data.title,
+            "has_password": game_data.password is not None,
+            "language": game_data.pack.language,
+            "full": index == game_data.max_contestants,
+            "ended": game_data.stage == StageType.ENDED,
+            "default_avatar": _get_default_avatar(index, game_data.pack.theme_id)
+        }
+
+        # Try to get existitng user
+        existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
+
+        user_already_joined = False
+        if existing_model is not None:
+            for contestant in game_data.game_contestants:
+                if existing_model.contestant_id == user_id:
+                    user_already_joined = True
+                    break
+
+        if user_already_joined:
+            response_json["existing"] = {
+                "name": existing_model.name,
+                "color": existing_model.color,
+                "avatar": existing_model.avatar,
+            }
+
+        return make_json_response(response_json, 200)
+
 @contestant_page.route("/kicked")
 def contestant_kicked():
     return make_template_context("contestant/kicked.html", status=200)
 
-@contestant_page.route("/join", methods=["POST"])
+@contestant_page.route("/contestant/join", methods=["POST"])
 def join_lobby():
     database: Database = flask.current_app.config["DATABASE"]
 

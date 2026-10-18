@@ -76,6 +76,7 @@ class GameSocketHandler(Namespace):
         self.game_data: Game | None = None
         self.game_metadata = GameMetadata()
         self.contestant_metadata: Dict[str, ContestantMetadata] = {}
+        self.contestant_ids: Dict[str, str] = {}
         self.buzz_lock = Lock()
         self.power_lock = Lock()
 
@@ -151,6 +152,7 @@ class GameSocketHandler(Namespace):
 
             if user_id not in self.contestant_metadata:
                 self.contestant_metadata[user_id] = ContestantMetadata(sid)
+                self.contestant_ids[sid] = user_id
             else:
                 self.contestant_metadata[user_id].sid = sid
                 self.contestant_metadata[user_id].joined = True
@@ -429,7 +431,9 @@ class GameSocketHandler(Namespace):
         self.emit("turn_chosen", user_id, to="contestants")
 
     @_contestants_event
-    def on_use_power_up(self, user_id: str, power_id: str):
+    def on_use_power_up(self, power_id: str):
+        user_id = self.contestant_ids[flask.request.sid]
+
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
         contestant_metadata = self.contestant_metadata[user_id]
         power = PowerUpType(power_id)
@@ -474,7 +478,9 @@ class GameSocketHandler(Namespace):
         self.emit("finale_answer_enabled", to="contestants")
 
     @_contestants_event
-    def on_buzzer_pressed(self, user_id: str):
+    def on_buzzer_pressed(self):
+        user_id = self.contestant_ids[flask.request.sid]
+
         contestant_metadata = self.contestant_metadata[user_id]
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
 
@@ -577,18 +583,21 @@ class GameSocketHandler(Namespace):
         self.emit("contestant_info_changed", json_str, to=contestant_metadata.sid)
 
     @_contestants_event
-    def on_ping_request(self, user_id: str, timestamp: float):
+    def on_ping_request(self, timestamp: float):
+        user_id = self.contestant_ids[flask.request.sid]
         self.emit("ping_response", (user_id, timestamp))
 
     @_contestants_event
-    def on_calculate_ping(self, user_id: str, timestamp_sent: float, timestamp_received: float):
+    def on_calculate_ping(self, timestamp_sent: float, timestamp_received: float):
+        user_id = self.contestant_ids[flask.request.sid]
         contestant_metadata = self.contestant_metadata[user_id]
         contestant_metadata.calculate_ping(timestamp_sent, timestamp_received)
 
         self.emit("ping_calculated", f"{min(999.0, max(contestant_metadata.ping, 1.0)):.1f}")
 
     @_contestants_event
-    def on_make_daily_wager(self, user_id: str, amount: str):
+    def on_make_daily_wager(self,  amount: str):
+        user_id = self.contestant_ids[flask.request.sid]
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
 
         min_wager = 100
@@ -607,7 +616,8 @@ class GameSocketHandler(Namespace):
             self.emit("invalid_wager", (min_wager, max_wager))
 
     @_contestants_event
-    def on_make_finale_wager(self, user_id: str, amount: str):
+    def on_make_finale_wager(self, amount: str):
+        user_id = self.contestant_ids[flask.request.sid]
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
 
         min_wager = 0
@@ -631,7 +641,8 @@ class GameSocketHandler(Namespace):
             self.emit("invalid_wager", (min_wager, max_wager))
 
     @_contestants_event
-    def on_give_finale_answer(self, user_id: str, answer: str):
+    def on_give_finale_answer(self, answer: str):
+        user_id = self.contestant_ids[flask.request.sid]
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
         if not contestant_data.finale_wager:
             return
