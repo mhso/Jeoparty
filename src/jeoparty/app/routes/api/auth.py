@@ -5,14 +5,14 @@ from mhooge_flask.routing import make_json_response
 from jeoparty.api.config import Config
 from jeoparty.api.enums import Environment
 
-login_page = flask.Blueprint("login_api", __name__)
+auth_page = flask.Blueprint("auth_api", __name__)
 
-@login_page.route("/login", methods=["POST"])
+@auth_page.route("/login", methods=["POST"])
 def login():
     config: Config = flask.current_app.config["APP_CONFIG"]
 
     return auth.login_json(
-        flask.request.form,
+        flask.request.json,
         "user",
         "pass",
         httponly=True,
@@ -20,12 +20,12 @@ def login():
         secure=config.env is Environment.PRODUCTION,
     )
 
-@login_page.route("/signup", methods=["POST"])
+@auth_page.route("/signup", methods=["POST"])
 def signup():
     config: Config = flask.current_app.config["APP_CONFIG"]
 
     return auth.signup_json(
-        flask.request.form,
+        flask.request.json,
         "user",
         "pass",
         httponly=True,
@@ -33,20 +33,20 @@ def signup():
         secure=config.env is Environment.PRODUCTION,
     )
 
-@login_page.route("/logout", methods=["POST"])
+@auth_page.route("/logout", methods=["POST"])
 def logout():
     user_details = auth.get_user_details()
     if user_details is None:
         return make_json_response("You are not logged in.", 200)
 
-    flask.request.cookies.pop("jeoparty_token")
+    response = make_json_response("You have been successfully logged out.", 200)
+    response.set_cookie("jeoparty_token", "", expires=0)
 
     return make_json_response("You have been successfully logged out.", 200)
 
-@login_page.route("/me")
+@auth_page.route("/me")
 def me():
     user_details = auth.get_user_details()
-
     if user_details is None:
         return make_json_response("You are not authorized to access this content.", 401)
 

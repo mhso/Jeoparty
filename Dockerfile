@@ -32,7 +32,7 @@ COPY resources/locales ./resources/locales
 # -=-=-=- Test Stage -=-=-=-
 FROM base AS test
 
-RUN uv run playwright install chromium
+# RUN uv run playwright install chromium
 
 COPY tests ./tests
 

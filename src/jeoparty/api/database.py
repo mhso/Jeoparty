@@ -4,8 +4,11 @@ from subprocess import PIPE, Popen
 from time import sleep
 import socket
 import json
+import re
 
+from psycopg.errors import ForeignKeyViolation
 from sqlalchemy import select, delete, update, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from mhooge_flask.database import SQLAlchemyDatabase
@@ -40,6 +43,13 @@ def start_ssh_tunnel():
         sleep(1)
 
     return ssh_tunnel
+
+def get_violating_key(exc: IntegrityError):
+    for line in exc.args[0].split("\n"):
+        if m := re.match(r"DETAIL\:\s+Key\s\((.+)\)\=\((.+)\)", line):
+            return (m.group(1), m.group(2))
+
+    return None
 
 class Database(SQLAlchemyDatabase):
     def __init__(self, config: Config):
@@ -196,6 +206,7 @@ class Database(SQLAlchemyDatabase):
                 session.add(QuestionRound(pack_id=pack_model.id, name=name, round=round_num))
 
             session.commit()
+
             session.refresh(pack_model)
 
             return pack_model

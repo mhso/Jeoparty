@@ -1,3 +1,4 @@
+from glob import glob
 import os
 import shutil
 from subprocess import Popen
@@ -207,6 +208,9 @@ def _wait_for_server():
 
 @pytest.fixture(scope="session", autouse=True)
 def app():
+    # Get a list of question packs before the test
+    pack_folders_before = set(glob(f"{Config.STATIC_FOLDER}/data/packs/*"))
+
     process = Popen(["uv", "run", "main.py", "-e" "testing"], cwd="src")
     _wait_for_server()
 
@@ -214,3 +218,11 @@ def app():
 
     process.terminate()
     process.wait()
+
+    # delete any folders created in tests
+    pack_folders_after = glob(f"{Config.STATIC_FOLDER}/data/packs/*")
+    for folder in pack_folders_after:
+        if folder in pack_folders_before:
+            continue
+
+        shutil.rmtree(folder)

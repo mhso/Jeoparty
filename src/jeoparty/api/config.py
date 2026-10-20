@@ -28,6 +28,10 @@ class Config:
     SRC_FOLDER = f"{PROJECT_FOLDER}/src"
     STATIC_FOLDER = f"{SRC_FOLDER}/jeoparty/app/static"
     RESOURCES_FOLDER = f"{PROJECT_FOLDER}/resources"
+    # Output of `npm run build` in the jeoparty_web repo, served by routes/spa.py
+    FRONTEND_DIST_FOLDER = os.environ.get(
+        "JEOPARTY_FRONTEND_DIST", os.path.abspath(f"{PROJECT_FOLDER}/../jeoparty_web/dist")
+    )
 
     # Static regexes for valid titles and names
     VALID_NAME_CHARACTERS = re.compile(r"^[a-zA-Z0-9æøåÆØÅ_\-' ]*$")

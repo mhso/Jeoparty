@@ -16,18 +16,23 @@ from jeoparty.api.enums import Environment
 from jeoparty.api.database import Database
 
 def run_app(args):
-    routes = []
-    for prefix in ("", "api"):
-        folder = f".{prefix}" if prefix else ""
-        presenter = f"{prefix}/presenter" if prefix else "presenter"
-        routes.extend(
-            [
-                Route("dashboard", "dashboard_page", prefix=prefix or "root", folder=f"routes{folder}"),
-                Route("contestant", "contestant_page", prefix=prefix or "root", folder=f"routes{folder}"),
-                Route("presenter", "presenter_page", presenter, folder=f"routes{folder}"),
-                Route("login", "login_page", prefix=prefix or "root", folder=f"routes{folder}"),
-            ]
-        )
+    if args.spa:
+        # Built Vue frontend instead of the Jinja pages (see routes/spa.py)
+        page_routes = [Route("spa", "spa_page")]
+    else:
+        page_routes = [
+            Route("dashboard", "dashboard_page"),
+            Route("contestant", "contestant_page"),
+            Route("presenter", "presenter_page", prefix="presenter"),
+            Route("login", "login_page"),
+        ]
+
+    routes = page_routes + [
+        Route("dashboard", "dashboard_page", prefix="api", folder="routes.api"),
+        Route("contestant", "contestant_page", prefix="api", folder="routes.api"),
+        Route("game", "game_page", prefix="api", folder="routes.api"),
+        Route("auth", "auth_page", prefix="api", folder="routes.api"),
+    ]
 
     override_env = None
     if args.env:
@@ -55,6 +60,8 @@ def run_app(args):
             routes,
             database,
             root_folder="jeoparty/app",
+            static_path="/jeoparty/static",
+            static_folder="static",
             server_cls=SocketIOServerWrapper,
             persistent_variables={"app_name": app_name.capitalize()},
             exit_code=0,
@@ -65,8 +72,11 @@ def run_app(args):
 
         logger.info("Starting Flask web app.")
         init.run_app(web_app, app_name, args.port, config.flask_host_url)
+    except KeyboardInterrupt:
+        pass
     finally:
         if database and database.ssh_tunnel:
+            database.ssh_tunnel.terminate()
             database.ssh_tunnel.kill()
             database.ssh_tunnel.wait()
 
@@ -77,6 +87,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-e", "--env", type=str, choices=Environment)
     parser.add_argument("-p", "--port", type=int, default=5006)
+    parser.add_argument("--spa", action="store_true", help="Serve the built Vue frontend instead of the Jinja templates")
     args = parser.parse_args()
 
     run_app(args)

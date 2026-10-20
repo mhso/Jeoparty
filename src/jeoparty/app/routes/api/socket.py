@@ -117,7 +117,6 @@ class GameSocketHandler(Namespace):
             self.enter_room(flask.request.sid, "presenter")
 
             print("Presenter joined")
-            self.game_metadata.setup_complete = False
 
             self.emit("presenter_joined", to=flask.request.sid)
 
@@ -132,21 +131,6 @@ class GameSocketHandler(Namespace):
                     f"but is not a contestant in game with ID '{self.game_id}'"
                 )
                 return
-
-            # Wait for presenter to indicate they are ready (or time out after 20 seconds)
-            timeout = 20
-            sleep_delta = 0.1
-            time_slept = 0
-            while (
-                self.game_metadata.setup_complete is not None
-                and not self.game_metadata.setup_complete
-                and time_slept < timeout
-            ):
-                time_slept += sleep_delta
-                sleep(sleep_delta)
-
-            if time_slept >= timeout:
-                raise TimeoutError()
 
             sid = flask.request.sid
 
@@ -179,16 +163,10 @@ class GameSocketHandler(Namespace):
                 self.emit("all_contestants_joined", to="presenter")
 
     @_presenter_event
-    def on_setup_complete(self, refresh: bool):
-        print("Setup complete")
+    def on_stage_ready(self):
+        print("Stage ready")
 
-        # Reset join status of contestants
-        for metadata in self.contestant_metadata.values():
-            metadata.joined = False
-
-        self.game_metadata.setup_complete = True
-        if refresh:
-            self.emit("state_changed", to="contestants")
+        self.emit("state_changed", to="contestants")
 
     def handle_socket_disconnect(self, reason: str, user_type: str | None = None, contestant_id: str | None = None):
         if user_type is None:
@@ -232,22 +210,6 @@ class GameSocketHandler(Namespace):
         self.handle_socket_disconnect(reason, user_type, disconnected_contestant)
         if disconnected_contestant:
             self.emit("contestant_disconnected", disconnected_contestant, to="presenter")
-
-    @_presenter_event
-    def on_contestant_join_timeout(self):
-        disconnected_contestants = []
-
-        for contestant in self.game_data.game_contestants:
-            contestant_metadata = self.contestant_metadata.get(contestant.id)
-            if not contestant_metadata or not contestant_metadata.joined:
-                contestant.disconnected = True
-                disconnected_contestants.append(contestant.id)
-
-        if disconnected_contestants != []:
-            self.database.save_models(*disconnected_contestants)
-
-        for contestant_id in disconnected_contestants:
-            self.handle_socket_disconnect("Contestant timed out when trying to join.", contestant_id=contestant_id)
 
     def on_presenter_join_timeout(self):
         self.handle_socket_disconnect("Presenter timed out when trying to join.", "Presenter")

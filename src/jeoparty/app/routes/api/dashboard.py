@@ -6,22 +6,21 @@ from pydantic import ValidationError
 import requests
 
 import flask
+from sqlalchemy.exc import IntegrityError
 from werkzeug.datastructures import FileStorage
 
 from mhooge_flask.auth import get_user_details
-from mhooge_flask.routing import make_template_context, make_text_response, make_json_response
+from mhooge_flask.routing import make_text_response, make_json_response
 from mhooge_flask.logging import logger
 
-from jeoparty.api.database import Database
+from jeoparty.api.database import Database, get_violating_key
 from jeoparty.api.config import Config, get_question_pack_data_path
 from jeoparty.api.orm.models import *
 from jeoparty.api.enums import StageType
 from jeoparty.app.routes.shared import (
-    redirect_to_login,
     validate_file,
     get_validation_error_msg,
     create_and_validate_model,
-    render_locale_template,
 )
 
 _VALID_IMAGE_FILETYPES = [
@@ -56,10 +55,11 @@ def packs():
             # POST request when creating a new question pack
             data = dict(flask.request.form)
             data["created_by"] = user_details[0]
-            if data["theme_id"] and data["theme_id"] == "none":
+            if data.get("theme_id", "") == "none":
                 data["theme_id"] = None
 
-            success, pack_model_or_error = create_and_validate_model(QuestionPack, data, "creating question pack")
+            action = "creating question pack"
+            success, pack_model_or_error = create_and_validate_model(QuestionPack, data, action)
 
             if not success:
                 return make_json_response(pack_model_or_error, 400)
@@ -79,6 +79,13 @@ def packs():
             # Save the question pack to the database
             try:
                 pack_model = database.create_question_pack(pack_model_or_error)
+            except IntegrityError as exc:
+                input_err = get_violating_key(exc)
+                if input_err is None:
+                    raise
+
+                error_msg = f"Error when {action}: '{input_err[0]}' - Input does not refer to a valid theme" 
+                return make_json_response(error_msg, 400)
             except Exception:
                 logger.exception("Error when saving question pack to database")
                 error_msg = "There was an unexpected error when creating the question pack, please try again later"
@@ -108,7 +115,7 @@ def packs():
 
     return make_json_response(packs_json, 200)
 
-@dashboard_page.route("/games")
+@dashboard_page.route("/games", methods=["GET", "POST"])
 def games():
     user_details = get_user_details()
     if user_details is None:
@@ -121,11 +128,11 @@ def games():
             data = dict(flask.request.form)
             data["created_by"] = user_details[0]
             data["join_code"] = data["title"].lower().replace("'", "").replace(" ", "_") if "title" in data else None
-        
+
             success, game_model_or_error = create_and_validate_model(Game, data, "creating game")
         
             if not success:
-                return make_json_response(pack_model_or_error, 400)
+                return make_json_response(game_model_or_error, 400)
         
             # Check if question pack exists
             pack_data = database.get_question_packs_for_user(user_details[0], game_model_or_error.pack_id)
@@ -156,8 +163,8 @@ def games():
         games = database.get_games_for_user(user_details[0])
     
         for game_data in games:
-            games_json = game_data.dump()
-            games_json["total_questions"] = len(game_data.get_questions_for_round())
+            json_data = game_data.dump(included_relations=[Game.pack])
+            json_data["total_questions"] = len(game_data.get_questions_for_round())
             if game_data.stage is not StageType.ENDED:
                 if game_data.stage is StageType.FINALE_WAGER:
                     stage = "selection"
@@ -168,9 +175,9 @@ def games():
                 else:
                     stage = game_data.stage.value
 
-                games_json["resume_path"] = f"/jeoparty/presenter/{game_data['id']}/{stage}"
+                json_data["resume_path"] = f"/jeoparty/presenter/{game_data.id}/{stage}"
 
-            games_json.append(games_json)
+            games_json.append(json_data)
 
     return make_json_response(games_json, 200)
 
@@ -486,12 +493,12 @@ def question_pack(pack_id: str):
         pack_json = pack_model.dump(included_relations=[QuestionPack.rounds])
         pack_json["theme_id"] = pack_model.theme_id
 
-        if len(pack_data.rounds) == 1 and not pack_data.include_finale:
+        if len(pack_model.rounds) == 1 and not pack_model.include_finale:
             # If finale is not included, provide a placeholder round
             # to make UI handling easier
             pack_json["rounds"].append(
                 {
-                    "pack_id": pack_data.id,
+                    "pack_id": pack_model.id,
                     "name": Config.DEFAULT_ROUND_NAMES[-1],
                     "round": 2,
                     "categories": [],
