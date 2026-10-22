@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 import os
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -33,6 +34,12 @@ class Theme(Base):
     buzzer_sounds = relationship("BuzzerSound", back_populates="theme", cascade="all, delete", order_by="BuzzerSound.id.asc()")
 
     __serialize_relationships__ = [creator, buzzer_sounds]
+
+    @property
+    def extra_fields(self):
+        manifest_path = f"{get_theme_path(self.id, True)}/theme.json"
+        with open(manifest_path, "r", encoding="utf-8") as fp:
+            return json.load(fp)
 
 class QuestionPack(Base):
     __tablename__ = "question_packs"

@@ -509,7 +509,18 @@ def question_pack(pack_id: str):
 
 @dashboard_page.route("/themes")
 def themes():
-    return "Not implemented yet", 200
+    user_details = get_user_details()
+    if user_details is None:
+        return make_json_response(_UNAUTHORIZED_MSG, 401)
+
+    database: Database = flask.current_app.config["DATABASE"]
+
+    themes_json = []
+    with database:
+        for theme in database.get_themes_for_user(user_details[0], include_public=True):
+            themes_json.append(theme.dump())
+
+    return make_json_response(themes_json, 200)
 
 @dashboard_page.route("/ping")
 def ping():
