@@ -20,7 +20,7 @@ from jeoparty.api.database import Database
 from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import GameContestant, GameQuestion
 from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
-from jeoparty.app.routes.contestant import COOKIE_ID
+from jeoparty.app.routes.api.shared import COOKIE_ID
 from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
 
 random.seed(1337)

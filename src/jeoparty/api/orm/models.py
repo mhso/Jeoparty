@@ -333,6 +333,7 @@ class Game(Base):
             "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
             "question_num": sum(1 if gq.used else 0 for gq in questions_for_round) + 1 if questions_for_round else 1,
+            "contestant_count": len(self.game_contestants),
             "created_by": self.created_by,
             "started_at": self.started_at.strftime("%Y-%m-%d %H:%M:%S"),
             "ended_at": None if not self.ended_at else self.ended_at.strftime("%Y-%m-%d %H:%M:%S"),

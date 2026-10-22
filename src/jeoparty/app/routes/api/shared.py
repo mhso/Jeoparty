@@ -21,11 +21,11 @@ from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Game, Theme
 
 def is_lan_active(game_data: Game):
-    return (
-        game_data.pack.theme is not None
-        and game_data.pack.theme.name == "LAN"
-        and game_data.created_by == Config.ADMIN_ID
-    )
+    return False # TODO: REPLACE #(
+        #     game_data.pack.theme is not None
+        #     and game_data.pack.theme.name == "LAN"
+        #     and game_data.created_by == Config.ADMIN_ID
+        # )
 
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
@@ -220,3 +220,15 @@ def validate_file(
             suffix += 1
 
     return True, full_path
+
+COOKIE_ID = "jeoparty_contestant_id"
+
+def save_contestant_id_to_cookie(user_id: str):
+    max_age = 60 * 60 * 24 * 365 # 1 year
+    return COOKIE_ID, user_id, max_age
+
+def get_contestant_id_from_cookie(cookies) -> str | None:
+    if (cid := cookies.get(COOKIE_ID)):
+        return str(cid)
+
+    return None

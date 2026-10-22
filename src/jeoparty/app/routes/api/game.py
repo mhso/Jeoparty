@@ -11,10 +11,11 @@ from jeoparty.api.database import Database
 from jeoparty.api.config import Config
 from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import Game, GameQuestion
-from jeoparty.app.routes.socket import GameSocketHandler, get_namespace_handler
-from jeoparty.app.routes.shared import (
+from jeoparty.app.routes.api.socket import GameSocketHandler, get_namespace_handler
+from jeoparty.app.routes.api.shared import (
     get_question_answer_sounds,
     get_question_answer_images,
+    get_contestant_id_from_cookie,
     is_lan_active,
 )
 
@@ -54,7 +55,15 @@ def _get_lobby_state(game_data: Game):
         except (requests.RequestException, requests.Timeout):
             logger.exception("Failed sending start of game request to Int-Far!")
 
-    return {"join_url": join_url, lan_mode: lan_mode}
+    pack_json = game_data.pack.dump()
+
+
+    return {
+        "join_url": join_url,
+        "lan_mode": lan_mode,
+        "lobby_music": pack_json["lobby_music"],
+        "lobby_volume": pack_json["lobby_volume"]
+    }
 
 def _get_question_state(game_data: Game, game_question: GameQuestion):
     question_json = game_question.question.dump(id="question_id")
@@ -106,10 +115,7 @@ def _get_selection_state(game_data: Game):
                     question_json["used"] = game_question.used
                     question_json["daily_double"] = game_question.daily_double
 
-    selection_json = game_data.dump(included_relations=[Game.game_contestants])
-    selection_json["start_of_game"] = start_of_game
-
-    return selection_json
+    return round_json, start_of_game
 
 def _get_endscreen_state(game_data: Game):
     winners = game_data.get_game_winners()
@@ -126,7 +132,7 @@ def _get_endscreen_state(game_data: Game):
 
 def _get_game_state(game_data: Game):
     # Shared data cross stages
-    game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants], id="game_id")
+    game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants])
     theme = game_data.pack.theme
     round_name = game_data.pack.rounds[game_data.round - 1].name
 
@@ -149,7 +155,9 @@ def _get_game_state(game_data: Game):
         state_json["question"] = _get_question_state(game_data, game_question)
 
     elif game_data.stage is StageType.SELECTION:
-        state_json["round"] = _get_selection_state(game_data)
+        round_data, start_of_game = _get_selection_state(game_data)
+        state_json["round"] = round_data
+        state_json["start_of_game"] = start_of_game
 
     elif game_data.stage is StageType.ENDED:
         state_json["winners"] = _get_endscreen_state(game_data)
@@ -300,7 +308,7 @@ def _transition_endscreen(game_data: Game):
         except (requests.RequestException, requests.Timeout):
             logger.exception("Failed sending end of game request to Int-Far!")
 
-@game_page.route("/game/<game_id>/advance/<target>")
+@game_page.route("/game/<game_id>/advance/<target>", methods=["POST"])
 def transition_state(game_id: str, target: str):
     target_stage = StageType(target)
 
@@ -333,12 +341,14 @@ def transition_state(game_id: str, target: str):
             _transition_endscreen(game_data)
 
         database.save_game(game_data)
+        if (handler := get_namespace_handler(game_id)) is not None:
+            handler.invalidate_game_data()
 
         return _get_game_state(game_data)
 
 @game_page.route("/game/<game_id>/contestant-state")
 def game_view(game_id: str):
-    user_id = _get_user_id_from_cookie(flask.request.cookies)
+    user_id = get_contestant_id_from_cookie(flask.request.cookies)
 
     database: Database = flask.current_app.config["DATABASE"]
 
@@ -385,7 +395,10 @@ def game_view(game_id: str):
 
         # Select only required player_with_turn fields
         turn_player_fields_to_include = ["id", "name", "color"]
-        player_with_turn = {key: game_json_full["player_with_turn"][key] for key in turn_player_fields_to_include}
+        if game_json_full["player_with_turn"]:
+            player_with_turn = {key: game_json_full["player_with_turn"][key] for key in turn_player_fields_to_include}
+        else:
+            player_with_turn = None
 
         # Select only required game data fields
         game_keys_to_include = ["id", "stage", "round", "total_rounds", "question_num", "max_value", "title"]

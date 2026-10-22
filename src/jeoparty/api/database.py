@@ -111,19 +111,27 @@ class Database(SQLAlchemyDatabase):
 
             return data if theme_id is None else data[0]
 
-    def get_game_from_id(self, game_id: str):
-        with self as session:
-            statement = select(Game).options(
-                selectinload(Game.pack).options(
-                    selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
-                    selectinload(QuestionPack.theme).selectinload(Theme.buzzer_sounds)
-                )
-            ).options(
-                selectinload(Game.game_questions).selectinload(GameQuestion.question)
-            ).options(
-                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
-            ).filter(Game.id == game_id)
+    def _get_game_stmt(self, game_id: str):
+        return select(Game).options(
+            selectinload(Game.pack).options(
+                selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
+                selectinload(QuestionPack.theme).selectinload(Theme.buzzer_sounds)
+            )
+        ).options(
+            selectinload(Game.game_questions).selectinload(GameQuestion.question)
+        ).options(
+            selectinload(Game.game_contestants).options(
+                selectinload(GameContestant.contestant), selectinload(GameContestant.power_ups)
+            )
+        ).filter(Game.id == game_id)
 
+    def get_game_from_id(self, game_id: str, session: Session | None = None):
+        statement = self._get_game_stmt(game_id)
+    
+        if session:
+            return session.execute(statement).scalar_one_or_none()
+
+        with self as session:
             return session.execute(statement).scalar_one_or_none()
 
     def get_game_from_code(self, join_code: str):

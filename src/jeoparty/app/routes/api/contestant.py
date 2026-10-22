@@ -11,23 +11,20 @@ from mhooge_flask.routing import make_template_context, make_json_response
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Environment, StageType
 from jeoparty.api.orm.models import Contestant, GameContestant
-from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template, get_locale_data, is_lan_active
+from jeoparty.app.routes.api.shared import (
+    create_and_validate_model,
+    render_locale_template,
+    get_locale_data,
+    is_lan_active,
+    get_contestant_id_from_cookie,
+    save_contestant_id_to_cookie,
+)
+from jeoparty.app.routes.api.socket import get_namespace_handler
 from jeoparty.api.config import Config, get_avatar_path, get_theme_path, get_bg_image_path, get_buzz_sound_path
 
 contestant_page = flask.Blueprint("contestant_api", __name__, template_folder="templates")
 
 _VALID_AVATAR_FILETYPES = set(["jpg", "jpeg", "png", "webp"])
-COOKIE_ID = "jeoparty_contestant_id"
-
-def _save_user_id_to_cookie(user_id: str):
-    max_age = 60 * 60 * 24 * 365 # 1 year
-    return COOKIE_ID, user_id, max_age
-
-def _get_user_id_from_cookie(cookies) -> str | None:
-    if (cid := cookies.get(COOKIE_ID)):
-        return str(cid)
-
-    return None
 
 def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | str]:
     if "join_code" not in params:
@@ -93,7 +90,7 @@ def _save_contestant_avatar(file: FileStorage, user_id: str):
 def lobby(join_code: str):
     database: Database = flask.current_app.config["DATABASE"]
 
-    user_id = _get_user_id_from_cookie(flask.request.cookies)
+    user_id = get_contestant_id_from_cookie(flask.request.cookies)
 
     with database:
         game_data = database.get_game_from_code(join_code)
@@ -150,7 +147,7 @@ def join_lobby():
     config: Config = flask.current_app.config["APP_CONFIG"]
     database: Database = flask.current_app.config["DATABASE"]
 
-    user_id = _get_user_id_from_cookie(flask.request.cookies)
+    user_id = get_contestant_id_from_cookie(flask.request.cookies)
     params = dict(flask.request.form)
 
     if user_id is not None:
@@ -239,8 +236,12 @@ def join_lobby():
                 )
                 database.add_contestant_to_game(game_contestant_model, game_data.use_powerups)
 
+            # Make the socket handler reload the game so it sees the new/updated contestant
+            if (handler := get_namespace_handler(game_data.id)) is not None:
+                handler.invalidate_game_data()
+
         # Save user ID to cookie and redirect to game view
-        cookie_id, data, max_age = _save_user_id_to_cookie(contestant_model.id)
+        cookie_id, data, max_age = save_contestant_id_to_cookie(contestant_model.id)
         response = make_json_response({"game_id": game_data.id, "contestant_id": contestant_model.id}, 200)
 
         response.set_cookie(
@@ -328,7 +329,7 @@ def lobby_lan(join_code: str):
         )
 
     response = flask.make_response(template)
-    cookie_id, data, max_age = _save_user_id_to_cookie(user_id_str)
+    cookie_id, data, max_age = save_contestant_id_to_cookie(user_id_str)
     response.set_cookie(cookie_id, data, max_age=max_age)
 
     return response
