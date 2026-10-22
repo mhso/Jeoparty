@@ -346,7 +346,7 @@ class GameSocketHandler(Namespace):
             self.save_models(*power_up_models)
 
             send_to = self.contestant_metadata[user_id].sid if user_id is not None else "contestants"
-            self.emit("power_ups_disabled", [power_up.value for power_up in power_ups], to=send_to)
+            self.emit("power_ups_disabled", json.dumps([power_up.value for power_up in power_ups]), to=send_to)
 
     @_presenter_event
     def on_correct_answer(self, user_id: str, value: int):
@@ -446,8 +446,8 @@ class GameSocketHandler(Namespace):
             elif power is PowerUpType.REWIND:
                 self.emit("buzz_disabled", to="contestants")
 
-            self.emit("power_ups_disabled", [power.value for power in PowerUpType], to="contestants")
-            self.emit("power_up_used", (user_id, power_id), to="presenter")
+            self.emit("power_ups_disabled", json.dumps([power.value for power in PowerUpType]), to="contestants")
+            self.emit("power_up_used", json.dumps({"user_id": user_id, "power_id": power_id}), to="presenter")
             self.emit("power_up_used", power_id, to=contestant_metadata.sid)
 
     @_presenter_event
@@ -473,7 +473,7 @@ class GameSocketHandler(Namespace):
         time_taken = f"{contestant_metadata.latest_buzz - self.game_metadata.question_asked_time:.2f}"
         contestant_data.buzzes += 1
 
-        self.emit("buzz_received", (user_id, time_taken), to="presenter")
+        self.emit("buzz_received", json.dumps({"user_id": user_id, "seconds": time_taken}), to="presenter")
         self.emit("buzz_received", to=contestant_metadata.sid)
 
         print(
@@ -586,14 +586,14 @@ class GameSocketHandler(Namespace):
         try:
             amount = int(amount)
         except ValueError:
-            self.emit("invalid_wager", (min_wager, max_wager))
+            self.emit("invalid_wager", json.dumps({"min": min_wager, "max": max_wager}))
             return
 
         if min_wager <= amount <= max_wager:
             self.emit("daily_wager_made", amount)
             self.emit("daily_wager_made", amount, to="presenter")
         else:
-            self.emit("invalid_wager", (min_wager, max_wager))
+            self.emit("invalid_wager", json.dumps({"min": min_wager, "max": max_wager}))
 
     @_contestants_event
     def on_make_finale_wager(self, amount: str):
@@ -606,7 +606,7 @@ class GameSocketHandler(Namespace):
         try:
             amount = int(amount)
         except ValueError:
-            self.emit("invalid_wager", (min_wager, max_wager))
+            self.emit("invalid_wager", json.dumps({"min": min_wager, "max": max_wager}))
             return
 
         if min_wager <= amount <= max_wager:
@@ -618,7 +618,7 @@ class GameSocketHandler(Namespace):
             self.emit("finale_wager_made")
             self.emit("contestant_ready", user_id, to="presenter")
         else:
-            self.emit("invalid_wager", (min_wager, max_wager))
+            self.emit("invalid_wager", json.dumps({"min": min_wager, "max": max_wager}))
 
     @_contestants_event
     def on_give_finale_answer(self, answer: str):

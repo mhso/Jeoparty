@@ -10,7 +10,7 @@ import requests
 from jeoparty.api.database import Database
 from jeoparty.api.config import Config
 from jeoparty.api.enums import StageType
-from jeoparty.api.orm.models import Game, GameQuestion
+from jeoparty.api.orm.models import Game, GameContestant, GameQuestion
 from jeoparty.app.routes.api.socket import GameSocketHandler, get_namespace_handler
 from jeoparty.app.routes.api.shared import (
     get_question_answer_sounds,
@@ -66,18 +66,13 @@ def _get_lobby_state(game_data: Game):
     }
 
 def _get_question_state(game_data: Game, game_question: GameQuestion):
-    question_json = game_question.question.dump(id="question_id")
+    """
+    Returns the active question and the top-level media fields that go with it
+    (answer images/sounds and media sizes) as two separate dicts.
+    """
+    question_json = game_question.question.dump()
     question_json["category"] = game_question.question.category.dump(included_relations=[])
     question_json["daily_double"] = game_question.daily_double
-
-    # Data used as variables in JS for controlling presenter UI flow
-    # question_ui_data = {
-    #     "answer": question_json["answer"],
-    #     "value": question_json["value"],
-    #     "answer_time": game_data.answer_time,
-    #     "buzz_time": question_json["category"]["buzz_time"],
-    #     "daily_double": question_json["daily_double"],
-    # }
 
     # If question is multiple-choice, randomize order of choices
     if "choices" in question_json["extra"]:
@@ -87,13 +82,15 @@ def _get_question_state(game_data: Game, game_question: GameQuestion):
     correct_image, wrong_image = get_question_answer_images(game_data.pack.theme)
     correct_sound, wrong_sounds = get_question_answer_sounds(game_data.pack.theme, game_data.max_contestants)
 
-    question_json["correct_image"] = correct_image
-    question_json["wrong_image"] = wrong_image
-    question_json["correct_sound"] = correct_sound
-    question_json["wrong_sounds"] = wrong_sounds
-    question_json["media_sizes"] = Config.QUESTION_MEDIA_SIZES,
+    media_json = {
+        "correct_image": correct_image,
+        "wrong_image": wrong_image,
+        "correct_sound": correct_sound,
+        "wrong_sounds": wrong_sounds,
+        "media_sizes": Config.QUESTION_MEDIA_SIZES,
+    }
 
-    return question_json
+    return question_json, media_json
 
 def _get_selection_state(game_data: Game):
     previous_question = game_data.get_active_question()
@@ -132,7 +129,15 @@ def _get_endscreen_state(game_data: Game):
 
 def _get_game_state(game_data: Game):
     # Shared data cross stages
-    game_json = game_data.dump(included_relations=[Game.pack, Game.game_contestants])
+    game_json = game_data.dump(included_relations=[])
+
+    # Get nested game contestant data
+    game_contestants = []
+    for game_contestant in game_data.game_contestants:
+        game_contestants.append(game_contestant.dump(included_relations=[GameContestant.power_ups]))
+
+    game_json["game_contestants"] = game_contestants
+
     theme = game_data.pack.theme
     round_name = game_data.pack.rounds[game_data.round - 1].name
 
@@ -152,7 +157,8 @@ def _get_game_state(game_data: Game):
             # If question does not exist or has already been answered, return error
             return make_json_response("Question was not found or has already been asked.", 400)
 
-        state_json["question"] = _get_question_state(game_data, game_question)
+        state_json["question"], media_json = _get_question_state(game_data, game_question)
+        state_json.update(media_json)
 
     elif game_data.stage is StageType.SELECTION:
         round_data, start_of_game = _get_selection_state(game_data)
@@ -165,7 +171,7 @@ def _get_game_state(game_data: Game):
     return make_json_response(state_json, 200)
 
 @game_page.route("/game/<game_id>/presenter-state")
-def get_state(game_id: str):
+def get_presenter_state(game_id: str):
     database: Database = flask.current_app.config["DATABASE"]
     with database:
         # Ensure user is logged in
@@ -347,7 +353,7 @@ def transition_state(game_id: str, target: str):
         return _get_game_state(game_data)
 
 @game_page.route("/game/<game_id>/contestant-state")
-def game_view(game_id: str):
+def get_contestant_state(game_id: str):
     user_id = get_contestant_id_from_cookie(flask.request.cookies)
 
     database: Database = flask.current_app.config["DATABASE"]
@@ -405,7 +411,7 @@ def game_view(game_id: str):
         game_json = {key: game_json_full[key] for key in game_keys_to_include}
 
         # Select only required question fields
-        question_keys_to_include = ["id", "value", "daily_double"]
+        question_keys_to_include = ["id", "value", "daily_double", "category"]
         if question_json_full is not None:
             questions_json = {key: question_json_full[key] for key in question_keys_to_include}
         else:
