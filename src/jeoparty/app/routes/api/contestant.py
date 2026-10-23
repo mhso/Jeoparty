@@ -106,7 +106,7 @@ def lobby(join_code: str):
             "has_password": game_data.password is not None,
             "language": game_data.pack.language.value,
             "full": index == game_data.max_contestants,
-            "ended": game_data.stage == StageType.ENDED,
+            "ended": game_data.stage is StageType.ENDED,
             "default_avatar": _get_default_avatar(index, game_data.pack.theme_id)
         }
 
@@ -115,15 +115,15 @@ def lobby(join_code: str):
 
         user_already_joined = False
         if contestant is not None:
-            for contestant in game_data.game_contestants:
-                if contestant.contestant_id == user_id:
-                    user_already_joined = True
-                    break
+            # If contestant rejoins, override values of contestant model
+            for column in ("name", "color"):
+                val = getattr(contestant, column)
+                setattr(contestant, column, val)
 
-        if user_already_joined:
             response_json["existing"] = {
                 "name": contestant.name,
                 "color": contestant.color,
+                "avatar": contestant.avatar,
             }
     
             if not contestant.avatar:
@@ -137,10 +137,6 @@ def lobby(join_code: str):
                 response_json["buzz_sound"] = os.path.basename(contestant.buzz_sound)
 
         return make_json_response(response_json, 200)
-
-@contestant_page.route("/kicked")
-def contestant_kicked():
-    return make_template_context("contestant/kicked.html", status=200)
 
 @contestant_page.route("/contestant/join", methods=["POST"])
 def join_lobby():
@@ -190,11 +186,6 @@ def join_lobby():
 
             user_already_joined = False
             if existing_model is not None:
-                # If contestant rejoins, override values of contestant model
-                for column in ("name", "color"):
-                    val = getattr(contestant_model, column)
-                    setattr(existing_model, column, val)
-
                 contestant_model = existing_model
 
                 for contestant in game_data.game_contestants:
