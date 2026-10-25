@@ -44,7 +44,7 @@ def run_app(args):
 
     database = None
     try:
-        database = Database(config)
+        database = Database(config, args.ssh_tunnel)
         app_name = "jeoparty"
 
         locale_data = {}
@@ -87,6 +87,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-e", "--env", type=str, choices=Environment)
     parser.add_argument("-p", "--port", type=int, default=5006)
+    parser.add_argument("-t", "--ssh-tunnel", action="store_true", help="Use SSH tunnel to connect to PostgreSQL")
     parser.add_argument("--spa", action="store_true", help="Serve the built Vue frontend instead of the Jinja templates")
     args = parser.parse_args()
 

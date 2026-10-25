@@ -52,10 +52,10 @@ def get_violating_key(exc: IntegrityError):
     return None
 
 class Database(SQLAlchemyDatabase):
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, ssh_tunnel: bool = False):
         self.config = config
         self.ssh_tunnel = None
-        if config.env is Environment.DEVELOPMENT:
+        if ssh_tunnel:
             self.ssh_tunnel = start_ssh_tunnel()
 
         super().__init__(config.db_conn_str, "api/orm", f"{self.config.RESOURCES_FOLDER}/database", True, True)

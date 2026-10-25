@@ -425,13 +425,13 @@ async def test_random_game(database, locales):
             async def first_turn_chosen():
                 return await context.presenter_page.evaluate("playerTurn != null")
 
-            await context.wait_for_event(first_turn_chosen, timeout=60)
+            await context.wait_for_result(first_turn_chosen, timeout=60)
 
             intro_media = await context.presenter_page.query_selector("#selection-intro-media")
             async def intro_media_done():
                 return intro_media is None or await intro_media.evaluate("(e) => e.ended")
 
-            await context.wait_for_event(intro_media_done, timeout=30)
+            await context.wait_for_result(intro_media_done, timeout=30)
 
             await asyncio.sleep(1)
 

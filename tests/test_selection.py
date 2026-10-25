@@ -55,7 +55,7 @@ async def test_first_turn(database):
             async def first_turn_chosen():
                 return await context.presenter_page.evaluate("playerTurn != null")
 
-            await context.wait_for_event(first_turn_chosen)
+            await context.wait_for_result(first_turn_chosen)
 
             await asyncio.sleep(1)
 

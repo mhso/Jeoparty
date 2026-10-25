@@ -28,10 +28,6 @@ class Config:
     SRC_FOLDER = f"{PROJECT_FOLDER}/src"
     STATIC_FOLDER = f"{SRC_FOLDER}/jeoparty/app/static"
     RESOURCES_FOLDER = f"{PROJECT_FOLDER}/resources"
-    # Output of `npm run build` in the jeoparty_web repo, served by routes/spa.py
-    FRONTEND_DIST_FOLDER = os.environ.get(
-        "JEOPARTY_FRONTEND_DIST", os.path.abspath(f"{PROJECT_FOLDER}/../jeoparty_web/dist")
-    )
 
     # Static regexes for valid titles and names
     VALID_NAME_CHARACTERS = re.compile(r"^[a-zA-Z0-9æøåÆØÅ_\-' ]*$")
@@ -69,6 +65,12 @@ class Config:
 
         self.env = Environment(secrets["env"]) if env is None else env
         self.db_password = secrets["database_password"]
+
+        # Output of `npm run build` in the jeoparty_web repo, served by routes/spa.py
+        if env is Environment.DEVELOPMENT:
+            self.FRONTEND_DIST_FOLDER = os.path.abspath(f"{Config.PROJECT_FOLDER}/../jeoparty_web/dist")
+        else:
+            self.FRONTEND_DIST_FOLDER = os.path.abspath(f"{Config.PROJECT_FOLDER}/dist")
 
     @property
     def internal_host_url(self):

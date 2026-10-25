@@ -45,7 +45,7 @@ async def test_finale_result(database, locales):
             database.save_models(*game_data.game_contestants)
 
             await context.open_finale_page(game_data.id)
-            await context.wait_for_event(context._socket_connected)
+            await context.wait_for_result(context._socket_connected)
 
             session.refresh(game_data)
 

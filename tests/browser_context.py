@@ -7,7 +7,7 @@ import traceback
 import random
 from time import time
 from io import BytesIO
-from typing import Dict, List, Literal, Tuple
+from typing import Callable, Dict, List, Literal, Tuple
 from contextlib import AsyncExitStack, asynccontextmanager
 
 import cv2
@@ -70,6 +70,17 @@ def rgb_to_hex(color: str):
 
     return color
 
+EVENT = Literal[
+    "on_lobby_mounted",
+    "on_selection_mounted",
+    "on_question_mounted",
+    "on_finale_mounted",
+    "on_endscreen_mounted",
+    "on_pack_mounted",
+    "on_game_mounted",
+    "on_contestant_refresh",
+]
+
 class ContextHandler:
     BASE_URL = "http://localhost:5006/jeoparty"
     PRESENTER_URL = f"{BASE_URL}/presenter"
@@ -91,6 +102,17 @@ class ContextHandler:
         self.avatar_images = []
         self._browser_tasks = []
 
+        self._event_listeners: Dict[EVENT, Dict[BrowserContext, Callable]] = {
+            "on_lobby_mounted": {},
+            "on_selection_mounted": {},
+            "on_question_mounted": {},
+            "on_finale_mounted": {},
+            "on_endscreen_mounted": {},
+            "on_pack_mounted": {},
+            "on_game_mounted": {}, # Contestant joined game
+            "on_contestant_refresh": {}, # Contestant fetched new state
+        }
+
     async def _create_browser(self, context: Playwright, browser: str):
         browser_options = dict(BROWSER_OPTIONS)
         browser_options["args"] = BROWSER_OPTIONS["args"].get(browser, [])
@@ -101,20 +123,61 @@ class ContextHandler:
 
         await page.goto(ContextHandler.BASE_URL)
 
-        name_input = await page.query_selector('input[type="text"]')
+        name_input = await page.query_selector("#user")
         await name_input.fill(PRESENTER_USERNAME)
 
-        password_input = await page.query_selector('input[type="password"]')
+        password_input = await page.query_selector("#pass")
         await password_input.fill(PRESENTER_PASSWORD)
 
-        login_btn = await page.query_selector(".login-login-btn")
+        login_btn = await page.query_selector('input[type="submit"]')
 
         async with page.expect_navigation():
             await login_btn.click()
 
         return page
 
-    async def wait_for_event(self, event_func, condition=None, timeout=10):
+    def on(self, event: EVENT, context: BrowserContext, callback):
+        print("On event", event, hash(context), callback)
+        self._event_listeners[event][context] = callback
+
+    def off(self, event: EVENT, context: BrowserContext, callback):
+        print("Off event", event, hash(context), callback)
+        callback = self._event_listeners[event]
+        if context in callback:
+            del callback[context]
+
+    async def emit(self, event: EVENT, context: BrowserContext):
+        print("Emitting", event, hash(context))
+        callback = self._event_listeners.get(event, {}).get(context)
+        print("Callback", callback)
+        if callback:
+            await callback()
+
+    async def wait_for_event(self, event: EVENT, context: BrowserContext, timeout=10):
+        resolved = []
+
+        async def callback():
+            resolved.append(True)
+
+        self.on(event, context, callback)
+
+        time_slept = 0
+        sleep_interval = 0.5
+
+        while time_slept < timeout:
+            if resolved:
+                del self._event_listeners[event]
+                return
+
+            await asyncio.sleep(sleep_interval)
+            time_slept += sleep_interval
+
+        self.off(event, context, callback)
+        await self.screenshot_views("timeout")
+
+        raise TimeoutError(f"Event '{event}' never happened!")
+
+    async def wait_for_result(self, event_func, condition=None, timeout=10):
         time_slept = 0
         sleep_interval = 0.5
         while time_slept < timeout:
@@ -146,6 +209,7 @@ class ContextHandler:
         daily_doubles: bool | None = None,
         power_ups: bool | None = None,
         page: Page | None = None,
+        expect_fail: bool = False,
     ) -> Tuple[Page, str]:
         if page is None:
             page = self.presenter_page
@@ -157,7 +221,7 @@ class ContextHandler:
             ("password", password),
             ("rounds", rounds),
             ("contestants", contestants),
-            ("double", daily_doubles),
+            ("doubles", daily_doubles),
             ("powers", power_ups)
         ]
 
@@ -165,27 +229,29 @@ class ContextHandler:
             if value is None:
                 continue
 
-            input_field = await page.query_selector(f"#create-game-{field}")
+            input_field = await page.query_selector(f"#{field}")
             if isinstance(value, bool):
                 await input_field.set_checked(value)
             else:
                 await input_field.fill(str(value))
 
         if pack_name is not None:
-            pack_input = await page.query_selector("#create-game-pack")
+            pack_input = await page.query_selector("#pack")
             await pack_input.select_option(label=pack_name, timeout=2000)
 
         submit_btn = await page.query_selector('input[type="submit"]')
 
-        async with page.expect_navigation():
+        if not expect_fail:
+            async with page.expect_navigation():
+                await submit_btn.click()
+        else:
             await submit_btn.click()
 
-        if not "/create_game" in page.url:
-            await self.wait_for_event(self._socket_connected)
-
-            game_id = page.url.split("/")[-1]
-        else:
+        if expect_fail:
             game_id = None
+        else:
+            await self.wait_for_event("on_lobby_mounted", page.context)
+            game_id = page.url.split("/")[-2]
 
         return page, game_id
 
@@ -196,6 +262,7 @@ class ContextHandler:
         finale: bool | None = None,
         language: Language | None = None,
         page: Page | None = None,
+        expect_fail: bool = False,
     ) -> Tuple[Page, str]:
         if page is None:
             page = self.presenter_page
@@ -213,7 +280,7 @@ class ContextHandler:
             if value is None:
                 continue
 
-            input_field = await page.query_selector(f"#create-pack-{field}")
+            input_field = await page.query_selector(f"#{field}")
             if isinstance(value, bool):
                 await input_field.set_checked(value)
             elif isinstance(value, Enum):
@@ -223,19 +290,30 @@ class ContextHandler:
 
         submit_btn = await page.query_selector('input[type="submit"]')
 
-        async with page.expect_navigation(wait_until="domcontentloaded"):
+        if not expect_fail:
+            async with page.expect_navigation():
+                await submit_btn.click()
+        else:
             await submit_btn.click()
+
+        await self.wait_for_event("on_pack_mounted", page.context)
 
         pack_id = page.url.split("/")[-1].split("#")[0]
         self.pack_folders.append(pack_id)
 
         return page, pack_id
 
-    async def _print_contestant_console_output(self, msg: ConsoleMessage):
+    async def _handle_contestant_console_output(self, msg: ConsoleMessage):
         print("[CONTESTANT] - Message from console:", msg.text)
 
-    async def _print_presenter_console_output(self, msg: ConsoleMessage):
+        if msg.text in self._event_listeners:
+            await self.emit(msg.text, msg.page.context)
+
+    async def _handle_presenter_console_output(self, msg: ConsoleMessage):
         print("[PRESENTER] - Message from console:", msg.text)
+
+        if msg.text in self._event_listeners:
+            await self.emit(msg.text, msg.page.context)
 
     async def _print_contestant_unhandled_error(self, error):
         message = error.message
@@ -264,17 +342,27 @@ class ContextHandler:
         video_start = time()
 
         page = await browser_context.new_page()
-        page.on("console", self._print_contestant_console_output)
+        page.on("console", self._handle_contestant_console_output)
         page.on("pageerror", self._print_contestant_unhandled_error)
 
         return browser_context, page, video_start
 
     @asynccontextmanager
-    async def wait_for_event_context_manager(self, event):
+    async def wait_for_event_context_manager(self, event: EVENT, context: BrowserContext):
+        resolved = []
+        async def callback():
+            resolved.append(True)
+
+        self.on(event, context, callback)
+
+        async def monitor():
+            return bool(resolved)
+
         try:
             yield
         finally:
-            await self.wait_for_event(event)
+            await self.wait_for_result(monitor)
+            self.off(event, context, callback)
 
     async def join_lobby(
         self,
@@ -341,24 +429,20 @@ class ContextHandler:
 
         return contestant_page, contestant_id
 
-    async def _setup_complete(self):
-        return await self.presenter_page.evaluate("setupComplete")
-
-    async def wait_until_ready(self, wait_for_socket: bool = True):
+    async def wait_until_ready(self, event: EVENT | None, contestant_event: EVENT | None = "on_contestant_refresh"):
         """
         Create a stack of context managers so we can wait wait for the presenter
         and each contestant to be redirected after presented jumps to new page.
-        Also waits for socket to be ready after navigation has completed.
+        Also waits for Vue components to be mounted after navigation has completed.
         """
         stack = AsyncExitStack()
 
-        if wait_for_socket:
-            await stack.enter_async_context(self.wait_for_event_context_manager(self._setup_complete))
+        if event:
+            await stack.enter_async_context(self.wait_for_event_context_manager(event, self.presenter_context))
 
-        for page in self.contestant_pages.values():
-            await stack.enter_async_context(page.expect_navigation(timeout=15000))
-
-        await stack.enter_async_context(self.presenter_page.expect_navigation())
+        if contestant_event:
+            for page in self.contestant_pages.values():
+                await stack.enter_async_context(self.wait_for_event_context_manager(contestant_event, page.context))
 
         return stack
 
@@ -369,27 +453,27 @@ class ContextHandler:
             await asyncio.sleep(1.5)
 
         # Starts the game
-        async with await self.wait_until_ready():
+        async with await self.wait_until_ready("on_lobby_mounted"):
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def open_selection_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/selection"
-        async with await self.wait_until_ready():
+        async with await self.wait_until_ready("on_selection_mounted"):
             await self.presenter_page.goto(url)
 
     async def open_question_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/question"
-        async with await self.wait_until_ready():
+        async with await self.wait_until_ready("on_question_mounted"):
             await self.presenter_page.goto(url)
 
     async def open_finale_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/finale"
-        async with self.presenter_page.expect_navigation():
+        async with await self.wait_until_ready("on_finale_mounted"):
             await self.presenter_page.goto(url)
 
     async def open_endscreen_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/endscreen"
-        async with self.presenter_page.expect_navigation():
+        async with await self.wait_until_ready("on_endscreen_mounted"):
             await self.presenter_page.goto(url)
 
     async def show_question(self):
@@ -438,7 +522,7 @@ class ContextHandler:
             misses_now = int(await misses_elem.text_content())
             return hits_now == hits_then + 1 or misses_now == misses_then + 1
 
-        await self.wait_for_event(hits_or_misses_incremented)
+        await self.wait_for_result(hits_or_misses_incremented)
 
     async def find_buzz_winner(self, contestants: List[GameContestant], locale: Dict[str, str]):
         part_1 = r"\s".join(locale['game_feed_buzz_1'].split(" "))
@@ -475,7 +559,7 @@ class ContextHandler:
 
         if expect_success:
             # Wait for buzz to register on contestant page
-            await self.wait_for_event(buzz_registered)
+            await self.wait_for_result(buzz_registered)
 
             # Wait for buzz to register on presenter page
             await self.presenter_page.wait_for_selector(".active-contestant-entry")
@@ -493,13 +577,13 @@ class ContextHandler:
         async def power_video_started():
             return await video.evaluate("(e) => !e.paused")
 
-        await self.wait_for_event(power_video_started, timeout=8)
+        await self.wait_for_result(power_video_started, timeout=8)
 
         # ...then wait for it to end
         async def power_video_ended():
             return await video.evaluate("(e) => e.ended")
 
-        await self.wait_for_event(power_video_ended, timeout=15)
+        await self.wait_for_result(power_video_ended, timeout=15)
 
     async def make_wager(self, contestant_id: str, amount: int, dialog_callback=None):
         page = self.contestant_pages[contestant_id]
@@ -526,12 +610,12 @@ class ContextHandler:
             async def wager_accepted():
                 return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
 
-            await self.wait_for_event(wager_accepted)
+            await self.wait_for_result(wager_accepted)
         else:
             async def dialog_opened():
                 return await page.evaluate("dialog")
 
-            await self.wait_for_event(dialog_opened)
+            await self.wait_for_result(dialog_opened)
 
     async def give_finale_answer(self, contestant_id: str, answer: str):
         page = self.contestant_pages[contestant_id]
@@ -547,7 +631,7 @@ class ContextHandler:
         async def wager_accepted():
             return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
 
-        await self.wait_for_event(wager_accepted)
+        await self.wait_for_result(wager_accepted)
 
     def _clean_whitespace(self, text: str):
         return " ".join(x.strip() for x in text.split(None) if x.strip() != "")
@@ -1064,7 +1148,7 @@ class ContextHandler:
 
             self.presenter_page = await self._login_to_dashboard()
             self.presenter_page.on("pageerror", self._print_presenter_unhandled_error)
-            self.presenter_page.on("console", self._print_presenter_console_output)
+            self.presenter_page.on("console", self._handle_presenter_console_output)
         except Exception:
             traceback.print_exc()
 
@@ -1075,6 +1159,12 @@ class ContextHandler:
     async def __aexit__(self, *args):
         while any(not task.done() for task in self._browser_tasks):
             await asyncio.sleep(0.1)
+
+        if args[0] is not None:
+            try:
+                await self.screenshot_views()
+            except Exception:
+                pass
 
         if self.presenter_context:
             await self.presenter_context.browser.close()

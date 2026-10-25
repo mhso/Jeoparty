@@ -206,12 +206,12 @@ def _wait_for_server():
         except requests.RequestException:
             sleep(0.5)
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def app():
     # Get a list of question packs before the test
     pack_folders_before = set(glob(f"{Config.STATIC_FOLDER}/data/packs/*"))
 
-    process = Popen(["uv", "run", "main.py", "-e" "testing"], cwd="src")
+    process = Popen(["uv", "run", "main.py", "-e" "testing", "--spa"], cwd="src")
     _wait_for_server()
 
     yield

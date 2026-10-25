@@ -17,11 +17,16 @@ do
         mkdir "$path"
     fi
 done
+
+# Build frontend
+podman build ../jeoparty_web -t jeoparty_web:latest --output type=local,dest=../jeoparty_web/dist
+
 podman run \
     --name jeoparty \
     -i \
     --network=host \
     -v ./log:/jeoparty/log \
+    -v ../jeoparty_web/dist:/jeoparty/dist \
     -v ./src/jeoparty/app/static/data/packs:/jeoparty/src/jeoparty/app/static/data/packs \
     -v ./src/jeoparty/app/static/img/avatars:/jeoparty/src/jeoparty/app/static/img/avatars \
     jeoparty:latest

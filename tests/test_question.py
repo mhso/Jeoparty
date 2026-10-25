@@ -459,7 +459,7 @@ async def test_time_runs_out(database, locales):
 
             await context.show_question()
 
-            await context.wait_for_event(wrong_answer_visible, timeout=active_question.question.category.buzz_time + 2)
+            await context.wait_for_result(wrong_answer_visible, timeout=active_question.question.category.buzz_time + 2)
 
             await context.assert_question_values(
                 active_question,

@@ -24,7 +24,8 @@ _DASHBOARD_PATHS = [
 ]
 
 def _serve_entry(entry: str):
-    response = flask.send_from_directory(Config.FRONTEND_DIST_FOLDER, entry)
+    config: Config = flask.current_app.config["APP_CONFIG"]
+    response = flask.send_from_directory(config.FRONTEND_DIST_FOLDER, entry)
     # The HTML references content-hashed assets, so it must never be cached itself.
     response.headers["Cache-Control"] = "no-cache"
     return response
@@ -41,6 +42,8 @@ for _path in _DASHBOARD_PATHS:
 
 @spa_page.route("/<path:path>")
 def contestant(path: str):
+    config: Config = flask.current_app.config["APP_CONFIG"]
+
     # A typo'd API call should fail loudly, not get a 200 with contestant.html.
     if path.startswith("api/"):
         flask.abort(404)
@@ -48,6 +51,6 @@ def contestant(path: str):
     # Built files (dist/assets/...) live under the same prefix as the pages.
     # Anything that looks like a file but doesn't exist is a 404, not a join code.
     if "." in path.rsplit("/", 1)[-1]:
-        return flask.send_from_directory(Config.FRONTEND_DIST_FOLDER, path)
+        return flask.send_from_directory(config.FRONTEND_DIST_FOLDER, path)
 
     return _serve_entry("contestant.html")

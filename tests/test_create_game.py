@@ -23,7 +23,6 @@ async def test_defaults(database):
         lobby_page, game_id = await context.create_game(pack_name)
 
         title_elem = await lobby_page.query_selector("#menu-game-title")
-
         assert await title_elem.text_content() == expected_title
 
         game_data = database.get_game_from_id(game_id)
@@ -47,7 +46,7 @@ async def test_inputs(database):
     pack_name = "Test Pack"
     expected_title = "Jeopardy Extravaganza"
     expected_password = "Pass1337"
-    expected_join_code = f"jeopardy_extravaganza"
+    expected_join_code = "jeopardy_extravaganza"
     expected_rounds = 1
     expected_contestants = 5
     expected_doubles = False
@@ -89,30 +88,31 @@ async def test_inputs(database):
 async def test_errors(database):
     async with ContextHandler(database) as context:
         # Create game with no question pack selected
-        page, game_id = await context.create_game()
+        page, game_id = await context.create_game(expect_fail=True)
 
         assert page.url.split("/")[-1].startswith("create_game")
 
         error_elem = await page.query_selector("#dashboard-form-error")
+
         assert database.get_game_from_id(game_id) is None
-        assert await error_elem.text_content() == "Error when creating game: The selected question pack is invalid."
+        assert error_elem is None
 
         # Create game with too short of a title
-        page, game_id = await context.create_game("Test Pack", "No")
+        page, game_id = await context.create_game("Test Pack", "No", expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
         assert await error_elem.text_content() == "Error when creating game: 'Title' should have at least 3 characters"
 
         # Create game with a title with invalid characters
-        page, game_id = await context.create_game("Test Pack", "Cööl T!tl€")
+        page, game_id = await context.create_game("Test Pack", "Cööl T!tl€", expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
         assert await error_elem.text_content() == "Error when creating game: 'Title' contains invalid characters"
 
         # Create game with too short of a password
-        page, game_id = await context.create_game("Test Pack", "Game Title", "P")
+        page, game_id = await context.create_game("Test Pack", "Game Title", "P", expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
@@ -120,43 +120,43 @@ async def test_errors(database):
 
         # Create game with too long of a password
         long_password = "abcdefghijklmn" * 10
-        page, game_id = await context.create_game("Test Pack", "Game Title", long_password)
+        page, game_id = await context.create_game("Test Pack", "Game Title", long_password, expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
         assert await error_elem.text_content() == "Error when creating game: 'Password' should have at most 64 characters"
 
         # Create game with too few rounds
-        page, game_id = await context.create_game("Test Pack", rounds=0)
+        page, game_id = await context.create_game("Test Pack", rounds=0, expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
-        assert await error_elem.text_content() == "Error when creating game: 'Regular rounds' - Input should be greater than 0"
+        assert error_elem is None
 
         # Create game with too many rounds
-        page, game_id = await context.create_game("Test Pack", rounds=10)
+        page, game_id = await context.create_game("Test Pack", rounds=10, expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
-        assert await error_elem.text_content() == "Error when creating game: 'Regular rounds' - Input should be less than 10"
+        assert error_elem is None
 
         # Create game with more rounds than the pack supports
-        page, game_id = await context.create_game("Other Pack", rounds=2)
+        page, game_id = await context.create_game("Other Pack", rounds=2, expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
         assert await error_elem.text_content() == "Error when creating game: The question pack only supports 1 regular round."
 
         # Create game with too few contestants
-        page, game_id = await context.create_game("Test Pack", contestants=0)
+        page, game_id = await context.create_game("Test Pack", contestants=0, expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
-        assert await error_elem.text_content() == "Error when creating game: 'Max contestants' - Input should be greater than 0"
+        assert error_elem is None
 
         # Create game with too many contestants
-        page, game_id = await context.create_game("Test Pack", contestants=11)
+        page, game_id = await context.create_game("Test Pack", contestants=11, expect_fail=True)
 
         error_elem = await page.query_selector("#dashboard-form-error")
         assert database.get_game_from_id(game_id) is None
-        assert await error_elem.text_content() == "Error when creating game: 'Max contestants' - Input should be less than or equal to 10"
+        assert error_elem is None

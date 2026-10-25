@@ -28,12 +28,18 @@ podman run \
     -e POSTGRES_USER=mikkel \
     $POSTGRES_IMAGE
 
+podman stop -i jeoparty_web
+
+# Build frontend
+podman build ../jeoparty_web -t jeoparty_web:latest --output type=local,dest=../jeoparty_web/dist
+
 podman run \
     --name jeoparty_test \
     -i \
     --rm \
     --network=host \
     -v ./src/jeoparty/app/static/data/packs:/jeoparty/src/jeoparty/app/static/data/packs \
+    -v ../jeoparty_web/dist:/jeoparty/dist \
     -v ./tests/screenshots:/jeoparty/tests/screenshots \
     -v ./tests/videos:/jeoparty/tests/videos \
     jeoparty_test:latest

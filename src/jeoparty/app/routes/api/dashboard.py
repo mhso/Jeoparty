@@ -202,7 +202,7 @@ def delete_game(game_id: str):
 
     return make_json_response("Game was successfully deleted", 200)
 
-@dashboard_page.route("/pack/fetch")
+@dashboard_page.route("/packs/fetch")
 def fetch_resource():
     user_details = get_user_details()
     if user_details is None:
@@ -320,6 +320,11 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
     if not success:
         return _get_error_data(error_or_model)
 
+    last_round_index = 0
+    for round_data in data["rounds"]:
+        if not round_data.get("deleted", False):
+            last_round_index = round_data["round"]
+
     for round_data in data["rounds"]:
         questions_for_round = 0
         for category_data in round_data["categories"]:
@@ -334,7 +339,7 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                             "One of the choices must be equal to the correct answer",
                             round_data["id"],
                             category_data["id"],
-                            question_data["id"],
+                            question_data.get("id"),
                             "choices",
                         )
 
@@ -343,7 +348,7 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                             f"Amount of answer choices must not be greater than {Config.MAX_ANSWER_CHOICES}",
                             round_data["id"],
                             category_data["id"],
-                            question_data["id"],
+                            question_data.get("id"),
                             "choices",
                         )
 
@@ -353,7 +358,7 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                                 "Answer choice must not be empty",
                                 round_data["id"],
                                 category_data["id"],
-                                question_data["id"],
+                                question_data.get("id"),
                                 "choices",
                                 index,
                             )
@@ -363,7 +368,7 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                                 "Answer choice must be less than 32 characters",
                                 round_data["id"],
                                 category_data["id"],
-                                question_data["id"],
+                                question_data.get("id"),
                                 "choices",
                                 index,
                             )
@@ -373,13 +378,13 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                         "The height of an image or video must be specified",
                         round_data["id"],
                         category_data["id"],
-                        question_data["id"],
+                        question_data.get("id"),
                         "media",
                     )
 
                 questions_for_round += 1
 
-        if error_or_model.include_finale and round_data["round"] == len(data["rounds"]):
+        if error_or_model.include_finale and round_data["round"] == last_round_index:
             if len(round_data["categories"]) > 1:
                 return _get_error_data(
                     f"The finale round must have exactly one category, but has {len(round_data["categories"])}",
@@ -394,7 +399,7 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
 
     return None
 
-@dashboard_page.route("/pack/<pack_id>/save", methods=["POST"])
+@dashboard_page.route("/packs/<pack_id>/save", methods=["POST"])
 def save_pack(pack_id: str):
     user_details = get_user_details()
     if user_details is None:
@@ -447,7 +452,7 @@ def save_pack(pack_id: str):
 
     return make_json_response({"response": "Question pack saved successfully.", "ids": new_ids}, 200)
 
-@dashboard_page.route("/pack/<pack_id>/cheatsheet")
+@dashboard_page.route("/packs/<pack_id>/cheatsheet")
 def cheatsheet(pack_id: str):
     user_details = get_user_details()
     if user_details is None:
