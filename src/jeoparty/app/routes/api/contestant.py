@@ -14,7 +14,6 @@ from jeoparty.api.orm.models import Contestant, GameContestant
 from jeoparty.app.routes.api.shared import (
     create_and_validate_model,
     render_locale_template,
-    get_locale_data,
     is_lan_active,
     get_contestant_id_from_cookie,
     save_contestant_id_to_cookie,
@@ -154,7 +153,7 @@ def join_lobby():
 
     if not success:
         if join_code is None:
-            return make_json_response("Join code is missing in request.", 400)
+            return make_json_response("missing_code", 400)
 
         return make_json_response("Could not join: An unknown error happened.", 500)
 
@@ -164,14 +163,13 @@ def join_lobby():
         game_data = database.get_game_from_code(join_code)
 
         if game_data is None:
-            return make_json_response("No game exists with the given join code.", 404)
+            return make_json_response("no_such_game", 404)
 
-        locale = get_locale_data(game_data.pack.language, "contestant/lobby")
         if game_data.password is not None and flask.request.form.get("password") != game_data.password:
-            return make_json_response(locale["wrong_password"], 404)
+            return make_json_response("wrong_password", 404)
 
         if game_data.stage == StageType.ENDED:
-            return make_json_response(locale["game_over"], 400)
+            return make_json_response("game_over", 400)
 
         # Ensure no race conditions can occur when contestants join
         with flask.current_app.config["JOIN_LOCK"]:
@@ -179,7 +177,7 @@ def join_lobby():
 
             index = len(game_data.game_contestants)
             if index == game_data.max_contestants:
-                return make_json_response(locale["lobby_full"], 400)
+                return make_json_response("lobby_full", 400)
 
             # Try to get existitng user
             existing_model = None if user_id is None else database.get_contestant_from_id(user_id)

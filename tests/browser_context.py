@@ -137,11 +137,9 @@ class ContextHandler:
         return page
 
     def on(self, event: EVENT, context: BrowserContext, callback):
-        print("On event", event, hash(context), callback)
         self._event_listeners[event][context] = callback
 
     def off(self, event: EVENT, context: BrowserContext, callback):
-        print("Off event", event, hash(context), callback)
         callback = self._event_listeners[event]
         if context in callback:
             del callback[context]
@@ -149,7 +147,6 @@ class ContextHandler:
     async def emit(self, event: EVENT, context: BrowserContext):
         print("Emitting", event, hash(context))
         callback = self._event_listeners.get(event, {}).get(context)
-        print("Callback", callback)
         if callback:
             await callback()
 
@@ -391,7 +388,7 @@ class ContextHandler:
         if color is not None:
             # Input player color (the hard way because Playwright is no)
             color_input = await contestant_page.query_selector("#contestant-lobby-color")
-            await color_input.evaluate(f"(e) => e.value = '{color}'")
+            await color_input.fill(color)
 
         if avatar is not None:
             # Set player avatar
@@ -716,7 +713,7 @@ class ContextHandler:
 
     async def assert_presenter_values(
         self,
-        contestant_id: str,
+        contestant_index: int,
         name: str | None = None,
         color: str | None = None,
         avatar: str | None = None,
@@ -732,14 +729,16 @@ class ContextHandler:
             if self.presenter_page.url.endswith(f"/{endpoint}") or self.presenter_page.url.endswith(f"/{endpoint}/"):
                 game_active = True
                 break
+    
+        if game_active:
+            wrappers = await self.presenter_page.query_selector_all(".footer-contestant-entry")
+        else:
+            wrappers = await self.presenter_page.query_selector_all(".menu-contestant-entry")
+
+        wrapper_elem = wrappers[contestant_index]
 
         # Assert that contestant color is correct
         if color is not None:
-            if game_active:
-                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
-            else:
-                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
-
             header_style = await wrapper_elem.get_property("style")
 
             if game_active:
@@ -752,9 +751,9 @@ class ContextHandler:
         # Assert that contestant avatar is correct
         if avatar is not None:
             if game_active:
-                avatar_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id} > .footer-contestant-entry-avatar")
+                avatar_elem = await wrapper_elem.query_selector(".footer-contestant-entry-avatar")
             else:
-                avatar_elem = await self.presenter_page.query_selector(f"#player_{contestant_id} > .menu-contestant-avatar")
+                avatar_elem = await wrapper_elem.query_selector(".menu-contestant-avatar")
 
             expected_filename = os.path.basename(avatar)
             file_split = expected_filename.split(".")
@@ -775,12 +774,11 @@ class ContextHandler:
 
         # Assert that contestant having turn is correct
         if has_turn is not None:
-            player_turn = await self.presenter_page.eval_on_selector(f".footer-contestant-{contestant_id}", "(e) => e.classList.contains('active-contestant-entry')")
+            player_turn = await wrapper_elem.evaluate("(e) => e.classList.contains('active-contestant-entry')")
             assert player_turn is has_turn
 
         # Assert that used power-ups are correct
         if used_power_ups is not None:
-            wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
             for power_up in used_power_ups:
                 power_element = await wrapper_elem.query_selector(f".footer-contestant-power-{power_up}")
                 used_icon = await power_element.query_selector(".footer-contestant-entry-power-used")
@@ -788,7 +786,7 @@ class ContextHandler:
 
         # Assert that ready-state are correct
         if ready is not None:
-            ready_icon = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id} > .footer-contestant-entry-ready")
+            ready_icon = await wrapper_elem.query_selector(".footer-contestant-entry-ready")
             assert await ready_icon.is_visible() is ready
 
         # Validate remaining fields
@@ -804,10 +802,8 @@ class ContextHandler:
                 continue
 
             if game_active:
-                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
                 element = await wrapper_elem.query_selector(f".footer-contestant-entry-{elem}")
             else:
-                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
                 element = await wrapper_elem.query_selector(f".menu-contestant-{elem}")
 
             assert await element.text_content() == value, elem
@@ -974,8 +970,10 @@ class ContextHandler:
         teaser_visible: bool = False,
     ):
         lines = await self.presenter_page.query_selector_all(".finale-result-name")
+
         for expected, line in zip(result_lines, lines):
-            assert (await line.text_content()).strip() == " ".join(expected).strip()
+            text = (await line.text_content()).strip().split(None)
+            assert " ".join(text) == " ".join(expected).strip()
 
         teaser_header = await self.presenter_page.query_selector("#endscreen-teaser")
         elem_opacity = await teaser_header.evaluate("(el) => window.getComputedStyle(el).getPropertyValue('opacity')")
@@ -990,7 +988,7 @@ class ContextHandler:
         contestants: List[GameContestant],
     ):
         description = await self.presenter_page.query_selector("#endscreen-winner-desc")
-        assert await description.text_content() == winner_desc
+        assert " ".join((await description.text_content()).split(None)) == winner_desc
 
         table_headers = await self.presenter_page.query_selector_all("#endscreen-scores-table th")
         table_rows = await self.presenter_page.query_selector_all("#endscreen-scores-table tr")

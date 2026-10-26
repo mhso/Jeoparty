@@ -30,3 +30,7 @@
 - [❌] Make a theme editor
 - [❌] Rewrite frontend in Vue/React (yikes)
 - [❌] Make error messages on backend locale specific
+
+# Refactor
+- [❌] Fix LAN join flow
+- [❌] Fix contestant random-color join bug

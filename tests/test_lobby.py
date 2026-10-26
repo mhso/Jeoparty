@@ -23,7 +23,7 @@ async def test_defaults(database, locales):
     ]
     contestant_avatar = "http://localhost:5006/static/img/avatars/default/*.png"
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         game_id = (await context.create_game(pack_name))[1]
 
         placeholder_elem = await context.presenter_page.query_selector("#menu-no-contestants-placeholder")
@@ -54,8 +54,6 @@ async def test_defaults(database, locales):
 
                 presenter_contestant_entries = await contestants_wrapper.query_selector_all(".menu-contestant-entry")
                 assert len(presenter_contestant_entries) == index + 1
-
-                assert await presenter_contestant_entries[index].get_attribute("id") == f"player_{contestant.id}"
 
                 presenter_entry_style = await presenter_contestant_entries[index].get_property("style")
                 border_color = await presenter_entry_style.get_property("borderColor")

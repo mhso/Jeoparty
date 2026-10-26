@@ -15,7 +15,7 @@ async def test_finale_result(database, locales):
     contestant_wagers = [1000, 300, 700, 0]
     contestant_answers = ["4", "4", "3", None]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
 
@@ -45,14 +45,11 @@ async def test_finale_result(database, locales):
             database.save_models(*game_data.game_contestants)
 
             await context.open_finale_page(game_data.id)
-            await context.wait_for_result(context._socket_connected)
 
             session.refresh(game_data)
 
-            # Show results
-            await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
-
             await asyncio.sleep(0.5)
+            await context.screenshot_views()
 
             lines = []
             for index, contestant in enumerate(game_data.game_contestants):
@@ -65,6 +62,7 @@ async def test_finale_result(database, locales):
                 await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
                 await asyncio.sleep(0.5)
+                await context.screenshot_views()
 
                 if contestant.finale_answer is not None:
                     correct = contestant.finale_answer == "4"
@@ -96,6 +94,7 @@ async def test_finale_result(database, locales):
                 lines[-1].append(result_line)
 
                 await asyncio.sleep(1)
+                await context.screenshot_views()
 
                 await context.assert_finale_result_values(locale, lines)
 

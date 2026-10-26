@@ -12,7 +12,7 @@ from mhooge_flask.logging import logger
 
 from jeoparty.api.database import Database
 from jeoparty.api.enums import PowerUpType
-from jeoparty.api.orm.models import Game
+from jeoparty.api.orm.models import Game, GameContestant
 
 _PING_SAMPLES = 10
 
@@ -160,7 +160,7 @@ class GameSocketHandler(Namespace):
             game_contestant.disconnected = False
             self.save_models(game_contestant)
 
-            contestant_data = game_contestant.dump(included_relations=[])
+            contestant_data = game_contestant.dump(included_relations=[GameContestant.power_ups])
 
             # Add socket_io session ID to contestant and join 'contestants' room
             print(f"User '{contestant_data['name']}' with ID '{user_id}' and SID '{sid}' joined the lobby")

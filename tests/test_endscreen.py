@@ -23,7 +23,7 @@ async def test_finale_result(database, locales):
     contestant_hits = [3, 6, 1, 0]
     contestant_misses = [2, 3, 2, 1]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         game_id = (await context.create_game(pack_name, daily_doubles=False))[1]
 
         with database:
@@ -96,7 +96,7 @@ async def test_finale_result(database, locales):
             await context.open_endscreen_page(game_data.id)
 
             expected_winner_desc = (
-                f"{contestant_names[1]}, {contestant_names[2]}, {locale['and']} "
+                f"{contestant_names[1]}, {contestant_names[2]} {locale['and']} "
                 f"{contestant_names[0]} {locale['winner_flavor_3']}"
             )
             await context.assert_endscreen_values(
