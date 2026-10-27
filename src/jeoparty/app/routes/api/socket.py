@@ -148,6 +148,7 @@ class GameSocketHandler(Namespace):
             print("Presenter joined")
 
             self.emit("presenter_joined")
+            self.emit("presenter_joined", to="contestants")
 
     def on_contestant_join(self):
         user_id = get_contestant_id_from_cookie(flask.request.cookies)

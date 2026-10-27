@@ -12,7 +12,7 @@ async def test_freeze(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(database) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -27,8 +27,8 @@ async def test_freeze(database, locales):
 
             active_player.has_turn = True
             active_question.active = True
-
             game_data.stage = StageType.QUESTION
+
             database.save_models(active_player, active_question, game_data)
 
             # Open question page and show question
@@ -110,7 +110,7 @@ async def test_rewind_before_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -125,8 +125,9 @@ async def test_rewind_before_buzz(database, locales):
 
             active_player.has_turn = True
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_player, active_question)
+            database.save_models(active_player, active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -211,7 +212,7 @@ async def test_rewind_before_buzz(database, locales):
                     score=active_question.question.value if is_active else 0,
                     hits=int(is_active),
                     misses=0,
-                    has_turn=False,
+                    has_turn=is_active,
                     used_power_ups={"hijack": False, "freeze": False, "rewind": is_active},
                 )
 
@@ -247,8 +248,9 @@ async def test_rewind_after_buzz(database, locales):
 
             player_1.has_turn = True
             active_question.active = True
-
-            database.save_models(player_1, active_question)
+            game_data.stage = StageType.QUESTION
+            
+            database.save_models(player_1, active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -380,7 +382,7 @@ async def test_rewind_after_buzz(database, locales):
                     score=score,
                     hits=int(is_p2),
                     misses=int(is_p1),
-                    has_turn=False,
+                    has_turn=is_p2,
                     used_power_ups={"hijack": False, "freeze": False, "rewind": is_p1},
                 )
 
@@ -416,8 +418,9 @@ async def test_rewind_during_buzz(database, locales):
 
             player_1.has_turn = True
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(player_1, active_question)
+            database.save_models(player_1, active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -488,25 +491,28 @@ async def test_rewind_during_buzz(database, locales):
                 is_p1 = contestant.id == player_1.id
                 is_p2 = contestant.id == player_2.id
                 if is_p1:
-                    score = -active_question.question.value 
+                    score = -active_question.question.value
+                    buzzes = 1 
                 elif is_p2:
                     score = active_question.question.value 
+                    buzzes = 2 
                 else:
                     score = 0
+                    buzzes = 0
 
                 await context.assert_presenter_values(
                     contestant.id,
                     score=score,
                     hits=int(is_p2),
                     misses=int(is_p1),
-                    has_turn=False,
+                    has_turn=is_p2,
                     used_power_ups={"hijack": False, "freeze": False, "rewind": is_p1},
                 )
 
                 await context.assert_contestant_values(
                     contestant.contestant_id,
                     score=score,
-                    buzzes=int(is_p1 or is_p2),
+                    buzzes=buzzes,
                     hits=int(is_p2),
                     misses=int(is_p1),
                     buzzer_status="inactive",
@@ -532,8 +538,9 @@ async def test_hijack_before_question(database, locales):
             active_player = next(filter(lambda c: c.contestant.name == contestant_names[2], game_data.game_contestants))
             active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_question)
+            database.save_models(active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -670,8 +677,9 @@ async def test_hijack_after_question(database, locales):
             active_player = next(filter(lambda c: c.contestant.name == contestant_names[2], game_data.game_contestants))
             active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_question)
+            database.save_models(active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -783,8 +791,9 @@ async def test_hijack_during_question(database, locales):
             active_player = next(filter(lambda c: c.contestant.name == contestant_names[2], game_data.game_contestants))
             active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_question)
+            database.save_models(active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
