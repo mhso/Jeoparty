@@ -12,7 +12,7 @@ async def test_freeze(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(database, True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -28,10 +28,12 @@ async def test_freeze(database, locales):
             active_player.has_turn = True
             active_question.active = True
 
-            database.save_models(active_player, active_question)
+            game_data.stage = StageType.QUESTION
+            database.save_models(active_player, active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
+
             session.refresh(game_data)
 
             await context.show_question()
@@ -58,11 +60,9 @@ async def test_freeze(database, locales):
                 game_feed=[
                     f"{contestant_names[1]} {locale['game_feed_buzz_1']} " + r"\d{1,3}\.\d{2} " + locale['game_feed_buzz_2'],
                     f"{contestant_names[1]} {locale['game_feed_power_1']} freeze {locale['game_feed_power_2']}!",
-                ]
+                ],
+                countdown_state=["running", "paused"],
             )
-
-            # Assert countdown is paused
-            assert await context.presenter_page.evaluate("countdownPaused")
 
             countdown_elem = await context.presenter_page.query_selector(".question-countdown-text")
             seconds_before = await countdown_elem.text_content()

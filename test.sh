@@ -31,7 +31,7 @@ podman run \
 podman stop -i jeoparty_web
 
 # Build frontend
-podman build ../jeoparty_web -t jeoparty_web:latest --output type=local,dest=../jeoparty_web/dist
+#podman build ../jeoparty_web -t jeoparty_web:latest --output type=local,dest=../jeoparty_web/dist
 
 podman run \
     --name jeoparty_test \

@@ -160,7 +160,7 @@ def _get_game_state(game_data: Game):
         state_json["question"], media_json = _get_question_state(game_data, game_question)
         state_json.update(media_json)
 
-    elif game_data.stage is (StageType.SELECTION, StageType.FINALE_WAGER):
+    elif game_data.stage in (StageType.SELECTION, StageType.FINALE_WAGER):
         round_data, start_of_game = _get_selection_state(game_data)
         state_json["round"] = round_data
         state_json["start_of_game"] = start_of_game

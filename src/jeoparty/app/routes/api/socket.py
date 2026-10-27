@@ -7,12 +7,14 @@ from dataclasses import dataclass, field
 import flask
 from flask_socketio import Namespace
 
+from mhooge_flask.auth import get_user_details
 from mhooge_flask.routing import socket_io
 from mhooge_flask.logging import logger
 
 from jeoparty.api.database import Database
 from jeoparty.api.enums import PowerUpType
 from jeoparty.api.orm.models import Game, GameContestant
+from jeoparty.app.routes.api.shared import get_contestant_id_from_cookie
 
 _PING_SAMPLES = 10
 
@@ -44,7 +46,9 @@ class ContestantMetadata:
 def _presenter_event(func):
     def wrapper(*args, **kwargs):
         instance = args[0]
-        if not "presenter" in instance.rooms(flask.request.sid):
+
+        user_info = get_user_details()
+        if user_info is None or not "presenter" in instance.rooms(flask.request.sid):
             raise RuntimeError(f"User does not have permission to emit event '{func.__name__}'")
 
         with instance.db_lock:
@@ -55,7 +59,9 @@ def _presenter_event(func):
 def _contestants_event(func):
     def wrapper(*args, **kwargs):
         instance = args[0]
-        if not "contestants" in instance.rooms(flask.request.sid):
+
+        contestant_id = get_contestant_id_from_cookie(flask.request.cookies)
+        if contestant_id is None or not "contestants" in instance.rooms(flask.request.sid):
             raise RuntimeError(f"User does not have permission to emit event '{func.__name__}'")
 
         with instance.db_lock:
@@ -118,13 +124,21 @@ class GameSocketHandler(Namespace):
             callback=callback
         )
 
-    def on_presenter_join(self, user_id: str):
+    def on_presenter_join(self):
+        user_info = get_user_details()
+
+        if user_info is None:
+            logger.warning(
+                "User tried to join 'presenter' room, but is not authorized."
+            )
+            return
+
         with self.db_lock:
             game_data = self.game_data
 
-            if game_data.created_by != user_id:
+            if game_data.created_by != user_info[0]:
                 logger.warning(
-                    f"User '{user_id}' tried to join 'presenter' room, "
+                    f"User '{user_info[0]}' tried to join 'presenter' room, "
                     f"but is not the creator of the game with ID '{self.game_id}'."
                 )
                 return
@@ -135,11 +149,18 @@ class GameSocketHandler(Namespace):
 
             self.emit("presenter_joined")
 
-    def on_contestant_join(self, user_id: str):
+    def on_contestant_join(self):
+        user_id = get_contestant_id_from_cookie(flask.request.cookies)
+        if user_id is None:
+            logger.warning(
+                "Contestant tried to join, but is not authorized."
+            )
+            return
+
         with self.db_lock:
             game_data = self.game_data
 
-            game_contestant = game_data.get_contestant(game_contestant_id=user_id)
+            game_contestant = game_data.get_contestant(contestant_id=user_id)
             if game_contestant is None:
                 logger.warning(
                     f"User '{user_id}' tried to join 'contestant' room, "
@@ -147,15 +168,16 @@ class GameSocketHandler(Namespace):
                 )
                 return
 
+            contestant_id = game_contestant.id
             sid = flask.request.sid
 
-            if user_id not in self.contestant_metadata:
-                self.contestant_metadata[user_id] = ContestantMetadata(sid)
+            if contestant_id not in self.contestant_metadata:
+                self.contestant_metadata[contestant_id] = ContestantMetadata(sid)
             else:
-                self.contestant_metadata[user_id].sid = sid
-                self.contestant_metadata[user_id].joined = True
+                self.contestant_metadata[contestant_id].sid = sid
+                self.contestant_metadata[contestant_id].joined = True
 
-            self.contestant_ids[sid] = user_id
+            self.contestant_ids[sid] = contestant_id
 
             game_contestant.disconnected = False
             self.save_models(game_contestant)
@@ -163,7 +185,7 @@ class GameSocketHandler(Namespace):
             contestant_data = game_contestant.dump(included_relations=[GameContestant.power_ups])
 
             # Add socket_io session ID to contestant and join 'contestants' room
-            print(f"User '{contestant_data['name']}' with ID '{user_id}' and SID '{sid}' joined the lobby")
+            print(f"User '{contestant_data['name']}' with ID '{contestant_id}' and SID '{sid}' joined the lobby")
             self.enter_room(sid, "contestants")
 
             self.emit("contestant_joined", json.dumps(contestant_data), to="presenter")

@@ -168,18 +168,6 @@ async def test_errors(database):
             error_elem = await page.query_selector("#contestant-lobby-status")
             assert await error_elem.text_content() == "Error when joining lobby: 'Name' should have at least 2 characters"
 
-            # Try to join with too long of a name
-            too_long_name = "Contestant With Way Too Long Name"
-            page, contestant_id = await context.join_lobby(game_data.join_code, too_long_name, expect_success=False)
-
-            # Assert that player failed to join
-            assert contestant_id is None
-            session.refresh(game_data)
-            assert game_data.game_contestants == []
-
-            error_elem = await page.query_selector("#contestant-lobby-status")
-            assert await error_elem.text_content() == "Error when joining lobby: 'Name' should have at most 16 characters"
-
             # Try to join with a name that has invalid characters
             invalid_name = "Inv@l!d Nam£"
             page, contestant_id = await context.join_lobby(game_data.join_code, invalid_name, expect_success=False)

@@ -38,7 +38,7 @@ FROM base AS test
 COPY tests ./tests
 
 # Run the tests
-CMD ["uv", "run", "pytest", "tests/test_lobby.py", "-k", "test_rejoin", "--tb", "short", "-s"]
+CMD ["uv", "run", "pytest", "tests/test_powerups.py", "-k", "test_freeze", "--tb", "short", "-s"]
 
 # -=-=-=- Production Stage -=-=-=-
 FROM base AS prod

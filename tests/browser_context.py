@@ -79,6 +79,7 @@ EVENT = Literal[
     "on_pack_mounted",
     "on_game_mounted",
     "on_contestant_refresh",
+    "on_hijack_enabled",
 ]
 
 class ContextHandler:
@@ -111,6 +112,7 @@ class ContextHandler:
             "on_pack_mounted": {},
             "on_game_mounted": {}, # Contestant joined game
             "on_contestant_refresh": {}, # Contestant fetched new state
+            "on_hijack_enabled": {},
         }
 
     async def _create_browser(self, context: Playwright, browser: str):
@@ -163,7 +165,6 @@ class ContextHandler:
 
         while time_slept < timeout:
             if resolved:
-                del self._event_listeners[event]
                 return
 
             await asyncio.sleep(sleep_interval)
@@ -426,7 +427,19 @@ class ContextHandler:
 
         return contestant_page, contestant_id
 
-    async def wait_until_ready(self, event: EVENT | None, contestant_event: EVENT | None = "on_contestant_refresh"):
+    async def wait_for_contestants(self, event: EVENT | None, stack: AsyncExitStack | None = None):
+        if stack is None:
+            stack = AsyncExitStack()
+
+        for page in self.contestant_pages.values():
+            await stack.enter_async_context(self.wait_for_event_context_manager(event, page.context))
+
+        return stack
+
+    async def wait_until_ready(self,
+        event: EVENT | None,
+        contestant_event: EVENT | None = "on_contestant_refresh",
+    ):
         """
         Create a stack of context managers so we can wait wait for the presenter
         and each contestant to be redirected after presented jumps to new page.
@@ -438,8 +451,7 @@ class ContextHandler:
             await stack.enter_async_context(self.wait_for_event_context_manager(event, self.presenter_context))
 
         if contestant_event:
-            for page in self.contestant_pages.values():
-                await stack.enter_async_context(self.wait_for_event_context_manager(contestant_event, page.context))
+            await self.wait_for_contestants(contestant_event, stack)
 
         return stack
 
@@ -450,7 +462,7 @@ class ContextHandler:
             await asyncio.sleep(1.5)
 
         # Starts the game
-        async with await self.wait_until_ready("on_lobby_mounted"):
+        async with await self.wait_until_ready("on_selection_mounted"):
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def open_selection_page(self, game_id: str):
@@ -480,10 +492,10 @@ class ContextHandler:
         await asyncio.sleep(1)
 
         # Check if question is multiple choice
-        answer_choices = await self.presenter_page.evaluate("() => getNumAnswerChoices()")
+        answer_choices = await self.presenter_page.query_selector_all(".question-choice-entry")
 
         if answer_choices:
-            for _ in range(answer_choices):
+            for _ in answer_choices:
                 await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
                 await asyncio.sleep(0.5)
         else:
@@ -545,14 +557,14 @@ class ContextHandler:
     async def hit_buzzer(self, contestant_id: str, expect_success: bool = True):
         page = self.contestant_pages[contestant_id]
 
-        await page.wait_for_selector("#buzzer-active", timeout=10000)
-        await page.click("#buzzer-wrapper")
+        elem = await page.wait_for_selector("#buzzer-wrapper.active", timeout=10000)
+        await elem.click()
 
-        buzz_winner_img = await page.query_selector("#buzzer-winner")
-        buzz_loser_img = await page.query_selector("#buzzer-loser")
+        elem = await page.query_selector("#buzzer-wrapper")
 
         async def buzz_registered():
-            return (await buzz_winner_img.is_visible()) or (await buzz_loser_img.is_visible())
+            class_name = await elem.get_attribute("class")
+            return class_name is not None and ("won" in class_name or "lost" in class_name)
 
         if expect_success:
             # Wait for buzz to register on contestant page
@@ -565,6 +577,7 @@ class ContextHandler:
 
     async def use_power_up(self, contestant_id: str, power_id: str):
         page = self.contestant_pages[contestant_id]
+
         await page.wait_for_selector(f"#contestant-power-btn-{power_id}:enabled", timeout=10000)
         await page.click(f"#contestant-power-btn-{power_id}")
 
@@ -679,14 +692,14 @@ class ContextHandler:
 
         # Assert that buzzer status is correct
         if buzzer_status is not None:
-            elem = await page.query_selector(f"#buzzer-{buzzer_status}")
+            elem = await page.query_selector(f"#buzzer-wrapper.{buzzer_status}")
             assert await elem.is_visible()
 
         # Assert that used power-ups are correct
         if used_power_ups is not None:
             for power_up in used_power_ups:
                 used_icon = await page.query_selector(f"#contestant-power-btn-{power_up} > .contestant-power-used")
-                assert await used_icon.is_visible() is used_power_ups[power_up], f"Correct used {power_up}"
+                assert (used_icon is not None) is used_power_ups[power_up], f"Correct used {power_up}"
 
         # Assert that enabled power-ups are correct
         if enabled_power_ups is not None:
@@ -713,7 +726,7 @@ class ContextHandler:
 
     async def assert_presenter_values(
         self,
-        contestant_index: int,
+        contestant_id: str,
         name: str | None = None,
         color: str | None = None,
         avatar: str | None = None,
@@ -729,17 +742,13 @@ class ContextHandler:
             if self.presenter_page.url.endswith(f"/{endpoint}") or self.presenter_page.url.endswith(f"/{endpoint}/"):
                 game_active = True
                 break
-    
-        if game_active:
-            wrappers = await self.presenter_page.query_selector_all(".footer-contestant-entry")
-        else:
-            wrappers = await self.presenter_page.query_selector_all(".menu-contestant-entry")
 
-        wrapper_elem = wrappers[contestant_index]
+        class_name = ".footer-contestant" if game_active else ".menu-contestant"
+        contestant_wrapper = await self.presenter_page.query_selector(f"{class_name}-{contestant_id}")
 
         # Assert that contestant color is correct
         if color is not None:
-            header_style = await wrapper_elem.get_property("style")
+            header_style = await contestant_wrapper.get_property("style")
 
             if game_active:
                 element_color = await header_style.get_property("backgroundColor")
@@ -750,10 +759,8 @@ class ContextHandler:
 
         # Assert that contestant avatar is correct
         if avatar is not None:
-            if game_active:
-                avatar_elem = await wrapper_elem.query_selector(".footer-contestant-entry-avatar")
-            else:
-                avatar_elem = await wrapper_elem.query_selector(".menu-contestant-avatar")
+            avatar_class = "footer-contestant-entry-avatar" if game_active else ".menu-contestant-avatar"
+            avatar_elem = await contestant_wrapper.query_selector(avatar_class)
 
             expected_filename = os.path.basename(avatar)
             file_split = expected_filename.split(".")
@@ -774,19 +781,18 @@ class ContextHandler:
 
         # Assert that contestant having turn is correct
         if has_turn is not None:
-            player_turn = await wrapper_elem.evaluate("(e) => e.classList.contains('active-contestant-entry')")
+            player_turn = await contestant_wrapper.evaluate("(e) => e.classList.contains('active-contestant-entry')")
             assert player_turn is has_turn
 
         # Assert that used power-ups are correct
         if used_power_ups is not None:
             for power_up in used_power_ups:
-                power_element = await wrapper_elem.query_selector(f".footer-contestant-power-{power_up}")
-                used_icon = await power_element.query_selector(".footer-contestant-entry-power-used")
-                assert await used_icon.is_visible() is used_power_ups[power_up], f"Correct used {power_up}"
+                used_icon = await contestant_wrapper.query_selector(f".footer-contestant-power-{power_up} > .footer-contestant-entry-power-used")
+                assert (used_icon is not None) is used_power_ups[power_up], f"Correct used {power_up}"
 
         # Assert that ready-state are correct
         if ready is not None:
-            ready_icon = await wrapper_elem.query_selector(".footer-contestant-entry-ready")
+            ready_icon = await contestant_wrapper.query_selector(".footer-contestant-entry-ready")
             assert await ready_icon.is_visible() is ready
 
         # Validate remaining fields
@@ -801,10 +807,9 @@ class ContextHandler:
             if value is None:
                 continue
 
-            if game_active:
-                element = await wrapper_elem.query_selector(f".footer-contestant-entry-{elem}")
-            else:
-                element = await wrapper_elem.query_selector(f".menu-contestant-{elem}")
+            class_name = f".footer-contestant-entry-{elem}" if game_active else f".menu-contestant-{elem}"
+
+            element = await contestant_wrapper.query_selector(class_name)
 
             assert await element.text_content() == value, elem
 
@@ -817,11 +822,12 @@ class ContextHandler:
         wrong_answer_text: str | None = None,
         game_feed: List[str] | None = None,
         is_finale: bool = False,
+        countdown_state: List[Literal["running", "paused", "hidden"]] | None = None,
     ):
         # Assert that category header is correct
         expected_category_text = question.question.category.name
         if not is_finale:
-            expected_category_text = f"{expected_category_text} for {question.question.value} points"
+            expected_category_text = f"{expected_category_text}for {question.question.value} points"
 
         category_header = await self.presenter_page.query_selector(".question-category-header")
         assert self._clean_whitespace(await category_header.text_content()) == expected_category_text
@@ -886,18 +892,19 @@ class ContextHandler:
             for entry, expected in zip(buzz_feed_elem, game_feed):
                 assert re.match(expected, await entry.text_content()) is not None
 
-        # Assert that the answer and explanation is correct
-        answer_elem = await self.presenter_page.query_selector("#question-actual-answer > .question-emph")
-        answer = await answer_elem.text_content()
-        if (explanation := question.question.extra.get("explanation")):
-            split = answer.split("(")
-            answer = split[0].strip()
-            explanation_text = split[1].removesuffix(")").strip()
-            assert explanation_text == explanation
-
-        assert answer == f"'{question.question.answer}'"
         if answer_visible is not None:
+            answer_elem = await self.presenter_page.query_selector("#question-actual-answer > .question-emph")
             assert await answer_elem.is_visible() is answer_visible
+
+            # Assert that the answer and explanation is correct
+            answer = await answer_elem.text_content()
+            assert answer == f"'{question.question.answer}'"
+
+            if (explanation := question.question.extra.get("explanation")):
+                split = answer.split("(")
+                answer = split[0].strip()
+                explanation_text = split[1].removesuffix(")").strip()
+                assert explanation_text == explanation
 
         if correct_answer is not None:
             if correct_answer:
@@ -910,6 +917,18 @@ class ContextHandler:
                 if wrong_answer_text is not None:
                     wrong_text_elem = await self.presenter_page.query_selector("#question-wrong-reason-text")
                     assert await wrong_text_elem.text_content() == wrong_answer_text
+
+        if countdown_state is not None:
+            if "hidden" in countdown_state:
+                countdown_wrapper = await self.presenter_page.query_selector(".question-countdown-wrapper")
+                countdown_style = await countdown_wrapper.get_property("style")
+                opacity = await countdown_style.get_property("opacity")
+    
+                assert await opacity.json_value() == 0
+            else:
+                cls_str = ".".join(countdown_state)
+                countdown_wrapper = await self.presenter_page.query_selector(f".question-countdown-wrapper.{cls_str}")
+                assert countdown_wrapper is not None
 
     async def assert_finale_wager_values(
         self,

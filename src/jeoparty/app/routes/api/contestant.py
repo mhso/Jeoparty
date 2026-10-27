@@ -114,11 +114,6 @@ def lobby(join_code: str):
 
         user_already_joined = False
         if contestant is not None:
-            # If contestant rejoins, override values of contestant model
-            for column in ("name", "color"):
-                val = getattr(contestant, column)
-                setattr(contestant, column, val)
-
             response_json["existing"] = {
                 "name": contestant.name,
                 "color": contestant.color,
@@ -153,9 +148,9 @@ def join_lobby():
 
     if not success:
         if join_code is None:
-            return make_json_response("missing_code", 400)
+            return make_json_response({"template": "missing_code"}, 400)
 
-        return make_json_response("Could not join: An unknown error happened.", 500)
+        return make_json_response(contestant_model_or_error, 400)
 
     contestant_model: Contestant = contestant_model_or_error
 
@@ -163,13 +158,13 @@ def join_lobby():
         game_data = database.get_game_from_code(join_code)
 
         if game_data is None:
-            return make_json_response("no_such_game", 404)
+            return make_json_response({"template": "no_such_game"}, 404)
 
         if game_data.password is not None and flask.request.form.get("password") != game_data.password:
-            return make_json_response("wrong_password", 404)
+            return make_json_response({"template": "wrong_password"}, 404)
 
         if game_data.stage == StageType.ENDED:
-            return make_json_response("game_over", 400)
+            return make_json_response({"template": "game_over"}, 400)
 
         # Ensure no race conditions can occur when contestants join
         with flask.current_app.config["JOIN_LOCK"]:
@@ -177,13 +172,18 @@ def join_lobby():
 
             index = len(game_data.game_contestants)
             if index == game_data.max_contestants:
-                return make_json_response("lobby_full", 400)
+                return make_json_response({"template": "lobby_full"}, 400)
 
             # Try to get existitng user
             existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
 
             user_already_joined = False
             if existing_model is not None:
+                # If contestant rejoins, override values of contestant model
+                for column in ("name", "color"):
+                    val = getattr(contestant_model, column)
+                    setattr(existing_model, column, val)
+
                 contestant_model = existing_model
 
                 for contestant in game_data.game_contestants:
