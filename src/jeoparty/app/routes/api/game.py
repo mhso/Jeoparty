@@ -196,7 +196,7 @@ def get_presenter_state(game_id: str):
 
         return _get_game_state(game_data)
 
-def transition_question(database: Database, game_data: Game):
+def _transition_question(database: Database, game_data: Game):
     # Set stage to 'question' or 'finale_question'
     game_data.stage = StageType.FINALE_QUESTION if game_data.stage == StageType.FINALE_WAGER else StageType.QUESTION
 
@@ -336,7 +336,7 @@ def transition_state(game_id: str, target: str):
             return make_json_response("You are not the creator of the given game.", 401)
 
         if target_stage is StageType.QUESTION:
-            transition_question(database, game_data)
+            _transition_question(database, game_data)
 
         elif target_stage is StageType.SELECTION:
             _transition_selection(database, game_data)
@@ -359,6 +359,18 @@ def get_contestant_state(game_id: str):
 
     database: Database = flask.current_app.config["DATABASE"]
 
+    # Keys for the overall game data that we should include
+    game_keys_to_include = ["id", "stage", "round", "total_rounds", "question_num", "max_value", "title"]
+
+    # Keys for the player with the turn we should include
+    turn_player_fields_to_include = ["id", "name", "color"]
+
+    # Keys for the 'question' entry that we should include
+    question_keys_to_include = ["id", "value", "daily_double", "category"]
+
+    # Keys for the category for the current question that we should include
+    category_keys_to_include = ["id", "name"]
+
     with database:
         # Validate that user_id is saved as a cookie
         if user_id is None:
@@ -380,14 +392,14 @@ def get_contestant_state(game_id: str):
             question_json_full = game_question.question.dump() 
     
             # Select only required category fields
-            category_keys_to_include = ["id", "name"]
             category_json_full = game_question.question.category.dump(included_relations=[])
             question_json_full["category"] = {key: category_json_full[key] for key in category_keys_to_include}
 
             question_json_full["daily_double"] = game_question.daily_double
 
             if game_data.stage is StageType.FINALE_QUESTION:
-                question_json_full["question"] = game_question.question
+                question_keys_to_include.append("question")
+                question_json_full["question"] = question_json_full["question"]
 
         else:
             question_json_full = None
@@ -401,18 +413,15 @@ def get_contestant_state(game_id: str):
         game_json_full = game_data.dump(included_relations=[])
 
         # Select only required player_with_turn fields
-        turn_player_fields_to_include = ["id", "name", "color"]
         if game_json_full["player_with_turn"]:
             player_with_turn = {key: game_json_full["player_with_turn"][key] for key in turn_player_fields_to_include}
         else:
             player_with_turn = None
 
         # Select only required game data fields
-        game_keys_to_include = ["id", "stage", "round", "total_rounds", "question_num", "max_value", "title"]
         game_json = {key: game_json_full[key] for key in game_keys_to_include}
 
         # Select only required question fields
-        question_keys_to_include = ["id", "value", "daily_double", "category"]
         if question_json_full is not None:
             questions_json = {key: question_json_full[key] for key in question_keys_to_include}
         else:

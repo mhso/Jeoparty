@@ -648,7 +648,7 @@ class ContextHandler:
         buzzes: int | None = None,
         hits: int | None = None,
         misses: int | None = None,
-        buzzer_status: Literal["active", "inactive", "pressed"] | None = None,
+        buzzer_status: Literal["active", "inactive", "pressed", "won", "lost"] | None = None,
         used_power_ups: Dict[str, bool] | None = None,
         enabled_power_ups: Dict[str, bool] | None = None,
     ):
@@ -891,7 +891,7 @@ class ContextHandler:
             if answer_elem:
                 # Assert that the answer and explanation is correct
                 answer = await answer_elem.text_content()
-                assert answer == f"'{question.question.answer}'"
+                assert answer.strip() == f"'{question.question.answer}'"
 
                 if (explanation := question.question.extra.get("explanation")):
                     split = answer.split("(")
