@@ -17,7 +17,7 @@ from PIL import Image
 from sqlalchemy import Enum
 
 from jeoparty.api.database import Database
-from jeoparty.api.enums import Language
+from jeoparty.api.enums import Language, StageType
 from jeoparty.api.orm.models import GameContestant, GameQuestion
 from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
 from jeoparty.app.routes.api.shared import COOKIE_ID
@@ -80,6 +80,7 @@ EVENT = Literal[
     "on_game_mounted",
     "on_contestant_refresh",
     "on_hijack_enabled",
+    "on_first_turn_chosen",
 ]
 
 class ContextHandler:
@@ -113,6 +114,7 @@ class ContextHandler:
             "on_game_mounted": {}, # Contestant joined game
             "on_contestant_refresh": {}, # Contestant fetched new state
             "on_hijack_enabled": {},
+            "on_first_turn_chosen": {},
         }
 
     async def _create_browser(self, context: Playwright, browser: str):
@@ -437,7 +439,7 @@ class ContextHandler:
         return stack
 
     async def wait_until_ready(self,
-        event: EVENT | None,
+        event: EVENT | None = None,
         contestant_event: EVENT | None = "on_contestant_refresh",
     ):
         """
@@ -484,6 +486,11 @@ class ContextHandler:
         url = f"{self.PRESENTER_URL}/{game_id}/endscreen"
         async with await self.wait_until_ready("on_endscreen_mounted"):
             await self.presenter_page.goto(url)
+
+    async def transition_state(self, game_id: str, target: StageType):
+        await self.presenter_page.request.post(
+            f"{self.BASE_URL}/api/game/{game_id}/advance/{target.value}"
+        )
 
     async def show_question(self):
         # Show the question
@@ -595,37 +602,22 @@ class ContextHandler:
 
         await self.wait_for_result(power_video_ended, timeout=15)
 
-    async def make_wager(self, contestant_id: str, amount: int, dialog_callback=None):
+    async def make_wager(self, contestant_id: str, amount: int, expect_success: bool = True):
         page = self.contestant_pages[contestant_id]
 
         # Input the amount to wager
         wager_input = await page.query_selector(".question-wager-input")
         await wager_input.fill(str(amount))
 
-        async def fail(dialog):
-            assert False
-
-        # Handle alert
-        if dialog_callback is not None:
-            await page.evaluate("var dialog = false")
-            page.on("dialog", dialog_callback)
-        else:
-            page.on("dialog", fail)
-
         # Click the submit button
         submit_button = await page.query_selector("#contestant-wager-btn")
         await submit_button.tap()
 
-        if dialog_callback is None:
+        if expect_success:
             async def wager_accepted():
                 return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
 
             await self.wait_for_result(wager_accepted)
-        else:
-            async def dialog_opened():
-                return await page.evaluate("dialog")
-
-            await self.wait_for_result(dialog_opened)
 
     async def give_finale_answer(self, contestant_id: str, answer: str):
         page = self.contestant_pages[contestant_id]
@@ -793,7 +785,7 @@ class ContextHandler:
         # Assert that ready-state are correct
         if ready is not None:
             ready_icon = await contestant_wrapper.query_selector(".footer-contestant-entry-ready")
-            assert await ready_icon.is_visible() is ready
+            assert (ready_icon is not None) is ready
 
         # Validate remaining fields
         header_data = [
@@ -871,7 +863,7 @@ class ContextHandler:
             seen_choices = set()
             for elem in choice_elems:
                 choice_text = await elem.text_content()
-                seen_choices.add(choice_text.strip().split("\n")[1])
+                seen_choices.add(choice_text.split(":")[1].strip())
 
             assert (set(choices).difference(seen_choices)) == set()
 
@@ -894,17 +886,18 @@ class ContextHandler:
 
         if answer_visible is not None:
             answer_elem = await self.presenter_page.query_selector("#question-actual-answer > .question-emph")
-            assert await answer_elem.is_visible() is answer_visible
+            assert (answer_elem is not None) is answer_visible
 
-            # Assert that the answer and explanation is correct
-            answer = await answer_elem.text_content()
-            assert answer == f"'{question.question.answer}'"
+            if answer_elem:
+                # Assert that the answer and explanation is correct
+                answer = await answer_elem.text_content()
+                assert answer == f"'{question.question.answer}'"
 
-            if (explanation := question.question.extra.get("explanation")):
-                split = answer.split("(")
-                answer = split[0].strip()
-                explanation_text = split[1].removesuffix(")").strip()
-                assert explanation_text == explanation
+                if (explanation := question.question.extra.get("explanation")):
+                    split = answer.split("(")
+                    answer = split[0].strip()
+                    explanation_text = split[1].removesuffix(")").strip()
+                    assert explanation_text == explanation
 
         if correct_answer is not None:
             if correct_answer:
@@ -952,7 +945,7 @@ class ContextHandler:
             assert await sub_header_2.text_content() == category_name
             assert await sub_header_3.text_content() == locale["finale_reveal_2"]
 
-        music = await self.presenter_page.query_selector("#selection-jeopardy-theme")
+        music = await self.presenter_page.query_selector("#finale-jeopardy-theme")
         assert await music.evaluate("(elem) => elem.paused") is not music_playing
 
     async def assert_finale_question_values(

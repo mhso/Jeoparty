@@ -196,7 +196,7 @@ def get_presenter_state(game_id: str):
 
         return _get_game_state(game_data)
 
-def _transition_question(database: Database, game_data: Game):
+def transition_question(database: Database, game_data: Game):
     # Set stage to 'question' or 'finale_question'
     game_data.stage = StageType.FINALE_QUESTION if game_data.stage == StageType.FINALE_WAGER else StageType.QUESTION
 
@@ -314,6 +314,7 @@ def _transition_endscreen(game_data: Game):
         except (requests.RequestException, requests.Timeout):
             logger.exception("Failed sending end of game request to Int-Far!")
 
+
 @game_page.route("/game/<game_id>/advance/<target>", methods=["POST"])
 def transition_state(game_id: str, target: str):
     target_stage = StageType(target)
@@ -335,7 +336,7 @@ def transition_state(game_id: str, target: str):
             return make_json_response("You are not the creator of the given game.", 401)
 
         if target_stage is StageType.QUESTION:
-            _transition_question(database, game_data)
+            transition_question(database, game_data)
 
         elif target_stage is StageType.SELECTION:
             _transition_selection(database, game_data)

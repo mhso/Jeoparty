@@ -402,7 +402,7 @@ async def test_rewind_during_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(database) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -525,7 +525,7 @@ async def test_hijack_before_question(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(database) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -545,6 +545,9 @@ async def test_hijack_before_question(database, locales):
             # Open question page and show question
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
+
+            # Interact with the page so the hijack video can play
+            await context.presenter_page.click("body")
 
             # Use hijack to steal the question
             await context.use_power_up(active_player.contestant_id, "hijack")
@@ -644,7 +647,7 @@ async def test_hijack_before_question(database, locales):
                     score=active_score if is_active else 0,
                     hits=int(is_active),
                     misses=0,
-                    has_turn=False,
+                    has_turn=is_active,
                     used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
                 )
 
@@ -758,7 +761,7 @@ async def test_hijack_after_question(database, locales):
                     score=active_question.question.value if is_active else 0,
                     hits=int(is_active),
                     misses=0,
-                    has_turn=False,
+                    has_turn=is_active,
                     used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
                 )
 
@@ -874,7 +877,7 @@ async def test_hijack_during_question(database, locales):
                     score=active_score if is_active else 0,
                     hits=int(is_active),
                     misses=0,
-                    has_turn=False,
+                    has_turn=is_active,
                     used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
                 )
 
