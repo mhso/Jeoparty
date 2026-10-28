@@ -1,6 +1,5 @@
 import json
 import select
-from argparse import ArgumentParser
 
 import socketserver as SocketServer
 from jeoparty.api.config import Config

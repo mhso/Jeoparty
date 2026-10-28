@@ -780,8 +780,8 @@ wheels = [
 
 [[package]]
 name = "mhooge-flask"
-version = "1.5.5"
-source = { git = "https://github.com/mhso/mhooge-flask.git#5d1dfab432c375a7f186601aa8ec7b2a9114877b" }
+version = "1.5.7"
+source = { git = "https://github.com/mhso/mhooge-flask.git#5ba4a633781ce94a2a29cd9b72cbe8cec7f917ed" }
 dependencies = [
     { name = "flask" },
     { name = "flask-cors" },

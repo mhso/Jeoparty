@@ -12,7 +12,7 @@ async def test_freeze(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -110,7 +110,7 @@ async def test_rewind_before_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -232,7 +232,7 @@ async def test_rewind_after_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -402,7 +402,7 @@ async def test_rewind_during_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -525,7 +525,7 @@ async def test_hijack_before_question(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -667,7 +667,7 @@ async def test_hijack_after_question(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -781,7 +781,7 @@ async def test_hijack_during_question(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]

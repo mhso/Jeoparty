@@ -23,7 +23,7 @@ async def test_create_pack_defaults(database):
         session.execute(text("DELETE FROM question_packs"))
         session.commit()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         pack_page, pack_id = await context.create_pack(expected_name)
 
         title_elem = await pack_page.query_selector("#question-pack-name")

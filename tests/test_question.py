@@ -12,7 +12,7 @@ async def test_first_round(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, join_in_parallel=False, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -291,7 +291,7 @@ async def test_simultaneous_buzzes(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -352,7 +352,7 @@ async def test_all_wrong_buzzes(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -440,7 +440,7 @@ async def test_time_runs_out(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -490,7 +490,7 @@ async def test_question_aborted(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -544,7 +544,7 @@ async def test_daily_double_valid(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=True)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -620,7 +620,7 @@ async def test_daily_double_invalid(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=True)
             language_locale = locales[game_data.pack.language.value]
@@ -670,7 +670,7 @@ async def test_finale_question(database, locales):
     ]
     contestant_wagers = [1000, 300, 700, 0]
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
 

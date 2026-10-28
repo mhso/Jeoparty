@@ -1,4 +1,5 @@
 from glob import glob
+import json
 import os
 import shutil
 from subprocess import Popen
@@ -12,10 +13,10 @@ pytest.register_assert_rewrite("tests.browser_context")
 from mhooge_flask.auth import get_hashed_password
 from mhooge_flask.database import Base
 
-from jeoparty.api.config import Config, get_question_pack_data_path, get_locale_data
-from jeoparty.api.database import Database
+from jeoparty.api.config import Config, get_question_pack_data_path
+from jeoparty.api.database import Database, PostgresDatabase
 from jeoparty.api.enums import Environment, Language
-from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question, QuestionRound
+from jeoparty.api.orm.models import Contestant, Game, QuestionPack, QuestionCategory, Question, QuestionRound
 from tests.config import PRESENTER_USER_ID, PRESENTER_USERNAME, PRESENTER_PASSWORD
 
 def _create_question_packs(database: Database):
@@ -159,7 +160,13 @@ def create_dirs():
 @pytest.fixture(scope="session")
 def locales():
     # Load locale data
-    return get_locale_data()
+    locale_data = {}
+    for filename in glob("../jeoparty_web/src/shared/locales/*.json"):
+        lang = os.path.basename(filename).split(".")[0]
+        with open(filename, "r", encoding="utf-8") as fp:
+            locale_data[lang] = json.load(fp)
+
+    return locale_data
 
 @pytest.fixture(scope="session")
 def config():
@@ -167,7 +174,7 @@ def config():
 
 @pytest.fixture(scope="function")
 def database(config):
-    database = Database(config)
+    database = PostgresDatabase(config)
 
     with database as session:
         # Drop and recreate tables

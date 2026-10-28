@@ -19,7 +19,7 @@ async def test_defaults(database):
     expected_round = 1
     expected_created_by = PRESENTER_USER_ID
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         lobby_page, game_id = await context.create_game(pack_name)
 
         title_elem = await lobby_page.query_selector("#menu-game-title")
@@ -55,7 +55,7 @@ async def test_inputs(database):
     expected_round = 1
     expected_created_by = PRESENTER_USER_ID
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         lobby_page, game_id = await context.create_game(
             pack_name,
             title=expected_title,
@@ -86,7 +86,7 @@ async def test_inputs(database):
 
 @pytest.mark.asyncio
 async def test_errors(database):
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         # Create game with no question pack selected
         page, game_id = await context.create_game(expect_fail=True)
 

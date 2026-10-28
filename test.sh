@@ -28,20 +28,20 @@ podman run \
     -e POSTGRES_USER=mikkel \
     $POSTGRES_IMAGE
 
-podman stop -i jeoparty_web
-
 # Build frontend
-podman build ../jeoparty_web -t jeoparty_web:latest --output type=local,dest=../jeoparty_web/dist
+#podman build ../jeoparty_web -t jeoparty_web:latest --output type=local,dest=../jeoparty_web/dist
 
 podman run \
     --name jeoparty_test \
     -i \
     --rm \
     --network=host \
+    -e USE_DOCKER=1 \
     -v ./src/jeoparty/app/static/data/packs:/jeoparty/src/jeoparty/app/static/data/packs \
     -v ../jeoparty_web/dist:/jeoparty/dist \
     -v ./tests/screenshots:/jeoparty/tests/screenshots \
     -v ./tests/videos:/jeoparty/tests/videos \
+    -v /mnt/d/mhooge/jeoparty_web/src/shared/locales:/jeoparty_web/src/shared/locales \
     jeoparty_test:latest
 
 podman stop -i postgres_test

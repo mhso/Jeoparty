@@ -16,7 +16,6 @@ from playwright.async_api import async_playwright, Playwright, BrowserContext, P
 from PIL import Image
 from sqlalchemy import Enum
 
-from jeoparty.api.database import Database
 from jeoparty.api.enums import Language, StageType
 from jeoparty.api.orm.models import GameContestant, GameQuestion
 from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
@@ -71,6 +70,7 @@ def rgb_to_hex(color: str):
     return color
 
 EVENT = Literal[
+    "on_create_game_mounted",
     "on_lobby_mounted",
     "on_selection_mounted",
     "on_question_mounted",
@@ -87,8 +87,7 @@ class ContextHandler:
     BASE_URL = "http://localhost:5006/jeoparty"
     PRESENTER_URL = f"{BASE_URL}/presenter"
 
-    def __init__(self, database: Database, video: bool = False):
-        self.database = database
+    def __init__(self, video: bool = False):
         self.record_video = video
 
         self.playwright_contexts = []
@@ -105,6 +104,7 @@ class ContextHandler:
         self._browser_tasks = []
 
         self._event_listeners: Dict[EVENT, Dict[BrowserContext, Callable]] = {
+            "on_create_game_mounted": {},
             "on_lobby_mounted": {},
             "on_selection_mounted": {},
             "on_question_mounted": {},
@@ -461,7 +461,9 @@ class ContextHandler:
         if await self.presenter_page.query_selector("#menu-lobby-music") is not None:
             # Plays intro music
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(2)
+
+        await self.presenter_page.click("body")
 
         # Starts the game
         async with await self.wait_until_ready("on_selection_mounted"):

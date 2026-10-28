@@ -25,7 +25,7 @@ async def test_lobby(database):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             for theme in ("LAN", "Jul"):
                 context.contestant_pages.clear()

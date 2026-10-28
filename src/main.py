@@ -13,7 +13,7 @@ from mhooge_flask.restartable import restartable
 
 from jeoparty.api.config import Config
 from jeoparty.api.enums import Environment
-from jeoparty.api.database import Database
+from jeoparty.api.database import PostgresDatabase, SQLiteDatabase
 
 def run_app(args):
     if args.spa:
@@ -44,7 +44,11 @@ def run_app(args):
 
     database = None
     try:
-        database = Database(config, args.ssh_tunnel)
+        if args.database == "sqlite":
+            database = SQLiteDatabase(config)
+        else:
+            database = PostgresDatabase(config, args.ssh_tunnel)
+
         app_name = "jeoparty"
 
         locale_data = {}
@@ -75,7 +79,7 @@ def run_app(args):
     except KeyboardInterrupt:
         pass
     finally:
-        if database and database.ssh_tunnel:
+        if args.database == "psql" and database and database.ssh_tunnel:
             database.ssh_tunnel.terminate()
             database.ssh_tunnel.kill()
             database.ssh_tunnel.wait()
@@ -88,6 +92,7 @@ def main():
     parser.add_argument("-e", "--env", type=str, choices=Environment)
     parser.add_argument("-p", "--port", type=int, default=5006)
     parser.add_argument("-t", "--ssh-tunnel", action="store_true", help="Use SSH tunnel to connect to PostgreSQL")
+    parser.add_argument("-db", "--database", choices=("psql", "sqlite"), help="Which database dialect to use")
     parser.add_argument("--spa", action="store_true", help="Serve the built Vue frontend instead of the Jinja templates")
     args = parser.parse_args()
 

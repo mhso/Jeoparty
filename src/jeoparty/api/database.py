@@ -6,7 +6,6 @@ import socket
 import json
 import re
 
-from psycopg.errors import ForeignKeyViolation
 from sqlalchemy import select, delete, update, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -15,7 +14,7 @@ from mhooge_flask.database import SQLAlchemyDatabase
 from mhooge_flask.logging import logger
 
 from jeoparty.api.config import Config
-from jeoparty.api.enums import Environment, StageType
+from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import *
 
 def format_value(key, value):
@@ -31,7 +30,23 @@ def row_factory(cursor, row):
     return {key: format_value(key, value) for key, value in zip(fields, row)}
 
 def start_ssh_tunnel():
-    cmd = ["uv", "run", f"{Config.SRC_FOLDER}/ssh_tunnel.py"]
+    with open(f"{Config.STATIC_FOLDER}/secret.json") as fp:
+        secrets = json.load(fp)
+
+    jump_host = secrets["ssh_jump_host"]
+    remote_host = secrets["ssh_remote_host"]
+
+    cmd = [
+        "ssh",
+        "-N",
+        "-L",
+        f"5432:{remote_host}:5432",
+        f"mikkel@{jump_host}",
+        "-o",
+        "ServerAliveInterval=30",
+        "-o",
+        "ExitOnForwardFailure=yes",
+    ]
     ssh_tunnel = Popen(cmd, text=True, stdout=PIPE)
     os.set_blocking(ssh_tunnel.stdout.fileno(), False)
 
@@ -52,18 +67,9 @@ def get_violating_key(exc: IntegrityError):
     return None
 
 class Database(SQLAlchemyDatabase):
-    def __init__(self, config: Config, ssh_tunnel: bool = False):
+    def __init__(self, config: Config, conn_str: str):
         self.config = config
-        self.ssh_tunnel = None
-        if ssh_tunnel:
-            self.ssh_tunnel = start_ssh_tunnel()
-
-        super().__init__(config.db_conn_str, "api/orm", f"{self.config.RESOURCES_FOLDER}/database", True, True)
-
-        db_name = self.engine.url.database
-        db_host = self.engine.url.host
-        db_port = self.engine.url.port
-        logger.info(f"Connected to database '{db_name}' at '{db_host}:{db_port}'")
+        super().__init__(conn_str, "api/orm", f"{config.RESOURCES_FOLDER}/database", True, True)
 
     def get_question_packs_for_user(self, user_id: str, pack_id: str | None = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:
@@ -515,3 +521,24 @@ class Database(SQLAlchemyDatabase):
                 session.execute(delete(table))
 
             session.commit()
+
+class PostgresDatabase(Database):
+    def __init__(self, config: Config, ssh_tunnel: bool = False):
+        self.ssh_tunnel = None
+        if ssh_tunnel:
+            self.ssh_tunnel = start_ssh_tunnel()
+
+        super().__init__(config, config.psql_conn_str)
+
+        db_name = self.engine.url.database
+        db_host = self.engine.url.host
+        db_port = self.engine.url.port
+        logger.info(f"Connected to database '{db_name}' at '{db_host}:{db_port}'")
+
+    @property
+    def engine_properties(self):
+        return {"pool_recycle": 300, "pool_size": 5}
+
+class SQLiteDatabase(Database):
+    def __init__(self, config: Config):
+        super().__init__(config, config.sqlite_conn_str)

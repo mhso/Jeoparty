@@ -15,7 +15,7 @@ async def test_finale_result(database, locales):
     contestant_wagers = [1000, 300, 700, 0]
     contestant_answers = ["4", "4", "3", None]
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
 

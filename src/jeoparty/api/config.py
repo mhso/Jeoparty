@@ -67,7 +67,7 @@ class Config:
         self.db_password = secrets["database_password"]
 
         # Output of `npm run build` in the jeoparty_web repo, served by routes/spa.py
-        if env is Environment.DEVELOPMENT:
+        if env is Environment.DEVELOPMENT or not os.environ.get("USE_DOCKER"):
             self.FRONTEND_DIST_FOLDER = os.path.abspath(f"{Config.PROJECT_FOLDER}/../jeoparty_web/dist")
         else:
             self.FRONTEND_DIST_FOLDER = os.path.abspath(f"{Config.PROJECT_FOLDER}/dist")
@@ -85,11 +85,15 @@ class Config:
         return "0.0.0.0" if self.env is Environment.DEVELOPMENT else ""
 
     @property
-    def db_conn_str(self):
+    def psql_conn_str(self):
         db_name = f"jeoparty_{self.env.value}"
-        db_password = "password" if self.env is Environment.TESTING else self.db_password
+        db_password = "password" if os.environ.get("USE_DOCKER") == "1" else self.db_password
 
         return f"postgresql+psycopg://mikkel:{db_password}@localhost:5432/{db_name}?connect_timeout=5&"
+
+    @property
+    def sqlite_conn_str(self):
+        return f"sqlite:///{Config.RESOURCES_FOLDER}/database/{self.env.value}.db"
 
 def get_question_pack_data_path(pack_id: str, full: bool = True):
     prefix = f"{Config.STATIC_FOLDER}/" if full else ""

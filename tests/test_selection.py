@@ -1,8 +1,6 @@
 import asyncio
 import pytest
 
-from playwright.async_api import Dialog
-
 from jeoparty.api.enums import PowerUpType, StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
@@ -21,7 +19,7 @@ async def test_first_turn(database):
         ["100", "200"]
     ]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, join_in_parallel=False)
 
@@ -80,7 +78,7 @@ async def test_new_round(database):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
 
@@ -102,6 +100,7 @@ async def test_new_round(database):
             # Go to selection page
             await context.open_selection_page(game_data.id)
 
+            session.refresh(game_data)
             questions = game_data.get_questions_for_round()
 
             assert game_data.round == 2
@@ -118,7 +117,7 @@ async def test_max_contestants(database):
     num_max = 10
     contestant_names, contestant_colors = create_contestant_data(num_max)
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, contestants=num_max)
             await context.start_game()
@@ -133,7 +132,7 @@ async def test_finale_wager_valid(database, locales):
         -500, 300, 1200, 0
     ]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/selection"]
@@ -284,7 +283,7 @@ async def test_finale_wager_invalid(database, locales):
         -500, 300, 1200, 0
     ]
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
 

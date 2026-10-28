@@ -23,7 +23,7 @@ async def test_defaults(database, locales):
     ]
     contestant_avatar = "http://localhost:5006/static/img/avatars/default/*.png"
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(True) as context:
         game_id = (await context.create_game(pack_name))[1]
 
         placeholder_elem = await context.presenter_page.query_selector("#menu-no-contestants-placeholder")
@@ -74,7 +74,7 @@ async def test_rejoin(database):
     contestant_avatar_1 = "/static/img/avatars/default/*.png"
     contestant_avatar_2 = "src/jeoparty/app/static/img/avatars/f909a1fc-d673-469d-ad82-b51ed7672e7f.png"
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         game_id = (await context.create_game(pack_name))[1]
 
         with database as session:
@@ -150,7 +150,7 @@ async def test_errors(database):
     pack_name = "Test Pack"
     num_contestants = 4
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         game_id = (await context.create_game(pack_name, contestants=num_contestants))[1]
 
         with database as session:
