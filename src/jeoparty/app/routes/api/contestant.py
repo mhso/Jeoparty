@@ -10,7 +10,7 @@ from mhooge_flask.routing import make_template_context, make_json_response
 
 from jeoparty.api.database import Database
 from jeoparty.api.enums import Environment, StageType
-from jeoparty.api.orm.models import Contestant, GameContestant
+from jeoparty.api.orm.models import Contestant, Game, GameContestant
 from jeoparty.app.routes.api.shared import (
     create_and_validate_model,
     render_locale_template,
@@ -24,6 +24,39 @@ from jeoparty.api.config import Config, get_avatar_path, get_theme_path, get_bg_
 contestant_page = flask.Blueprint("contestant_api", __name__, template_folder="templates")
 
 _VALID_AVATAR_FILETYPES = set(["jpg", "jpeg", "png", "webp"])
+
+_LAN_NAMES = {
+    115142485579137029: "Dave",
+    172757468814770176: "Murt",
+    219497453374668815: "Tommy",
+    331082926475182081: "Muds",
+    347489125877809155: "Nønø",
+    267401734513491969: "Gual", # Include meself for testing
+}
+
+_LAN_AVATARS = {
+    user_id: f"img/avatars/{user_id}.png"
+    for user_id in _LAN_NAMES
+}
+
+_LAN_BACKGROUNDS = {
+    115142485579137029: "shyv_splash.jpg",
+    172757468814770176: "pentakill_olaf.png", 
+    331082926475182081: "crime_city_tf.png",
+    219497453374668815: "bard_splash.png",
+    347489125877809155: "gladiator_draven.png",
+    267401734513491969: "coven_nami.png", # Include meself for testing
+}
+
+# Sounds played when a specific player buzzes in first
+_LAN_BUZZ_SOUNDS = {
+    115142485579137029: "buzz_dave.mp3",
+    172757468814770176: "buzz_murt.mp3",
+    219497453374668815: "buzz_thommy.mp3",
+    331082926475182081: "buzz_muds.mp3",
+    347489125877809155: "buzz_no.mp3",
+    267401734513491969: "buzz_thommy.mp3", # Include meself for testing
+}
 
 def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | str]:
     if "join_code" not in params:
@@ -85,11 +118,37 @@ def _save_contestant_avatar(file: FileStorage, user_id: str):
 
     return f"{get_avatar_path(False)}/{filename}"
 
+def _get_existing_user_info(game_data: Game, database: Database):
+    if is_lan_active(game_data) and "user_id" in flask.request.args:
+        user_id = int(flask.request.args["user_id"])
+        return {
+            "name": _LAN_NAMES.get(user_id),
+            "avatar": _LAN_AVATARS.get(user_id),
+            "buzz_sound": _LAN_BUZZ_SOUNDS.get(user_id),
+            "bg_image": _LAN_BACKGROUNDS.get(user_id),
+        }
+
+    if user_id := get_contestant_id_from_cookie(flask.request.cookies):
+        # Try to get existitng user
+        contestant = None if user_id is None else database.get_contestant_from_id(user_id)
+
+        if contestant is not None:
+            contestant_json = {
+                "name": contestant.name,
+                "color": contestant.color,
+                "avatar": contestant.avatar,
+            }
+
+            if not contestant.avatar:
+                contestant_json["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
+
+            return contestant_json
+
+    return None
+
 @contestant_page.route("/lobby/<join_code>")
 def lobby(join_code: str):
     database: Database = flask.current_app.config["DATABASE"]
-
-    user_id = get_contestant_id_from_cookie(flask.request.cookies)
 
     with database:
         game_data = database.get_game_from_code(join_code)
@@ -109,26 +168,7 @@ def lobby(join_code: str):
             "default_avatar": _get_default_avatar(index, game_data.pack.theme_id)
         }
 
-        # Try to get existitng user
-        contestant = None if user_id is None else database.get_contestant_from_id(user_id)
-
-        user_already_joined = False
-        if contestant is not None:
-            response_json["existing"] = {
-                "name": contestant.name,
-                "color": contestant.color,
-                "avatar": contestant.avatar,
-            }
-    
-            if not contestant.avatar:
-                response_json["avatar"] = f"{get_avatar_path(False)}/questionmark.png"
-                response_json["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
-
-            if contestant.bg_image:
-                response_json["bg_image"] = os.path.basename(contestant.bg_image)
-
-            if contestant.buzz_sound:
-                response_json["buzz_sound"] = os.path.basename(contestant.buzz_sound)
+        response_json["existing"] = _get_existing_user_info(game_data, database)
 
         return make_json_response(response_json, 200)
 
@@ -137,11 +177,12 @@ def join_lobby():
     config: Config = flask.current_app.config["APP_CONFIG"]
     database: Database = flask.current_app.config["DATABASE"]
 
-    user_id = get_contestant_id_from_cookie(flask.request.cookies)
     params = dict(flask.request.form)
 
-    if user_id is not None:
-        params["id"] = user_id
+    if "id" in params:
+        user_id = params["id"]
+    else:
+        user_id = get_contestant_id_from_cookie(flask.request.cookies)
 
     success, contestant_model_or_error = _validate_join_params(params)
     join_code = flask.request.form.get("join_code")
@@ -210,6 +251,8 @@ def join_lobby():
             new_avatar = None
             if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
                 new_avatar = _save_contestant_avatar(flask.request.files["avatar"], contestant_model.id)
+            elif "avatar" in flask.request.form:
+                new_avatar = flask.request.form["avatar"]
             elif existing_model is None or existing_model.avatar is None:
                 new_avatar = _get_default_avatar(index, game_data.pack.theme_id)
 
@@ -247,7 +290,7 @@ def join_lobby():
 
     return response
 
-@contestant_page.route("/<join_code>/lan")
+@contestant_page.route("/lobby/<join_code>/lan")
 def lobby_lan(join_code: str):
     database: Database = flask.current_app.config["DATABASE"]
 

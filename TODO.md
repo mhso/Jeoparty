@@ -32,5 +32,6 @@
 - [❌] Make error messages on backend locale specific
 
 # Refactor
-- [❌] Fix LAN join flow
-- [❌] Fix contestant random-color join bug
+- [❌] Test LAN join flow
+- [❌] Enable LAN check that I disabled
+- [❌] Fix test_full_game.py

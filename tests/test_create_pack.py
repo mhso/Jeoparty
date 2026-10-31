@@ -14,7 +14,7 @@ async def test_create_pack_defaults(database):
     expected_public = False
     expected_finale = True
     expected_language = Language.ENGLISH
-    expected_round_1_short = "Round 1 ×"
+    expected_round_1_short = "Round 1"
     expected_round_2_short = "Finale"
     expected_round_1_long = "Jeoparty!"
     expected_round_2_long = "Final Jeoparty!"
@@ -23,7 +23,7 @@ async def test_create_pack_defaults(database):
         session.execute(text("DELETE FROM question_packs"))
         session.commit()
 
-    async with ContextHandler() as context:
+    async with ContextHandler(True) as context:
         pack_page, pack_id = await context.create_pack(expected_name)
 
         title_elem = await pack_page.query_selector("#question-pack-name")
@@ -38,25 +38,32 @@ async def test_create_pack_defaults(database):
         language_elem = await pack_page.query_selector("#question-pack-language")
         assert await language_elem.input_value() == expected_language.value
 
-        round_1_btn = await pack_page.query_selector(".question-pack-round-select-button-0")
-        assert await round_1_btn.text_content() == expected_round_1_short
+        round_select_btns = await pack_page.query_selector_all(".question-pack-round-select-button")
 
-        round_2_btn = await pack_page.query_selector(".question-pack-round-select-button-1")
-        assert await round_2_btn.text_content() == expected_round_2_short
+        assert len(round_select_btns) == 2
 
-        round_1_title = await pack_page.query_selector(".question-pack-round-wrapper-0 .question-pack-round-name")
+        assert await round_select_btns[0].text_content() == expected_round_1_short
+        assert await round_select_btns[1].text_content() == expected_round_2_short
+
+        round_wrappers = await pack_page.query_selector_all(".question-pack-round-wrapper")
+
+        assert len(round_wrappers) == 2
+
+        round_1_title = await round_wrappers[0].query_selector(".question-pack-round-name")
         assert await round_1_title.input_value() == expected_round_1_long
 
-        category_placeholder_1 = await pack_page.query_selector(".question-pack-round-wrapper-0 .question-pack-categories-placeholder")
+        category_placeholder_1 = await round_wrappers[0].query_selector(".question-pack-categories-placeholder")
+
         assert await category_placeholder_1.is_visible()
         assert (await category_placeholder_1.text_content()).strip() == "Add a Category"
 
-        await round_2_btn.click()
+        await round_select_btns[1].click()
 
-        round_2_title = await pack_page.query_selector(".question-pack-round-wrapper-1 .question-pack-round-name")
+        round_2_title = await round_wrappers[1].query_selector(".question-pack-round-name")
         assert await round_2_title.input_value() == expected_round_2_long
-    
-        category_placeholder_2 = await pack_page.query_selector(".question-pack-round-wrapper-1 .question-pack-categories-placeholder")
+
+        category_placeholder_2 = await round_wrappers[1].query_selector(".question-pack-categories-placeholder")
+
         assert await category_placeholder_2.is_visible()
         assert (await category_placeholder_2.text_content()).strip() == "Add Finale Question"
 

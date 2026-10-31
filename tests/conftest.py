@@ -178,16 +178,17 @@ def database(config):
 
     with database as session:
         # Drop and recreate tables
-        Base.metadata.drop_all(database.engine)
-        Base.metadata.create_all(database.engine)
+        if os.environ.get("USE_DOCKER") == "1":
+            Base.metadata.drop_all(database.engine)
+            Base.metadata.create_all(database.engine)
 
-        # Create presenter user
-        hashed_pw = get_hashed_password(PRESENTER_PASSWORD, f"{config.STATIC_FOLDER}/secret.json")
-        database.create_user(PRESENTER_USER_ID, PRESENTER_USERNAME, hashed_pw)
+            # Create presenter user
+            hashed_pw = get_hashed_password(PRESENTER_PASSWORD, f"{config.STATIC_FOLDER}/secret.json")
+            database.create_user(PRESENTER_USER_ID, PRESENTER_USERNAME, hashed_pw)
 
-        session.execute(text(f"UPDATE themes SET created_by = '{PRESENTER_USER_ID}'"))
-        session.execute(text(f"UPDATE question_packs SET created_by = '{PRESENTER_USER_ID}'"))
-        session.commit()
+            session.execute(text(f"UPDATE themes SET created_by = '{PRESENTER_USER_ID}'"))
+            session.execute(text(f"UPDATE question_packs SET created_by = '{PRESENTER_USER_ID}'"))
+            session.commit()
 
         # Create test contestant users
         colors = ["#ee1105", "#0564e8", "#35ae3b", "#9f1dd6", "#1565c6"]
@@ -218,7 +219,12 @@ def app():
     # Get a list of question packs before the test
     pack_folders_before = set(glob(f"{Config.STATIC_FOLDER}/data/packs/*"))
 
-    process = Popen(["uv", "run", "main.py", "-e" "testing", "--spa"], cwd="src")
+    args = ["uv", "run", "main.py", "-e" "testing", "--spa"]
+    if os.environ.get("USE_DOCKER") != "1":
+        args.extend(["-db", "sqlite"])
+
+    process = Popen(args, cwd="src")
+
     _wait_for_server()
 
     yield

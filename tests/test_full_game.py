@@ -25,7 +25,7 @@ async def wait_for_disconnected_contestant(context: ContextHandler):
     disconnected_contestants = []
     for contestant_wrapper in contestants:
         disconnected_img = await contestant_wrapper.query_selector(".footer-contestant-entry-disconnected")
-        if await disconnected_img.is_visible():
+        if disconnected_img is not None:
             disconnected_contestants.append(disconnected_img)
 
     print("Anyone discconected?", disconnected_contestants != [])
@@ -153,6 +153,8 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             if num_players == 0: # No one buzzes in and time runs out
                 await asyncio.sleep(active_question.question.category.buzz_time + 3)
                 break
+
+            print(f"Buzzing in with {num_players} players...")
 
             shuffled_players = [
                 contestant for contestant in game_data.game_contestants

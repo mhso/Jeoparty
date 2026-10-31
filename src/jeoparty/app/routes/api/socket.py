@@ -234,15 +234,11 @@ class GameSocketHandler(Namespace):
     def on_disconnect(self, reason: str):
         sid = flask.request.sid
         rooms = self.rooms(sid)
-        disconnected_contestant = None
+        disconnected_contestant = self.contestant_ids.get(sid)
         user_type = None
 
         if "presenter" not in rooms:
-            for contestant_id in self.contestant_metadata:
-                contestant_metadata = self.contestant_metadata[contestant_id]
-                if contestant_metadata.sid == sid:
-                    disconnected_contestant = contestant_id
-                    break
+            user_type = "Contestant"
         else:
             user_type = "Presenter"
 

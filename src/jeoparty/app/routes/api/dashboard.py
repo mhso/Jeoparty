@@ -17,10 +17,12 @@ from jeoparty.api.database import Database, get_violating_key
 from jeoparty.api.config import Config, get_question_pack_data_path
 from jeoparty.api.orm.models import *
 from jeoparty.api.enums import StageType
-from jeoparty.app.routes.shared import (
+from jeoparty.app.routes.api.shared import (
     validate_file,
     get_validation_error_msg,
     create_and_validate_model,
+    is_lan_active,
+    get_intfar_request_params,
 )
 
 _VALID_IMAGE_FILETYPES = [
@@ -115,6 +117,24 @@ def packs():
 
     return make_json_response(packs_json, 200)
 
+def _send_intfar_request(game_data: Game):
+    config: Config = flask.current_app.config["APP_CONFIG"]
+    # Send host URL to Int-Far, if a LAN is active
+    base_url, request_json = get_intfar_request_params(config)
+
+    request_json["join_url"] = f"{config.external_host_url}/jeoparty/{game_data.join_code}"
+    if game_data.password:
+        request_json["password"] = game_data.password
+
+    print(f"Sending info to Int-Far at '{base_url}': {request_json}")
+
+    try:
+        response = requests.post(f"{base_url}/intfar/lan/set_jeoparty_info", json=request_json, timeout=6)
+        if response.status_code != 200:
+            logger.bind(response=response.text, status=response.status_code).error(f"Start of game request to Int-Far failed with status {response.status_code}")
+    except (requests.RequestException, requests.Timeout):
+        logger.exception("Failed sending start of game request to Int-Far!")
+
 @dashboard_page.route("/games", methods=["GET", "POST"])
 def games():
     user_details = get_user_details()
@@ -156,6 +176,10 @@ def games():
                 logger.exception("Error when saving game to database")
                 error_msg = "There was an unexpected error when creating the game, please try again later"
                 return make_json_response(error_msg, 500)
+
+            # If LAN is active, send update to Int-Far
+            if is_lan_active(game_model):
+                _send_intfar_request(game_model)
         
             return make_json_response(game_model.dump(), 200)
 

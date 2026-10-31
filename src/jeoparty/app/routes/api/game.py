@@ -1,7 +1,6 @@
 import random
 
 import flask
-from flask import json
 from mhooge_flask.auth import get_user_details
 from mhooge_flask.logging import logger
 from mhooge_flask.routing import socket_io, make_json_response
@@ -17,50 +16,20 @@ from jeoparty.app.routes.api.shared import (
     get_question_answer_images,
     get_contestant_id_from_cookie,
     is_lan_active,
+    get_intfar_request_params,
 )
 
 game_page = flask.Blueprint("game_api", __name__, template_folder="templates")
-
-def _get_intfar_request_params(config: Config):
-    base_url = f"{config.internal_host_url}:5000"
-
-    with open(f"{Config.STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
-        data = json.load(fp)
-        admin_id = data["intfar_disc_id"]
-        token = data["intfar_user_id"]
-
-    request_json = {"disc_id": admin_id, "token": token}
-
-    return base_url, request_json
 
 def _get_lobby_state(game_data: Game):
     config: Config = flask.current_app.config["APP_CONFIG"]
     join_url = f"{config.external_host_url}/jeoparty/{game_data.join_code}"
 
-    lan_mode = is_lan_active(game_data)
-    if lan_mode:
-        # Send host URL to Int-Far, if a LAN is active
-        base_url, request_json = _get_intfar_request_params(config)
-
-        request_json["join_url"] = join_url
-        if game_data.password:
-            request_json["password"] = game_data.password
-
-        print(f"Sending info to Int-Far at '{base_url}': {request_json}")
-
-        try:
-            response = requests.post(f"{base_url}/intfar/lan/set_jeoparty_info", json=request_json, timeout=6)
-            if response.status_code != 200:
-                logger.bind(response=response.text, status=response.status_code).error(f"Start of game request to Int-Far failed with status {response.status_code}")
-        except (requests.RequestException, requests.Timeout):
-            logger.exception("Failed sending start of game request to Int-Far!")
-
     pack_json = game_data.pack.dump()
-
 
     return {
         "join_url": join_url,
-        "lan_mode": lan_mode,
+        "lan_mode": is_lan_active(game_data),
         "lobby_music": pack_json["lobby_music"],
         "lobby_volume": pack_json["lobby_volume"]
     }
@@ -151,7 +120,7 @@ def _get_game_state(game_data: Game):
     if game_data.stage is StageType.LOBBY:
         state_json["lobby_info"] = _get_lobby_state(game_data)
 
-    elif game_data.stage in (StageType.QUESTION, StageType.FINALE_QUESTION):
+    elif game_data.stage in (StageType.QUESTION, StageType.FINALE_QUESTION, StageType.FINALE_RESULT):
         game_question: GameQuestion | None = game_data.get_active_question()
         if game_question is None or game_question.used:
             # If question does not exist or has already been answered, return error
@@ -303,7 +272,7 @@ def _transition_endscreen(game_data: Game):
     # Send post request to Int-Far if LAN is active
     if is_lan_active(game_data):
         print("Sending update to Int-Far")
-        base_url, request_json = _get_intfar_request_params(config)
+        base_url, request_json = get_intfar_request_params(config)
 
         request_json["player_data"] = game_json["game_contestants"]
 

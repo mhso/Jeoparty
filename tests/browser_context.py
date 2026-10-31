@@ -242,16 +242,15 @@ class ContextHandler:
         submit_btn = await page.query_selector('input[type="submit"]')
 
         if not expect_fail:
-            async with page.expect_navigation():
-                await submit_btn.click()
+            async with self.wait_for_event_context_manager("on_lobby_mounted", page.context):
+                async with page.expect_navigation():
+                    await submit_btn.click()
+
+            game_id = page.url.split("/")[-2]
+
         else:
             await submit_btn.click()
-
-        if expect_fail:
             game_id = None
-        else:
-            await self.wait_for_event("on_lobby_mounted", page.context)
-            game_id = page.url.split("/")[-2]
 
         return page, game_id
 
@@ -291,12 +290,11 @@ class ContextHandler:
         submit_btn = await page.query_selector('input[type="submit"]')
 
         if not expect_fail:
-            async with page.expect_navigation():
-                await submit_btn.click()
+            async with self.wait_for_event_context_manager("on_pack_mounted", page.context):
+                async with page.expect_navigation():
+                    await submit_btn.click()
         else:
             await submit_btn.click()
-
-        await self.wait_for_event("on_pack_mounted", page.context)
 
         pack_id = page.url.split("/")[-1].split("#")[0]
         self.pack_folders.append(pack_id)
@@ -462,8 +460,6 @@ class ContextHandler:
             # Plays intro music
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
             await asyncio.sleep(2)
-
-        await self.presenter_page.click("body")
 
         # Starts the game
         async with await self.wait_until_ready("on_selection_mounted"):

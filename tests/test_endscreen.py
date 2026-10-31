@@ -59,6 +59,8 @@ async def test_finale_result(database, locales):
 
             database.save_models(*game_data.game_contestants)
 
+            await context.transition_state(game_data.id, StageType.ENDED)
+
             await context.open_endscreen_page(game_data.id)
 
             expected_winner_desc = f"{contestant_names[1]} {locale['winner_flavor_1']}"
@@ -74,6 +76,8 @@ async def test_finale_result(database, locales):
                 contestant.score = score
 
             database.save_models(*game_data.game_contestants)
+
+            await context.transition_state(game_data.id, StageType.ENDED)
 
             await context.open_endscreen_page(game_data.id)
 
@@ -92,6 +96,8 @@ async def test_finale_result(database, locales):
                 contestant.score = score
 
             database.save_models(*game_data.game_contestants)
+
+            await context.transition_state(game_data.id, StageType.ENDED)
 
             await context.open_endscreen_page(game_data.id)
 

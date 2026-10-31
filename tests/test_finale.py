@@ -15,7 +15,7 @@ async def test_finale_result(database, locales):
     contestant_wagers = [1000, 300, 700, 0]
     contestant_answers = ["4", "4", "3", None]
 
-    async with ContextHandler(True) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
 
@@ -44,11 +44,17 @@ async def test_finale_result(database, locales):
 
             database.save_models(*game_data.game_contestants)
 
+            await context.transition_state(game_data.id, StageType.FINALE_RESULT)
+
             await context.open_finale_page(game_data.id)
 
             session.refresh(game_data)
 
             await asyncio.sleep(0.5)
+
+            await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
+            await asyncio.sleep(0.5)
+
             await context.screenshot_views()
 
             lines = []

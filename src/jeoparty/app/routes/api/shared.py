@@ -1,4 +1,5 @@
 from glob import glob
+import json
 import os
 import random
 import traceback
@@ -21,11 +22,23 @@ from jeoparty.api.enums import Language
 from jeoparty.api.orm.models import Game, Theme
 
 def is_lan_active(game_data: Game):
-    return False # TODO: REPLACE #(
-        #     game_data.pack.theme is not None
-        #     and game_data.pack.theme.name == "LAN"
-        #     and game_data.created_by == Config.ADMIN_ID
-        # )
+    return (
+        game_data.pack.theme is not None
+        and game_data.pack.theme.name == "LAN"
+        and game_data.created_by == Config.ADMIN_ID
+    )
+
+def get_intfar_request_params(config: Config):
+    base_url = f"{config.internal_host_url}:5000"
+
+    with open(f"{Config.STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
+        data = json.load(fp)
+        admin_id = data["intfar_disc_id"]
+        token = data["intfar_user_id"]
+
+    request_json = {"disc_id": admin_id, "token": token}
+
+    return base_url, request_json
 
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
@@ -147,10 +160,10 @@ def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: 
             if value is not None and (column.type.python_type is int or column.type.python_type is float):
                 value = column.type.python_type(value)
 
-            elif column.type.python_type is bool:
-                if value == "on":
+            elif column.type.python_type is bool and not isinstance(value, bool):
+                if value in ("on", "true", "True"):
                     value = True
-                elif value == "off":
+                elif value in ("off", "false", "False"):
                     value = False
                 elif value is None:
                     value = False
@@ -158,6 +171,8 @@ def create_and_validate_model(model_cls: type[T], data: Dict[str, Any], action: 
             elif column.type.python_type.__base__ is Enum and value is not None:
                 try:
                     enum = column.type.python_type(value)
+                except ValueError:
+                    return False, f"Error when {action}: '{column.name}' - Input is not a valid choice"
                 except AttributeError:
                     continue
 
