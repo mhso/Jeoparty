@@ -32,6 +32,5 @@
 - [❌] Make error messages on backend locale specific
 
 # Refactor
-- [❌] Test LAN join flow
-- [❌] Enable LAN check that I disabled
 - [❌] Fix test_full_game.py
+- [❌] Fix at rewind efter anden person har buzzed ind ikke pauser timer + ikke disabler freeze (DON'T ENABLE FREEZE IF PLAYER DOESN'T HAVE THE BUZZER)

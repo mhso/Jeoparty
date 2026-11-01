@@ -241,8 +241,11 @@ def _transition_selection(database: Database, game_data: Game):
             questions_copy = list(questions)
             random.shuffle(questions_copy)
 
-            round_zero = game_data.round - 1
-            dailies_in_round = (game_data.regular_rounds + 1) - (game_data.regular_rounds - round_zero)
+            # Determine the amount of daily doubles in the current round
+            if game_data.regular_rounds == 1:
+                dailies_in_round = 2
+            else:
+                dailies_in_round = game_data.round
 
             for index, game_question in enumerate(questions_copy):
                 game_question.daily_double = index < dailies_in_round

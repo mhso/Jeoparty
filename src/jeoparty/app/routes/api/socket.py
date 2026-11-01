@@ -29,6 +29,7 @@ class ContestantMetadata:
     sid: str
     ping: float = 30
     latest_buzz: float | None = field(init=False, default=None)
+    won_buzz: bool = field(init=False, default=False)
     joined: bool = field(init=False, default=True)
     disconnected: bool = field(init=False, default=False)
     _ping_samples: List[float] = field(init=False, default_factory=list)
@@ -306,6 +307,11 @@ class GameSocketHandler(Namespace):
                         if contestant_id != power_used["used_by"]:
                             ids_to_skip.add(contestant_metadata.sid) 
 
+            for contestant_id in self.contestant_metadata:
+                contestant_metadata = self.contestant_metadata[contestant_id]
+                if contestant_metadata.sid not in ids_to_skip:
+                    contestant_metadata.won_buzz = False
+
             self.emit("buzz_enabled", to="contestants", skip_sid=list(ids_to_skip))
 
     @_presenter_event
@@ -321,8 +327,9 @@ class GameSocketHandler(Namespace):
         for contestant_id in player_ids:
             contestant = self.game_data.get_contestant(game_contestant_id=contestant_id)
             metadata = self.contestant_metadata[contestant_id]
-            power_up = contestant.get_power(PowerUpType(power_id))
-            if power_up.used:
+            power_type = PowerUpType(power_id)
+            power_up = contestant.get_power(power_type)
+            if power_up.used or (power_type is PowerUpType.FREEZE and not metadata.won_buzz):
                 skip_contestants.append(metadata.sid)
                 continue
 
@@ -536,6 +543,7 @@ class GameSocketHandler(Namespace):
                     c.latest_buzz = None
 
                 earliest_buzz_player = self.contestant_metadata[earliest_buzz_id]
+                earliest_buzz_player.won_buzz = True
 
                 print("Earliest buzz:", earliest_buzz_player.sid, earliest_buzz_time)
 
@@ -562,10 +570,13 @@ class GameSocketHandler(Namespace):
         self.emit("buzz_disabled", to="contestants", skip_sid=contestant_metadata.sid)
 
     @_presenter_event
-    def on_edit_contestant_info(self, user_id: str, json_str: str):
+    def on_edit_contestant_info(self, json_str: str):
+        data = json.loads(json_str)
+
+        user_id = data["id"]
+
         contestant_data = self.game_data.get_contestant(game_contestant_id=user_id)
         contestant_metadata = self.contestant_metadata[user_id]
-        data = json.loads(json_str)
 
         keys = ["hits", "misses", "score"]
         for key in keys:
@@ -580,6 +591,7 @@ class GameSocketHandler(Namespace):
 
         self.save_models(contestant_data, *contestant_data.power_ups)
 
+        self.emit("contestant_info_changed", json_str, to="presenter")
         self.emit("contestant_info_changed", json_str, to=contestant_metadata.sid)
 
     @_contestants_event
