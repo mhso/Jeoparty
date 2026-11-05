@@ -139,6 +139,7 @@ class Question(Base):
     question: Mapped[str] = mapped_column(String(128))
     answer: Mapped[str] = mapped_column(String(128))
     value: Mapped[int] = mapped_column(Integer)
+    allow_daily_double: Mapped[bool] = mapped_column(Boolean, default=True)
     extra: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
 
     category = relationship("QuestionCategory", back_populates="questions")

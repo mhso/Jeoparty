@@ -1,8 +1,6 @@
 import asyncio
 import pytest
 
-from playwright.async_api import Dialog
-
 from jeoparty.api.enums import StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game

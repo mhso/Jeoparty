@@ -238,8 +238,8 @@ def _transition_selection(database: Database, game_data: Game):
     if (start_of_round or end_of_round) and not is_finale:
         # If it's the first question of a new round, select random questions to be daily doubles
         if game_data.use_daily_doubles:
-            questions_copy = list(questions)
-            random.shuffle(questions_copy)
+            valid_questions = [q for q in questions if q.question.allow_daily_double]
+            random.shuffle(valid_questions)
 
             # Determine the amount of daily doubles in the current round
             if game_data.regular_rounds == 1:
@@ -247,10 +247,10 @@ def _transition_selection(database: Database, game_data: Game):
             else:
                 dailies_in_round = game_data.round
 
-            for index, game_question in enumerate(questions_copy):
+            for index, game_question in enumerate(valid_questions):
                 game_question.daily_double = index < dailies_in_round
 
-            database.save_models(*questions_copy)
+            database.save_models(*valid_questions)
 
         # Reset used power-ups
         for contestant in game_data.game_contestants:

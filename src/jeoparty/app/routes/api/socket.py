@@ -671,10 +671,22 @@ class GameSocketHandler(Namespace):
         if not contestant_data.finale_wager:
             return
 
+        contestant_metadata = self.contestant_metadata[user_id]
+
         contestant_data.score += amount
         contestant_data.hits += 1
 
         self.save_models(contestant_data)
+
+        # Send update to contestants/presenter
+        contestant_info = json.dumps(
+            {
+                "hits": contestant_data.hits,
+                "score": contestant_data.score,
+            }
+        )
+        self.emit("contestant_info_changed", contestant_info, to="presenter")
+        self.emit("contestant_info_changed", contestant_info, to=contestant_metadata.sid)
 
     @_presenter_event
     def on_finale_answer_wrong(self, user_id: str, amount: int):
@@ -682,10 +694,23 @@ class GameSocketHandler(Namespace):
         if not contestant_data.finale_wager:
             return
 
+        contestant_metadata = self.contestant_metadata[user_id]
+
         contestant_data.score -= amount
         contestant_data.misses += 1
 
         self.save_models(contestant_data)
+
+        # Send update to contestants/presenter
+        contestant_info = json.dumps(
+            {
+                "misses": contestant_data.misses,
+                "score": contestant_data.score,
+            }
+        )
+        self.emit("contestant_info_changed", contestant_info, to="presenter")
+        self.emit("contestant_info_changed", contestant_info, to=contestant_metadata.sid)
+
 
     @_presenter_event
     def on_finale_answer_undo(self, user_id: str, amount: int):
@@ -695,16 +720,27 @@ class GameSocketHandler(Namespace):
 
         correct = amount < 0
 
+        contestant_metadata = self.contestant_metadata[user_id]
+
         contestant_data.score += amount
 
         if correct: # We incorrectly marked answer correct, but it was wrong
             contestant_data.hits -= 1
-            contestant_data.misses += 1
         else: # Vice versa
-            contestant_data.hits += 1
             contestant_data.misses -= 1
 
         self.save_models(contestant_data)
+
+        # Send update to contestants/presenter
+        contestant_info = json.dumps(
+            {
+                "hits": contestant_data.hits,
+                "misses": contestant_data.misses,
+                "score": contestant_data.score,
+            }
+        )
+        self.emit("contestant_info_changed", contestant_info, to="presenter")
+        self.emit("contestant_info_changed", contestant_info, to=contestant_metadata.sid)
 
 def get_namespace_handler(game_id: str) -> GameSocketHandler:
     if socket_io.server:

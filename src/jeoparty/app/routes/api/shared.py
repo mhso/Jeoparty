@@ -100,17 +100,20 @@ def get_question_answer_sounds(theme: Theme, max_contestants: int):
     else:
         wrong_sounds = [default_wrong]
 
-    # Get as many wrong sounds as there are contestants, duplicating sounds
+    num_sound = max_contestants * 2
+
+    # Get as many wrong sounds as there are contestants x2,
+    # incase rewinds happen. Sounds are duplicated,
     # if we don't have enough custom ones
-    if len(wrong_sounds) < max_contestants:
+    if len(wrong_sounds) < num_sound:
         # Add default wrong answer sound
         for repeat_sound in cycle(wrong_sounds):
             wrong_sounds.append(repeat_sound)
-            if len(wrong_sounds) == max_contestants:
+            if len(wrong_sounds) == num_sound:
                 break
 
     random.shuffle(wrong_sounds)
-    wrong_sounds = wrong_sounds[:max_contestants]
+    wrong_sounds = wrong_sounds[:num_sound]
 
     return correct_sound, wrong_sounds
 
