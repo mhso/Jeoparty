@@ -476,23 +476,6 @@ def save_pack(pack_id: str):
 
     return make_json_response({"response": "Question pack saved successfully.", "ids": new_ids}, 200)
 
-@dashboard_page.route("/packs/<pack_id>/cheatsheet")
-def cheatsheet(pack_id: str):
-    user_details = get_user_details()
-    if user_details is None:
-        return make_json_response(_UNAUTHORIZED_MSG, 401)
-
-    database: Database = flask.current_app.config["DATABASE"]
-
-    with database:
-        pack_data: QuestionPack | None = database.get_question_packs_for_user(user_details[0], pack_id)
-        if pack_data is None:
-            return make_json_response("You are not auhorized to view this cheatsheet.", 401)
-
-        pack_json = pack_data.dump(included_relations=QuestionPack.rounds)
-
-    return make_json_response(pack_json, 200)
-
 @dashboard_page.route("/packs/<pack_id>", methods=["GET", "DELETE"])
 def question_pack(pack_id: str):
     user_details = get_user_details()

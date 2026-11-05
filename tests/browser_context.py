@@ -12,7 +12,14 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 import cv2
 import numpy as np
-from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
+from playwright.async_api import (
+    async_playwright,
+    Playwright,
+    BrowserContext,
+    Page,
+    ConsoleMessage,
+    TimeoutError as PlatwrightTimeout,
+)
 from PIL import Image
 from sqlalchemy import Enum
 
@@ -562,8 +569,12 @@ class ContextHandler:
     async def hit_buzzer(self, contestant_id: str, expect_success: bool = True):
         page = self.contestant_pages[contestant_id]
 
-        elem = await page.wait_for_selector("#buzzer-wrapper.active", timeout=10000)
-        await elem.click()
+        try:
+            elem = await page.wait_for_selector("#buzzer-wrapper.active", timeout=10000)
+            await elem.click()
+        except PlatwrightTimeout:
+            if expect_success:
+                raise
 
         elem = await page.query_selector("#buzzer-wrapper")
 

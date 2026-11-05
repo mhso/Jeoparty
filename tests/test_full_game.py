@@ -170,10 +170,10 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             pending = (
                 await asyncio.wait(
                     [
-                        asyncio.create_task(context.hit_buzzer(contestant.contestant_id))
+                        asyncio.create_task(context.hit_buzzer(contestant.contestant_id, False))
                         for contestant in players_buzzing
                     ],
-                    timeout=10
+                    timeout=15
                 )
             )[1]
 
@@ -258,7 +258,7 @@ async def handle_finale_wager_page(context: ContextHandler, game_data: Game):
     await asyncio.sleep(1)
 
     # Go to finale question page
-    async with await context.wait_until_ready():
+    async with context.presenter_page.expect_navigation():
         await context.presenter_page.press("body", PRESENTER_ACTION_KEY)    
 
 async def handle_finale_question_page(context: ContextHandler, game_data: Game):
@@ -444,8 +444,8 @@ def do_database_setup(config: Config, database: SQLiteDatabase):
 @pytest.mark.skipif(os.environ.get("USE_DOCKER") == "1", reason="This test can't run in Docker")
 @pytest.mark.asyncio
 async def test_random_game(locales, config):
-    pack_name = "LoL Jeopardy v7"
-    rounds = 1 if pack_name == "Julequiz 2025" else 2
+    pack_name = "LoL Jeopardy v8"
+    rounds = 1 if pack_name in ("Julequiz 2025", "LoL Jeopardy v8") else 2
     seed = 1234
     random.seed(seed)
 

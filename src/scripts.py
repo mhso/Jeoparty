@@ -11,7 +11,7 @@ from sqlalchemy import text
 from mhooge_flask.database import Base
 
 from jeoparty.api.config import Config, get_buzz_sound_path
-from jeoparty.api.database import Database, start_ssh_tunnel
+from jeoparty.api.database import Database, PostgresDatabase, start_ssh_tunnel
 from jeoparty.api.enums import Environment, StageType
 from jeoparty.api.orm.models import BuzzerSound
 
@@ -186,26 +186,38 @@ class ScriptRunner:
         prod_config = Config(Environment.PRODUCTION)
         dev_config = Config(Environment.DEVELOPMENT)
 
-        prod_database = Database(prod_config)
-        dev_database = Database(dev_config)
-        with prod_database as prod_session:
-            with dev_database as dev_session:
-                Base.metadata.drop_all(dev_database.engine)
-                Base.metadata.create_all(dev_database.engine)
+        try:
+            tunnel = start_ssh_tunnel()
 
-                tables = list(Base.metadata.tables.keys())
-                tables.remove("game_power_ups")
-                tables.append("game_power_ups")
+            prod_database = PostgresDatabase(prod_config)
+            dev_database = PostgresDatabase(dev_config)
+            with prod_database as prod_session:
+                with dev_database as dev_session:
+                    Base.metadata.drop_all(dev_database.engine)
+                    Base.metadata.create_all(dev_database.engine)
 
-                for table_name in tables:
-                    table = Base.metadata.tables[table_name]
-                    print(f"Transfering data from '{table_name}'")
+                    tables = list(Base.metadata.tables.keys())
 
-                    results = prod_session.execute(select(table))
-                    for row in results:
-                        dev_session.execute(insert(table).values(row))
+                    # Re-order some tables
+                    tables.remove("game_contestants")
+                    tables.append("game_contestants")
+                    tables.remove("game_questions")
+                    tables.append("game_questions")
+                    tables.remove("game_power_ups")
+                    tables.append("game_power_ups")
 
-                    dev_session.commit()
+                    for table_name in tables:
+                        table = Base.metadata.tables[table_name]
+                        print(f"Transfering data from '{table_name}'")
+
+                        results = prod_session.execute(select(table))
+                        for row in results:
+                            dev_session.execute(insert(table).values(row))
+
+                        dev_session.commit()
+        finally:
+            tunnel.kill()
+            tunnel.wait()
 
     def transfer_to_postgres(self):
         from sqlalchemy import create_engine, select, insert
