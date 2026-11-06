@@ -824,6 +824,7 @@ class ContextHandler:
         game_feed: List[str] | None = None,
         is_finale: bool = False,
         countdown_state: List[Literal["running", "paused", "hidden"]] | None = None,
+        ignore_feed_order: bool = False,
     ):
         # Assert that category header is correct
         expected_category_text = question.question.category.name
@@ -890,8 +891,15 @@ class ContextHandler:
         if game_feed is not None:
             buzz_feed_elem = await self.presenter_page.query_selector_all("#question-game-feed > ul > li")
             assert len(buzz_feed_elem) == len(game_feed)
-            for entry, expected in zip(buzz_feed_elem, game_feed):
-                assert re.match(expected, await entry.text_content()) is not None
+
+            buzz_feed_text = [await entry.text_content() or "" for entry in buzz_feed_elem]
+
+            if ignore_feed_order:
+                buzz_feed_text.sort()
+                game_feed.sort()
+
+            for entry, expected in zip(buzz_feed_text, game_feed):
+                assert re.match(expected, entry) is not None, f"Game feed: {entry}"
 
         if answer_visible is not None:
             answer_elem = await self.presenter_page.query_selector("#question-actual-answer > .question-emph")
