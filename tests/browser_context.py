@@ -7,22 +7,26 @@ import traceback
 import random
 from time import time
 from io import BytesIO
-from subprocess import Popen
-from typing import Dict, List, Literal, Tuple
+from typing import Callable, Dict, List, Literal, Tuple
 from contextlib import AsyncExitStack, asynccontextmanager
 
 import cv2
 import numpy as np
-from playwright.async_api import async_playwright, Playwright, BrowserContext, Page, ConsoleMessage
-from playwright.async_api import TimeoutError as PlaywrightTimeout
+from playwright.async_api import (
+    async_playwright,
+    Playwright,
+    BrowserContext,
+    Page,
+    ConsoleMessage,
+    TimeoutError as PlatwrightTimeout,
+)
 from PIL import Image
 from sqlalchemy import Enum
 
-from jeoparty.api.database import Database
-from jeoparty.api.enums import Language
+from jeoparty.api.enums import Language, StageType
 from jeoparty.api.orm.models import GameContestant, GameQuestion
 from jeoparty.api.config import get_question_pack_data_path, get_avatar_path
-from jeoparty.app.routes.contestant import COOKIE_ID
+from jeoparty.app.routes.api.shared import COOKIE_ID
 from tests.config import PRESENTER_USERNAME, PRESENTER_PASSWORD
 
 random.seed(1337)
@@ -72,12 +76,25 @@ def rgb_to_hex(color: str):
 
     return color
 
+EVENT = Literal[
+    "on_create_game_mounted",
+    "on_lobby_mounted",
+    "on_selection_mounted",
+    "on_question_mounted",
+    "on_finale_mounted",
+    "on_endscreen_mounted",
+    "on_pack_mounted",
+    "on_game_mounted",
+    "on_contestant_refresh",
+    "on_hijack_enabled",
+    "on_first_turn_chosen",
+]
+
 class ContextHandler:
     BASE_URL = "http://localhost:5006/jeoparty"
     PRESENTER_URL = f"{BASE_URL}/presenter"
 
-    def __init__(self, database: Database, video: bool = False):
-        self.database = database
+    def __init__(self, video: bool = False):
         self.record_video = video
 
         self.playwright_contexts = []
@@ -93,6 +110,20 @@ class ContextHandler:
         self.avatar_images = []
         self._browser_tasks = []
 
+        self._event_listeners: Dict[EVENT, Dict[BrowserContext, Callable]] = {
+            "on_create_game_mounted": {},
+            "on_lobby_mounted": {},
+            "on_selection_mounted": {},
+            "on_question_mounted": {},
+            "on_finale_mounted": {},
+            "on_endscreen_mounted": {},
+            "on_pack_mounted": {},
+            "on_game_mounted": {}, # Contestant joined game
+            "on_contestant_refresh": {}, # Contestant fetched new state
+            "on_hijack_enabled": {},
+            "on_first_turn_chosen": {},
+        }
+
     async def _create_browser(self, context: Playwright, browser: str):
         browser_options = dict(BROWSER_OPTIONS)
         browser_options["args"] = BROWSER_OPTIONS["args"].get(browser, [])
@@ -103,20 +134,57 @@ class ContextHandler:
 
         await page.goto(ContextHandler.BASE_URL)
 
-        name_input = await page.query_selector('input[type="text"]')
+        name_input = await page.query_selector("#user")
         await name_input.fill(PRESENTER_USERNAME)
 
-        password_input = await page.query_selector('input[type="password"]')
+        password_input = await page.query_selector("#pass")
         await password_input.fill(PRESENTER_PASSWORD)
 
-        login_btn = await page.query_selector(".login-login-btn")
+        login_btn = await page.query_selector('input[type="submit"]')
 
         async with page.expect_navigation():
             await login_btn.click()
 
         return page
 
-    async def wait_for_event(self, event_func, condition=None, timeout=10):
+    def on(self, event: EVENT, context: BrowserContext, callback):
+        self._event_listeners[event][context] = callback
+
+    def off(self, event: EVENT, context: BrowserContext, callback):
+        callback = self._event_listeners[event]
+        if context in callback:
+            del callback[context]
+
+    async def emit(self, event: EVENT, context: BrowserContext):
+        print("Emitting", event, hash(context))
+        callback = self._event_listeners.get(event, {}).get(context)
+        if callback:
+            await callback()
+
+    async def wait_for_event(self, event: EVENT, context: BrowserContext, timeout=10):
+        resolved = []
+
+        async def callback():
+            resolved.append(True)
+
+        self.on(event, context, callback)
+
+        time_slept = 0
+        sleep_interval = 0.5
+
+        while time_slept < timeout:
+            if resolved:
+                return
+
+            await asyncio.sleep(sleep_interval)
+            time_slept += sleep_interval
+
+        self.off(event, context, callback)
+        await self.screenshot_views("timeout")
+
+        raise TimeoutError(f"Event '{event}' never happened!")
+
+    async def wait_for_result(self, event_func, condition=None, timeout=10):
         time_slept = 0
         sleep_interval = 0.5
         while time_slept < timeout:
@@ -148,6 +216,7 @@ class ContextHandler:
         daily_doubles: bool | None = None,
         power_ups: bool | None = None,
         page: Page | None = None,
+        expect_fail: bool = False,
     ) -> Tuple[Page, str]:
         if page is None:
             page = self.presenter_page
@@ -159,7 +228,7 @@ class ContextHandler:
             ("password", password),
             ("rounds", rounds),
             ("contestants", contestants),
-            ("double", daily_doubles),
+            ("doubles", daily_doubles),
             ("powers", power_ups)
         ]
 
@@ -167,26 +236,27 @@ class ContextHandler:
             if value is None:
                 continue
 
-            input_field = await page.query_selector(f"#create-game-{field}")
+            input_field = await page.query_selector(f"#{field}")
             if isinstance(value, bool):
                 await input_field.set_checked(value)
             else:
                 await input_field.fill(str(value))
 
         if pack_name is not None:
-            pack_input = await page.query_selector("#create-game-pack")
+            pack_input = await page.query_selector("#pack")
             await pack_input.select_option(label=pack_name, timeout=2000)
 
         submit_btn = await page.query_selector('input[type="submit"]')
 
-        async with page.expect_navigation():
-            await submit_btn.click()
+        if not expect_fail:
+            async with self.wait_for_event_context_manager("on_lobby_mounted", page.context):
+                async with page.expect_navigation():
+                    await submit_btn.click()
 
-        if not "/create_game" in page.url:
-            await self.wait_for_event(self._socket_connected)
+            game_id = page.url.split("/")[-2]
 
-            game_id = page.url.split("/")[-1]
         else:
+            await submit_btn.click()
             game_id = None
 
         return page, game_id
@@ -198,6 +268,7 @@ class ContextHandler:
         finale: bool | None = None,
         language: Language | None = None,
         page: Page | None = None,
+        expect_fail: bool = False,
     ) -> Tuple[Page, str]:
         if page is None:
             page = self.presenter_page
@@ -215,7 +286,7 @@ class ContextHandler:
             if value is None:
                 continue
 
-            input_field = await page.query_selector(f"#create-pack-{field}")
+            input_field = await page.query_selector(f"#{field}")
             if isinstance(value, bool):
                 await input_field.set_checked(value)
             elif isinstance(value, Enum):
@@ -225,7 +296,11 @@ class ContextHandler:
 
         submit_btn = await page.query_selector('input[type="submit"]')
 
-        async with page.expect_navigation(wait_until="domcontentloaded"):
+        if not expect_fail:
+            async with self.wait_for_event_context_manager("on_pack_mounted", page.context):
+                async with page.expect_navigation():
+                    await submit_btn.click()
+        else:
             await submit_btn.click()
 
         pack_id = page.url.split("/")[-1].split("#")[0]
@@ -233,11 +308,17 @@ class ContextHandler:
 
         return page, pack_id
 
-    async def _print_contestant_console_output(self, msg: ConsoleMessage):
+    async def _handle_contestant_console_output(self, msg: ConsoleMessage):
         print("[CONTESTANT] - Message from console:", msg.text)
 
-    async def _print_presenter_console_output(self, msg: ConsoleMessage):
+        if msg.text in self._event_listeners:
+            await self.emit(msg.text, msg.page.context)
+
+    async def _handle_presenter_console_output(self, msg: ConsoleMessage):
         print("[PRESENTER] - Message from console:", msg.text)
+
+        if msg.text in self._event_listeners:
+            await self.emit(msg.text, msg.page.context)
 
     async def _print_contestant_unhandled_error(self, error):
         message = error.message
@@ -266,17 +347,27 @@ class ContextHandler:
         video_start = time()
 
         page = await browser_context.new_page()
-        page.on("console", self._print_contestant_console_output)
+        page.on("console", self._handle_contestant_console_output)
         page.on("pageerror", self._print_contestant_unhandled_error)
 
         return browser_context, page, video_start
 
     @asynccontextmanager
-    async def wait_for_event_context_manager(self, event):
+    async def wait_for_event_context_manager(self, event: EVENT, context: BrowserContext):
+        resolved = []
+        async def callback():
+            resolved.append(True)
+
+        self.on(event, context, callback)
+
+        async def monitor():
+            return bool(resolved)
+
         try:
             yield
         finally:
-            await self.wait_for_event(event)
+            await self.wait_for_result(monitor)
+            self.off(event, context, callback)
 
     async def join_lobby(
         self,
@@ -305,7 +396,7 @@ class ContextHandler:
         if color is not None:
             # Input player color (the hard way because Playwright is no)
             color_input = await contestant_page.query_selector("#contestant-lobby-color")
-            await color_input.evaluate(f"(e) => e.value = '{color}'")
+            await color_input.fill(color)
 
         if avatar is not None:
             # Set player avatar
@@ -343,24 +434,31 @@ class ContextHandler:
 
         return contestant_page, contestant_id
 
-    async def _setup_complete(self):
-        return await self.presenter_page.evaluate("setupComplete")
+    async def wait_for_contestants(self, event: EVENT | None, stack: AsyncExitStack | None = None):
+        if stack is None:
+            stack = AsyncExitStack()
 
-    async def wait_until_ready(self, wait_for_socket: bool = True):
+        for page in self.contestant_pages.values():
+            await stack.enter_async_context(self.wait_for_event_context_manager(event, page.context))
+
+        return stack
+
+    async def wait_until_ready(self,
+        event: EVENT | None = None,
+        contestant_event: EVENT | None = "on_contestant_refresh",
+    ):
         """
         Create a stack of context managers so we can wait wait for the presenter
         and each contestant to be redirected after presented jumps to new page.
-        Also waits for socket to be ready after navigation has completed.
+        Also waits for Vue components to be mounted after navigation has completed.
         """
         stack = AsyncExitStack()
 
-        if wait_for_socket:
-            await stack.enter_async_context(self.wait_for_event_context_manager(self._setup_complete))
+        if event:
+            await stack.enter_async_context(self.wait_for_event_context_manager(event, self.presenter_context))
 
-        for page in self.contestant_pages.values():
-            await stack.enter_async_context(page.expect_navigation(timeout=15000))
-
-        await stack.enter_async_context(self.presenter_page.expect_navigation())
+        if contestant_event:
+            await self.wait_for_contestants(contestant_event, stack)
 
         return stack
 
@@ -368,31 +466,36 @@ class ContextHandler:
         if await self.presenter_page.query_selector("#menu-lobby-music") is not None:
             # Plays intro music
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(2)
 
         # Starts the game
-        async with await self.wait_until_ready():
+        async with await self.wait_until_ready("on_selection_mounted"):
             await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
     async def open_selection_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/selection"
-        async with await self.wait_until_ready():
+        async with await self.wait_until_ready("on_selection_mounted"):
             await self.presenter_page.goto(url)
 
     async def open_question_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/question"
-        async with await self.wait_until_ready():
+        async with await self.wait_until_ready("on_question_mounted"):
             await self.presenter_page.goto(url)
 
     async def open_finale_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/finale"
-        async with self.presenter_page.expect_navigation():
+        async with await self.wait_until_ready("on_finale_mounted"):
             await self.presenter_page.goto(url)
 
     async def open_endscreen_page(self, game_id: str):
         url = f"{self.PRESENTER_URL}/{game_id}/endscreen"
-        async with self.presenter_page.expect_navigation():
+        async with await self.wait_until_ready("on_endscreen_mounted"):
             await self.presenter_page.goto(url)
+
+    async def transition_state(self, game_id: str, target: StageType):
+        await self.presenter_page.request.post(
+            f"{self.BASE_URL}/api/game/{game_id}/advance/{target.value}"
+        )
 
     async def show_question(self):
         # Show the question
@@ -401,10 +504,10 @@ class ContextHandler:
         await asyncio.sleep(1)
 
         # Check if question is multiple choice
-        answer_choices = await self.presenter_page.evaluate("() => getNumAnswerChoices()")
+        answer_choices = await self.presenter_page.query_selector_all(".question-choice-entry")
 
         if answer_choices:
-            for _ in range(answer_choices):
+            for _ in answer_choices:
                 await self.presenter_page.press("body", PRESENTER_ACTION_KEY)
                 await asyncio.sleep(0.5)
         else:
@@ -440,7 +543,7 @@ class ContextHandler:
             misses_now = int(await misses_elem.text_content())
             return hits_now == hits_then + 1 or misses_now == misses_then + 1
 
-        await self.wait_for_event(hits_or_misses_incremented)
+        await self.wait_for_result(hits_or_misses_incremented)
 
     async def find_buzz_winner(self, contestants: List[GameContestant], locale: Dict[str, str]):
         part_1 = r"\s".join(locale['game_feed_buzz_1'].split(" "))
@@ -466,18 +569,22 @@ class ContextHandler:
     async def hit_buzzer(self, contestant_id: str, expect_success: bool = True):
         page = self.contestant_pages[contestant_id]
 
-        await page.wait_for_selector("#buzzer-active", timeout=10000)
-        await page.click("#buzzer-wrapper")
+        try:
+            elem = await page.wait_for_selector("#buzzer-wrapper.active", timeout=10000)
+            await elem.click()
+        except PlatwrightTimeout:
+            if expect_success:
+                raise
 
-        buzz_winner_img = await page.query_selector("#buzzer-winner")
-        buzz_loser_img = await page.query_selector("#buzzer-loser")
+        elem = await page.query_selector("#buzzer-wrapper")
 
         async def buzz_registered():
-            return (await buzz_winner_img.is_visible()) or (await buzz_loser_img.is_visible())
+            class_name = await elem.get_attribute("class")
+            return class_name is not None and ("won" in class_name or "lost" in class_name)
 
         if expect_success:
             # Wait for buzz to register on contestant page
-            await self.wait_for_event(buzz_registered)
+            await self.wait_for_result(buzz_registered)
 
             # Wait for buzz to register on presenter page
             await self.presenter_page.wait_for_selector(".active-contestant-entry")
@@ -486,6 +593,7 @@ class ContextHandler:
 
     async def use_power_up(self, contestant_id: str, power_id: str):
         page = self.contestant_pages[contestant_id]
+
         await page.wait_for_selector(f"#contestant-power-btn-{power_id}:enabled", timeout=10000)
         await page.click(f"#contestant-power-btn-{power_id}")
 
@@ -495,45 +603,30 @@ class ContextHandler:
         async def power_video_started():
             return await video.evaluate("(e) => !e.paused")
 
-        await self.wait_for_event(power_video_started, timeout=8)
+        await self.wait_for_result(power_video_started, timeout=8)
 
         # ...then wait for it to end
         async def power_video_ended():
             return await video.evaluate("(e) => e.ended")
 
-        await self.wait_for_event(power_video_ended, timeout=15)
+        await self.wait_for_result(power_video_ended, timeout=15)
 
-    async def make_wager(self, contestant_id: str, amount: int, dialog_callback=None):
+    async def make_wager(self, contestant_id: str, amount: int, expect_success: bool = True):
         page = self.contestant_pages[contestant_id]
 
         # Input the amount to wager
         wager_input = await page.query_selector(".question-wager-input")
         await wager_input.fill(str(amount))
 
-        async def fail(dialog):
-            assert False
-
-        # Handle alert
-        if dialog_callback is not None:
-            await page.evaluate("var dialog = false")
-            page.on("dialog", dialog_callback)
-        else:
-            page.on("dialog", fail)
-
         # Click the submit button
         submit_button = await page.query_selector("#contestant-wager-btn")
         await submit_button.tap()
 
-        if dialog_callback is None:
+        if expect_success:
             async def wager_accepted():
                 return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
 
-            await self.wait_for_event(wager_accepted)
-        else:
-            async def dialog_opened():
-                return await page.evaluate("dialog")
-
-            await self.wait_for_event(dialog_opened)
+            await self.wait_for_result(wager_accepted)
 
     async def give_finale_answer(self, contestant_id: str, answer: str):
         page = self.contestant_pages[contestant_id]
@@ -549,7 +642,7 @@ class ContextHandler:
         async def wager_accepted():
             return await submit_button.evaluate("(e) => e.classList.contains('wager-made')")
 
-        await self.wait_for_event(wager_accepted)
+        await self.wait_for_result(wager_accepted)
 
     def _clean_whitespace(self, text: str):
         return " ".join(x.strip() for x in text.split(None) if x.strip() != "")
@@ -564,7 +657,7 @@ class ContextHandler:
         buzzes: int | None = None,
         hits: int | None = None,
         misses: int | None = None,
-        buzzer_status: Literal["active", "inactive", "pressed"] | None = None,
+        buzzer_status: Literal["active", "inactive", "pressed", "won", "lost"] | None = None,
         used_power_ups: Dict[str, bool] | None = None,
         enabled_power_ups: Dict[str, bool] | None = None,
     ):
@@ -600,14 +693,14 @@ class ContextHandler:
 
         # Assert that buzzer status is correct
         if buzzer_status is not None:
-            elem = await page.query_selector(f"#buzzer-{buzzer_status}")
+            elem = await page.query_selector(f"#buzzer-wrapper.{buzzer_status}")
             assert await elem.is_visible()
 
         # Assert that used power-ups are correct
         if used_power_ups is not None:
             for power_up in used_power_ups:
                 used_icon = await page.query_selector(f"#contestant-power-btn-{power_up} > .contestant-power-used")
-                assert await used_icon.is_visible() is used_power_ups[power_up], f"Correct used {power_up}"
+                assert (used_icon is not None) is used_power_ups[power_up], f"Correct used {power_up}"
 
         # Assert that enabled power-ups are correct
         if enabled_power_ups is not None:
@@ -651,14 +744,12 @@ class ContextHandler:
                 game_active = True
                 break
 
+        class_name = ".footer-contestant" if game_active else ".menu-contestant"
+        contestant_wrapper = await self.presenter_page.query_selector(f"{class_name}-{contestant_id}")
+
         # Assert that contestant color is correct
         if color is not None:
-            if game_active:
-                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
-            else:
-                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
-
-            header_style = await wrapper_elem.get_property("style")
+            header_style = await contestant_wrapper.get_property("style")
 
             if game_active:
                 element_color = await header_style.get_property("backgroundColor")
@@ -669,10 +760,8 @@ class ContextHandler:
 
         # Assert that contestant avatar is correct
         if avatar is not None:
-            if game_active:
-                avatar_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id} > .footer-contestant-entry-avatar")
-            else:
-                avatar_elem = await self.presenter_page.query_selector(f"#player_{contestant_id} > .menu-contestant-avatar")
+            avatar_class = "footer-contestant-entry-avatar" if game_active else ".menu-contestant-avatar"
+            avatar_elem = await contestant_wrapper.query_selector(avatar_class)
 
             expected_filename = os.path.basename(avatar)
             file_split = expected_filename.split(".")
@@ -693,21 +782,19 @@ class ContextHandler:
 
         # Assert that contestant having turn is correct
         if has_turn is not None:
-            player_turn = await self.presenter_page.eval_on_selector(f".footer-contestant-{contestant_id}", "(e) => e.classList.contains('active-contestant-entry')")
+            player_turn = await contestant_wrapper.evaluate("(e) => e.classList.contains('active-contestant-entry')")
             assert player_turn is has_turn
 
         # Assert that used power-ups are correct
         if used_power_ups is not None:
-            wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
             for power_up in used_power_ups:
-                power_element = await wrapper_elem.query_selector(f".footer-contestant-power-{power_up}")
-                used_icon = await power_element.query_selector(".footer-contestant-entry-power-used")
-                assert await used_icon.is_visible() is used_power_ups[power_up], f"Correct used {power_up}"
+                used_icon = await contestant_wrapper.query_selector(f".footer-contestant-power-{power_up} > .footer-contestant-entry-power-used")
+                assert (used_icon is not None) is used_power_ups[power_up], f"Correct used {power_up}"
 
         # Assert that ready-state are correct
         if ready is not None:
-            ready_icon = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id} > .footer-contestant-entry-ready")
-            assert await ready_icon.is_visible() is ready
+            ready_icon = await contestant_wrapper.query_selector(".footer-contestant-entry-ready")
+            assert (ready_icon is not None) is ready
 
         # Validate remaining fields
         header_data = [
@@ -721,12 +808,9 @@ class ContextHandler:
             if value is None:
                 continue
 
-            if game_active:
-                wrapper_elem = await self.presenter_page.query_selector(f".footer-contestant-{contestant_id}")
-                element = await wrapper_elem.query_selector(f".footer-contestant-entry-{elem}")
-            else:
-                wrapper_elem = await self.presenter_page.query_selector(f"#player_{contestant_id}")
-                element = await wrapper_elem.query_selector(f".menu-contestant-{elem}")
+            class_name = f".footer-contestant-entry-{elem}" if game_active else f".menu-contestant-{elem}"
+
+            element = await contestant_wrapper.query_selector(class_name)
 
             assert await element.text_content() == value, elem
 
@@ -739,11 +823,13 @@ class ContextHandler:
         wrong_answer_text: str | None = None,
         game_feed: List[str] | None = None,
         is_finale: bool = False,
+        countdown_state: List[Literal["running", "paused", "hidden"]] | None = None,
+        ignore_feed_order: bool = False,
     ):
         # Assert that category header is correct
         expected_category_text = question.question.category.name
         if not is_finale:
-            expected_category_text = f"{expected_category_text} for {question.question.value} points"
+            expected_category_text = f"{expected_category_text}for {question.question.value} points"
 
         category_header = await self.presenter_page.query_selector(".question-category-header")
         assert self._clean_whitespace(await category_header.text_content()) == expected_category_text
@@ -787,7 +873,7 @@ class ContextHandler:
             seen_choices = set()
             for elem in choice_elems:
                 choice_text = await elem.text_content()
-                seen_choices.add(choice_text.strip().split("\n")[1])
+                seen_choices.add(choice_text.split(":")[1].strip())
 
             assert (set(choices).difference(seen_choices)) == set()
 
@@ -805,21 +891,30 @@ class ContextHandler:
         if game_feed is not None:
             buzz_feed_elem = await self.presenter_page.query_selector_all("#question-game-feed > ul > li")
             assert len(buzz_feed_elem) == len(game_feed)
-            for entry, expected in zip(buzz_feed_elem, game_feed):
-                assert re.match(expected, await entry.text_content()) is not None
 
-        # Assert that the answer and explanation is correct
-        answer_elem = await self.presenter_page.query_selector("#question-actual-answer > .question-emph")
-        answer = await answer_elem.text_content()
-        if (explanation := question.question.extra.get("explanation")):
-            split = answer.split("(")
-            answer = split[0].strip()
-            explanation_text = split[1].removesuffix(")").strip()
-            assert explanation_text == explanation
+            buzz_feed_text = [await entry.text_content() or "" for entry in buzz_feed_elem]
 
-        assert answer == f"'{question.question.answer}'"
+            if ignore_feed_order:
+                buzz_feed_text.sort()
+                game_feed.sort()
+
+            for entry, expected in zip(buzz_feed_text, game_feed):
+                assert re.match(expected, entry) is not None, f"Game feed: {entry}"
+
         if answer_visible is not None:
-            assert await answer_elem.is_visible() is answer_visible
+            answer_elem = await self.presenter_page.query_selector("#question-actual-answer > .question-emph")
+            assert (answer_elem is not None) is answer_visible
+
+            if answer_elem:
+                # Assert that the answer and explanation is correct
+                answer = await answer_elem.text_content()
+                assert answer.strip() == f"'{question.question.answer}'"
+
+                if (explanation := question.question.extra.get("explanation")):
+                    split = answer.split("(")
+                    answer = split[0].strip()
+                    explanation_text = split[1].removesuffix(")").strip()
+                    assert explanation_text == explanation
 
         if correct_answer is not None:
             if correct_answer:
@@ -832,6 +927,18 @@ class ContextHandler:
                 if wrong_answer_text is not None:
                     wrong_text_elem = await self.presenter_page.query_selector("#question-wrong-reason-text")
                     assert await wrong_text_elem.text_content() == wrong_answer_text
+
+        if countdown_state is not None:
+            if "hidden" in countdown_state:
+                countdown_wrapper = await self.presenter_page.query_selector(".question-countdown-wrapper")
+                countdown_style = await countdown_wrapper.get_property("style")
+                opacity = await countdown_style.get_property("opacity")
+    
+                assert await opacity.json_value() == 0
+            else:
+                cls_str = ".".join(countdown_state)
+                countdown_wrapper = await self.presenter_page.query_selector(f".question-countdown-wrapper.{cls_str}")
+                assert countdown_wrapper is not None
 
     async def assert_finale_wager_values(
         self,
@@ -855,7 +962,7 @@ class ContextHandler:
             assert await sub_header_2.text_content() == category_name
             assert await sub_header_3.text_content() == locale["finale_reveal_2"]
 
-        music = await self.presenter_page.query_selector("#selection-jeopardy-theme")
+        music = await self.presenter_page.query_selector("#finale-jeopardy-theme")
         assert await music.evaluate("(elem) => elem.paused") is not music_playing
 
     async def assert_finale_question_values(
@@ -892,8 +999,10 @@ class ContextHandler:
         teaser_visible: bool = False,
     ):
         lines = await self.presenter_page.query_selector_all(".finale-result-name")
+
         for expected, line in zip(result_lines, lines):
-            assert (await line.text_content()).strip() == " ".join(expected).strip()
+            text = (await line.text_content()).strip().split(None)
+            assert " ".join(text) == " ".join(expected).strip()
 
         teaser_header = await self.presenter_page.query_selector("#endscreen-teaser")
         elem_opacity = await teaser_header.evaluate("(el) => window.getComputedStyle(el).getPropertyValue('opacity')")
@@ -908,7 +1017,7 @@ class ContextHandler:
         contestants: List[GameContestant],
     ):
         description = await self.presenter_page.query_selector("#endscreen-winner-desc")
-        assert await description.text_content() == winner_desc
+        assert " ".join((await description.text_content()).split(None)) == winner_desc
 
         table_headers = await self.presenter_page.query_selector_all("#endscreen-scores-table th")
         table_rows = await self.presenter_page.query_selector_all("#endscreen-scores-table tr")
@@ -1055,10 +1164,6 @@ class ContextHandler:
         if os.path.exists(f"{VIDEO_RECORD_PATH}/combined.mp4"):
             os.remove(f"{VIDEO_RECORD_PATH}/combined.mp4")
 
-        self.flask_process = Popen(["pdm", "run", "main.py", "-e" "testing"], cwd="src")
-
-        await asyncio.sleep(3)
-
         try:
             # Create presenter browser and context
             presenter_browser = await self._create_browser(self.playwright_contexts[0], PRESENTER_BROWSER)
@@ -1070,11 +1175,9 @@ class ContextHandler:
 
             self.presenter_page = await self._login_to_dashboard()
             self.presenter_page.on("pageerror", self._print_presenter_unhandled_error)
-            self.presenter_page.on("console", self._print_presenter_console_output)
+            self.presenter_page.on("console", self._handle_presenter_console_output)
         except Exception:
             traceback.print_exc()
-            self.flask_process.terminate()
-            self.flask_process.wait()
 
         await asyncio.sleep(1)
 
@@ -1084,8 +1187,11 @@ class ContextHandler:
         while any(not task.done() for task in self._browser_tasks):
             await asyncio.sleep(0.1)
 
-        self.flask_process.terminate()
-        self.flask_process.wait()
+        if args[0] is not None:
+            try:
+                await self.screenshot_views()
+            except Exception:
+                pass
 
         if self.presenter_context:
             await self.presenter_context.browser.close()

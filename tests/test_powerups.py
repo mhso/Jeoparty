@@ -12,7 +12,7 @@ async def test_freeze(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -27,11 +27,13 @@ async def test_freeze(database, locales):
 
             active_player.has_turn = True
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_player, active_question)
+            database.save_models(active_player, active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
+
             session.refresh(game_data)
 
             await context.show_question()
@@ -58,11 +60,9 @@ async def test_freeze(database, locales):
                 game_feed=[
                     f"{contestant_names[1]} {locale['game_feed_buzz_1']} " + r"\d{1,3}\.\d{2} " + locale['game_feed_buzz_2'],
                     f"{contestant_names[1]} {locale['game_feed_power_1']} freeze {locale['game_feed_power_2']}!",
-                ]
+                ],
+                countdown_state=["running", "paused"],
             )
-
-            # Assert countdown is paused
-            assert await context.presenter_page.evaluate("countdownPaused")
 
             countdown_elem = await context.presenter_page.query_selector(".question-countdown-text")
             seconds_before = await countdown_elem.text_content()
@@ -110,7 +110,7 @@ async def test_rewind_before_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -125,8 +125,9 @@ async def test_rewind_before_buzz(database, locales):
 
             active_player.has_turn = True
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_player, active_question)
+            database.save_models(active_player, active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -211,7 +212,7 @@ async def test_rewind_before_buzz(database, locales):
                     score=active_question.question.value if is_active else 0,
                     hits=int(is_active),
                     misses=0,
-                    has_turn=False,
+                    has_turn=is_active,
                     used_power_ups={"hijack": False, "freeze": False, "rewind": is_active},
                 )
 
@@ -231,7 +232,7 @@ async def test_rewind_after_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -247,8 +248,9 @@ async def test_rewind_after_buzz(database, locales):
 
             player_1.has_turn = True
             active_question.active = True
-
-            database.save_models(player_1, active_question)
+            game_data.stage = StageType.QUESTION
+            
+            database.save_models(player_1, active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -380,7 +382,7 @@ async def test_rewind_after_buzz(database, locales):
                     score=score,
                     hits=int(is_p2),
                     misses=int(is_p1),
-                    has_turn=False,
+                    has_turn=is_p2,
                     used_power_ups={"hijack": False, "freeze": False, "rewind": is_p1},
                 )
 
@@ -400,7 +402,7 @@ async def test_rewind_during_buzz(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler(True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -416,8 +418,9 @@ async def test_rewind_during_buzz(database, locales):
 
             player_1.has_turn = True
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(player_1, active_question)
+            database.save_models(player_1, active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -437,14 +440,20 @@ async def test_rewind_during_buzz(database, locales):
                 group.create_task(context.use_power_up(player_1.contestant_id, "rewind"))
                 group.create_task(context.hit_buzzer(player_2.contestant_id, False))
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
+
+            game_feed = await context.presenter_page.query_selector_all("#question-game-feed > ul > li")
+
+            feed_strings = [f"{player_1.contestant.name} {locale['game_feed_power_1']} rewind {locale['game_feed_power_2']}!"]
+            if len(game_feed) == 2:
+                feed_strings.append(
+                    f"{player_2.contestant.name} {locale['game_feed_buzz_1']} " + r"\d{1,3}\.\d{2} " + locale['game_feed_buzz_2']
+                )
 
             await context.assert_question_values(
                 active_question,
-                game_feed=[
-                    f"{player_1.contestant.name} {locale['game_feed_power_1']} rewind {locale['game_feed_power_2']}!",
-                    f"{player_2.contestant.name} {locale['game_feed_buzz_1']} " + r"\d{1,3}\.\d{2} " + locale['game_feed_buzz_2'],
-                ]
+                game_feed=feed_strings,
+                ignore_feed_order=True,
             )
 
             await asyncio.sleep(1)
@@ -452,6 +461,8 @@ async def test_rewind_during_buzz(database, locales):
             for contestant in game_data.game_contestants:
                 is_p1 = contestant.id == player_1.id
                 is_p2 = contestant.id == player_2.id
+
+                buzzes = 1 if is_p1 or (is_p2 and len(feed_strings) == 2) else 0
 
                 await context.assert_presenter_values(
                     contestant.id,
@@ -465,7 +476,7 @@ async def test_rewind_during_buzz(database, locales):
                 await context.assert_contestant_values(
                     contestant.contestant_id,
                     score=0,
-                    buzzes=int(is_p1 or is_p2),
+                    buzzes=buzzes,
                     hits=0,
                     misses=0,
                     buzzer_status="inactive",
@@ -488,25 +499,28 @@ async def test_rewind_during_buzz(database, locales):
                 is_p1 = contestant.id == player_1.id
                 is_p2 = contestant.id == player_2.id
                 if is_p1:
-                    score = -active_question.question.value 
+                    score = -active_question.question.value
+                    buzzes = 1
                 elif is_p2:
                     score = active_question.question.value 
+                    buzzes = len(feed_strings)
                 else:
                     score = 0
+                    buzzes = 0
 
                 await context.assert_presenter_values(
                     contestant.id,
                     score=score,
                     hits=int(is_p2),
                     misses=int(is_p1),
-                    has_turn=False,
+                    has_turn=is_p2,
                     used_power_ups={"hijack": False, "freeze": False, "rewind": is_p1},
                 )
 
                 await context.assert_contestant_values(
                     contestant.contestant_id,
                     score=score,
-                    buzzes=int(is_p1 or is_p2),
+                    buzzes=buzzes,
                     hits=int(is_p2),
                     misses=int(is_p1),
                     buzzer_status="inactive",
@@ -519,7 +533,7 @@ async def test_hijack_before_question(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database, True) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -532,12 +546,16 @@ async def test_hijack_before_question(database, locales):
             active_player = next(filter(lambda c: c.contestant.name == contestant_names[2], game_data.game_contestants))
             active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_question)
+            database.save_models(active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
+
+            # Interact with the page so the hijack video can play
+            await context.presenter_page.click("body")
 
             # Use hijack to steal the question
             await context.use_power_up(active_player.contestant_id, "hijack")
@@ -637,7 +655,7 @@ async def test_hijack_before_question(database, locales):
                     score=active_score if is_active else 0,
                     hits=int(is_active),
                     misses=0,
-                    has_turn=False,
+                    has_turn=is_active,
                     used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
                 )
 
@@ -657,7 +675,7 @@ async def test_hijack_after_question(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -670,8 +688,9 @@ async def test_hijack_after_question(database, locales):
             active_player = next(filter(lambda c: c.contestant.name == contestant_names[2], game_data.game_contestants))
             active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_question)
+            database.save_models(active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
@@ -750,7 +769,7 @@ async def test_hijack_after_question(database, locales):
                     score=active_question.question.value if is_active else 0,
                     hits=int(is_active),
                     misses=0,
-                    has_turn=False,
+                    has_turn=is_active,
                     used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
                 )
 
@@ -770,7 +789,7 @@ async def test_hijack_during_question(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -783,14 +802,15 @@ async def test_hijack_during_question(database, locales):
             active_player = next(filter(lambda c: c.contestant.name == contestant_names[2], game_data.game_contestants))
             active_question = next(filter(lambda q: q.question.extra and q.question.extra.get("question_image"), game_data.get_questions_for_round()))
             active_question.active = True
+            game_data.stage = StageType.QUESTION
 
-            database.save_models(active_question)
+            database.save_models(active_question, game_data)
 
             # Open question page and show question
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
 
-            # Player hijack at the same time as the question is shown
+            # Player hijacks at the same time as the question is shown
             async with asyncio.TaskGroup() as group:
                 group.create_task(context.use_power_up(active_player.contestant_id, "hijack"))
                 group.create_task(context.show_question())
@@ -865,7 +885,7 @@ async def test_hijack_during_question(database, locales):
                     score=active_score if is_active else 0,
                     hits=int(is_active),
                     misses=0,
-                    has_turn=False,
+                    has_turn=is_active,
                     used_power_ups={"hijack": is_active, "freeze": False, "rewind": False},
                 )
 

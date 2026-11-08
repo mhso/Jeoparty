@@ -48,6 +48,7 @@
             "placeholder_name": "Your Name",
             "color_label": "Your Color",
             "join": "Join",
+            "missing_game": "Failed to join: A game with that join code does not exists",
             "wrong_password": "Failed to join: Wrong password",
             "game_over": "Failed to join: Game is over",
             "lobby_full": "Failed to join: Lobby is full"

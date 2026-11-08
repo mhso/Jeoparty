@@ -1,6 +1,11 @@
+from glob import glob
+import json
 import os
 import shutil
+from subprocess import Popen
+from time import sleep
 import pytest
+import requests
 from sqlalchemy import text
 
 pytest.register_assert_rewrite("tests.browser_context")
@@ -8,10 +13,10 @@ pytest.register_assert_rewrite("tests.browser_context")
 from mhooge_flask.auth import get_hashed_password
 from mhooge_flask.database import Base
 
-from jeoparty.api.config import Config, get_question_pack_data_path, get_locale_data
-from jeoparty.api.database import Database
+from jeoparty.api.config import Config, get_question_pack_data_path
+from jeoparty.api.database import Database, PostgresDatabase
 from jeoparty.api.enums import Environment, Language
-from jeoparty.api.orm.models import Contestant, QuestionPack, QuestionCategory, Question, QuestionRound
+from jeoparty.api.orm.models import Contestant, Game, QuestionPack, QuestionCategory, Question, QuestionRound
 from tests.config import PRESENTER_USER_ID, PRESENTER_USERNAME, PRESENTER_PASSWORD
 
 def _create_question_packs(database: Database):
@@ -155,7 +160,13 @@ def create_dirs():
 @pytest.fixture(scope="session")
 def locales():
     # Load locale data
-    return get_locale_data()
+    locale_data = {}
+    for filename in glob("../jeoparty_web/src/shared/locales/*.json"):
+        lang = os.path.basename(filename).split(".")[0]
+        with open(filename, "r", encoding="utf-8") as fp:
+            locale_data[lang] = json.load(fp)
+
+    return locale_data
 
 @pytest.fixture(scope="session")
 def config():
@@ -163,20 +174,21 @@ def config():
 
 @pytest.fixture(scope="function")
 def database(config):
-    database = Database(config)
+    database = PostgresDatabase(config)
 
     with database as session:
         # Drop and recreate tables
-        Base.metadata.drop_all(database.engine)
-        Base.metadata.create_all(database.engine)
+        if os.environ.get("USE_DOCKER") == "1":
+            Base.metadata.drop_all(database.engine)
+            Base.metadata.create_all(database.engine)
 
-        # Create presenter user
-        hashed_pw = get_hashed_password(PRESENTER_PASSWORD, f"{config.STATIC_FOLDER}/secret.json")
-        database.create_user(PRESENTER_USER_ID, PRESENTER_USERNAME, hashed_pw)
+            # Create presenter user
+            hashed_pw = get_hashed_password(PRESENTER_PASSWORD, f"{config.STATIC_FOLDER}/secret.json")
+            database.create_user(PRESENTER_USER_ID, PRESENTER_USERNAME, hashed_pw)
 
-        session.execute(text(f"UPDATE themes SET created_by = '{PRESENTER_USER_ID}'"))
-        session.execute(text(f"UPDATE question_packs SET created_by = '{PRESENTER_USER_ID}'"))
-        session.commit()
+            session.execute(text(f"UPDATE themes SET created_by = '{PRESENTER_USER_ID}'"))
+            session.execute(text(f"UPDATE question_packs SET created_by = '{PRESENTER_USER_ID}'"))
+            session.commit()
 
         # Create test contestant users
         colors = ["#ee1105", "#0564e8", "#35ae3b", "#9f1dd6", "#1565c6"]
@@ -192,3 +204,38 @@ def database(config):
         yield database
 
     database.engine.dispose()
+
+def _wait_for_server():
+    attempts = 20
+    for _ in range(attempts):
+        try:
+            requests.get("http://localhost:5006/jeoparty/api/ping", timeout=1)
+            return
+        except requests.RequestException:
+            sleep(0.5)
+
+@pytest.fixture(scope="function", autouse=True)
+def app():
+    # Get a list of question packs before the test
+    pack_folders_before = set(glob(f"{Config.STATIC_FOLDER}/data/packs/*"))
+
+    args = ["uv", "run", "main.py", "-e" "testing"]
+    if os.environ.get("USE_DOCKER") != "1":
+        args.extend(["-db", "sqlite"])
+
+    process = Popen(args, cwd="src")
+
+    _wait_for_server()
+
+    yield
+
+    process.terminate()
+    process.wait()
+
+    # delete any folders created in tests
+    pack_folders_after = glob(f"{Config.STATIC_FOLDER}/data/packs/*")
+    for folder in pack_folders_after:
+        if folder in pack_folders_before:
+            continue
+
+        shutil.rmtree(folder)

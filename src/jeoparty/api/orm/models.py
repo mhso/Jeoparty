@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 import os
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -33,6 +34,12 @@ class Theme(Base):
     buzzer_sounds = relationship("BuzzerSound", back_populates="theme", cascade="all, delete", order_by="BuzzerSound.id.asc()")
 
     __serialize_relationships__ = [creator, buzzer_sounds]
+
+    @property
+    def extra_fields(self):
+        manifest_path = f"{get_theme_path(self.id, True)}/theme.json"
+        with open(manifest_path, "r", encoding="utf-8") as fp:
+            return json.load(fp)
 
 class QuestionPack(Base):
     __tablename__ = "question_packs"
@@ -132,6 +139,7 @@ class Question(Base):
     question: Mapped[str] = mapped_column(String(128))
     answer: Mapped[str] = mapped_column(String(128))
     value: Mapped[int] = mapped_column(Integer)
+    allow_daily_double: Mapped[bool] = mapped_column(Boolean, default=True)
     extra: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON)
 
     category = relationship("QuestionCategory", back_populates="questions")
@@ -333,6 +341,7 @@ class Game(Base):
             "player_with_turn": player_with_turn.dump() if player_with_turn else None,
             "max_value": max(gq.question.value for gq in questions_for_round) if questions_for_round else 0,
             "question_num": sum(1 if gq.used else 0 for gq in questions_for_round) + 1 if questions_for_round else 1,
+            "contestant_count": len(self.game_contestants),
             "created_by": self.created_by,
             "started_at": self.started_at.strftime("%Y-%m-%d %H:%M:%S"),
             "ended_at": None if not self.ended_at else self.ended_at.strftime("%Y-%m-%d %H:%M:%S"),

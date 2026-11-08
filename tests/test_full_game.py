@@ -1,22 +1,31 @@
 import asyncio
 import math
+import os
 import random
 from typing import Dict, List
 
 import pytest
 from playwright.async_api import Page
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 
-from jeoparty.api.enums import PowerUpType, StageType
-from jeoparty.api.orm.models import Game
-from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
+from mhooge_flask.database import User, AuthToken, Base
+from mhooge_flask.auth import get_hashed_password
+
+from jeoparty.api.config import Config
+from jeoparty.api.database import SQLiteDatabase, PostgresDatabase
+from jeoparty.api.enums import Environment, PowerUpType, StageType
+from jeoparty.api.orm.models import *
+from tests.browser_context import ContextHandler, PRESENTER_USERNAME, PRESENTER_PASSWORD, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
+from tests.config import PRESENTER_USER_ID
 
 async def wait_for_disconnected_contestant(context: ContextHandler):
     contestants = await context.presenter_page.query_selector_all(".footer-contestant-entry")
     disconnected_contestants = []
     for contestant_wrapper in contestants:
         disconnected_img = await contestant_wrapper.query_selector(".footer-contestant-entry-disconnected")
-        if await disconnected_img.is_visible():
+        if disconnected_img is not None:
             disconnected_contestants.append(disconnected_img)
 
     print("Anyone discconected?", disconnected_contestants != [])
@@ -145,6 +154,8 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
                 await asyncio.sleep(active_question.question.category.buzz_time + 3)
                 break
 
+            print(f"Buzzing in with {num_players} players...")
+
             shuffled_players = [
                 contestant for contestant in game_data.game_contestants
                 if contestant.id not in players_buzzed
@@ -159,10 +170,10 @@ async def handle_question_page(context: ContextHandler, game_data: Game, locale:
             pending = (
                 await asyncio.wait(
                     [
-                        asyncio.create_task(context.hit_buzzer(contestant.contestant_id))
+                        asyncio.create_task(context.hit_buzzer(contestant.contestant_id, False))
                         for contestant in players_buzzing
                     ],
-                    timeout=10
+                    timeout=15
                 )
             )[1]
 
@@ -247,7 +258,7 @@ async def handle_finale_wager_page(context: ContextHandler, game_data: Game):
     await asyncio.sleep(1)
 
     # Go to finale question page
-    async with await context.wait_until_ready():
+    async with context.presenter_page.expect_navigation():
         await context.presenter_page.press("body", PRESENTER_ACTION_KEY)    
 
 async def handle_finale_question_page(context: ContextHandler, game_data: Game):
@@ -400,38 +411,84 @@ async def simulate_disconnect(context: ContextHandler, game_data: Game):
 
     await page.goto(page_url)
 
-@pytest.mark.skip
+def transfer_pack_data(local_session: Session):
+    tables = [
+        Theme,
+        QuestionPack,
+        QuestionRound,
+        QuestionCategory,
+        Question,
+        BuzzerSound,
+    ]
+
+    prod_config = Config(Environment.PRODUCTION)
+
+    with PostgresDatabase(prod_config, True) as prod_session:
+        for table in tables:
+            results = prod_session.execute(select(table)).scalars()
+
+            local_session.merge_all(results)
+            local_session.flush()
+
+        local_session.commit()
+
+def do_database_setup(config: Config, database: SQLiteDatabase):
+    with database as session:
+        hashed_pw = get_hashed_password(PRESENTER_PASSWORD, f"{config.STATIC_FOLDER}/secret.json")
+        database.create_user(PRESENTER_USER_ID, PRESENTER_USERNAME, hashed_pw)
+
+        session.execute(text(f"UPDATE themes SET created_by = '{PRESENTER_USER_ID}'"))
+        session.execute(text(f"UPDATE question_packs SET created_by = '{PRESENTER_USER_ID}'"))
+        session.commit()
+
+@pytest.mark.skipif(os.environ.get("USE_DOCKER") == "1", reason="This test can't run in Docker")
 @pytest.mark.asyncio
-async def test_random_game(database, locales):
-    pack_name = "LoL Jeopardy v7"
-    rounds = 1 if pack_name == "Julequiz 2025" else 2
+async def test_random_game(locales, config):
+    pack_name = "LoL Jeopardy v8"
+    rounds = 1 if pack_name in ("Julequiz 2025", "LoL Jeopardy v8") else 2
     seed = 1234
     random.seed(seed)
 
     num_contestants = 4
     contestant_names, contestant_colors = create_contestant_data(num_contestants)
 
-    async with ContextHandler(database, True) as context:
-        with database as session:
-            # Create game with 3-10 contestants randomly chosen
-            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, rounds=rounds)
+    tables_to_drop = [
+        User.__table__,
+        AuthToken.__table__,
+        Contestant.__table__,
+        GamePowerUp.__table__,
+        GameQuestion.__table__,
+        GameContestant.__table__,
+        Game.__table__,
+    ]
+
+    database = SQLiteDatabase(config)
+
+    with database as session:
+        Base.metadata.drop_all(bind=database.engine, tables=tables_to_drop)
+        Base.metadata.create_all(bind=database.engine, tables=tables_to_drop)
+
+        do_database_setup(config, database)
+
+        async with ContextHandler(True) as context:
+            #print("Transferring data from production...")
+            #transfer_pack_data(session)
+
+            game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, rounds=rounds, join_in_parallel=False)
             locales = locales[game_data.pack.language.value]["pages"]
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(3)
 
             await context.start_game()
             await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-            async def first_turn_chosen():
-                return await context.presenter_page.evaluate("playerTurn != null")
-
-            await context.wait_for_event(first_turn_chosen, timeout=60)
+            await context.wait_for_event("on_first_turn_chosen", context.presenter_context, timeout=50)
 
             intro_media = await context.presenter_page.query_selector("#selection-intro-media")
             async def intro_media_done():
                 return intro_media is None or await intro_media.evaluate("(e) => e.ended")
 
-            await context.wait_for_event(intro_media_done, timeout=30)
+            await context.wait_for_result(intro_media_done, timeout=30)
 
             await asyncio.sleep(1)
 

@@ -1,8 +1,6 @@
 import asyncio
 import pytest
 
-from playwright.async_api import Dialog
-
 from jeoparty.api.enums import StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
@@ -12,7 +10,7 @@ async def test_first_round(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, join_in_parallel=False, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -29,6 +27,8 @@ async def test_first_round(database, locales):
             active_question.active = True
 
             database.save_models(active_player, active_question)
+
+            await context.transition_state(game_data.id, StageType.QUESTION)
 
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
@@ -221,7 +221,7 @@ async def test_first_round(database, locales):
                 score=int(active_question.question.value * 0.75),
                 hits=1,
                 misses=0,
-                has_turn=False,
+                has_turn=True,
                 used_power_ups={"hijack": False, "freeze": False, "rewind": False}
             )
 
@@ -289,7 +289,7 @@ async def test_simultaneous_buzzes(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -303,6 +303,8 @@ async def test_simultaneous_buzzes(database, locales):
             active_question.active = True
 
             database.save_models(active_question)
+
+            await context.transition_state(game_data.id, StageType.QUESTION)
 
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
@@ -339,7 +341,7 @@ async def test_simultaneous_buzzes(database, locales):
 
                 await context.assert_contestant_values(
                     contestant.contestant_id,
-                    buzzer_status="inactive",
+                    buzzer_status="won" if is_fastest else "lost",
                     enabled_power_ups={"hijack": True, "freeze": is_fastest, "rewind": False}
                 )
 
@@ -348,7 +350,7 @@ async def test_all_wrong_buzzes(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -362,6 +364,8 @@ async def test_all_wrong_buzzes(database, locales):
             active_question.active = True
 
             database.save_models(active_question)
+
+            await context.transition_state(game_data.id, StageType.QUESTION)
 
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
@@ -434,7 +438,7 @@ async def test_time_runs_out(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -449,17 +453,18 @@ async def test_time_runs_out(database, locales):
 
             database.save_models(active_question)
 
+            await context.transition_state(game_data.id, StageType.QUESTION)
+
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
 
-            wrong_answer_elem = await context.presenter_page.query_selector("#question-answer-wrong")
-
             async def wrong_answer_visible():
-                return await wrong_answer_elem.is_visible()
+                wrong_answer_elem = await context.presenter_page.query_selector("#question-answer-wrong")
+                return wrong_answer_elem is not None and await wrong_answer_elem.is_visible()
 
             await context.show_question()
 
-            await context.wait_for_event(wrong_answer_visible, timeout=active_question.question.category.buzz_time + 2)
+            await context.wait_for_result(wrong_answer_visible, timeout=active_question.question.category.buzz_time + 2)
 
             await context.assert_question_values(
                 active_question,
@@ -483,7 +488,7 @@ async def test_question_aborted(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -500,10 +505,10 @@ async def test_question_aborted(database, locales):
             database.save_models(active_question.question.category)
             database.save_models(active_question)
 
+            await context.transition_state(game_data.id, StageType.QUESTION)
+
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
-
-            wrong_answer_elem = await context.presenter_page.query_selector("#question-answer-wrong")
 
             await context.show_question()
 
@@ -512,7 +517,8 @@ async def test_question_aborted(database, locales):
             await context.presenter_page.press("body", "Enter")
             await asyncio.sleep(1)
 
-            assert await wrong_answer_elem.is_visible()
+            wrong_answer_elem = await context.presenter_page.query_selector("#question-answer-wrong")
+            assert wrong_answer_elem is not None and await wrong_answer_elem.is_visible()
 
             await context.assert_question_values(
                 active_question,
@@ -536,7 +542,7 @@ async def test_daily_double_valid(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=True)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/question"]
@@ -557,11 +563,14 @@ async def test_daily_double_valid(database, locales):
 
             database.save_models(active_question)
 
+            await context.transition_state(game_data.id, StageType.QUESTION)
+
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
 
             daily_header = await context.presenter_page.query_selector("#question-wager-wrapper > h3")
-            assert await daily_header.text_content() == f"{locale['daily_double_wager_1']} {active_player.contestant.name} {locale['daily_double_wager_2']} (max 700)"
+            expected_str = f"{locale['daily_double_wager_1']} {active_player.contestant.name} {locale['daily_double_wager_2']} (max 700)"
+            assert (await daily_header.text_content()).strip() == expected_str
 
             # Make a valid wager
             await context.make_wager(active_player.contestant_id, 600)
@@ -609,7 +618,7 @@ async def test_daily_double_invalid(database, locales):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=True)
             language_locale = locales[game_data.pack.language.value]
@@ -633,24 +642,22 @@ async def test_daily_double_invalid(database, locales):
 
             database.save_models(active_question)
 
+            await context.transition_state(game_data.id, StageType.QUESTION)
+
             await context.open_question_page(game_data.id)
             session.refresh(game_data)
 
-            # Make a wager that is too high
-            async def on_dialog(dialog: Dialog):
-                await dialog.dismiss()
-                assert dialog.message == f"{locale['invalid_wager']} 100 {locale['and']} {active_player.score}"
-                await dialog.page.evaluate("dialog = true")
+            page = context.contestant_pages[active_player.contestant_id]
+            await context.make_wager(active_player.contestant_id, 800, False)
+            error_elem = await page.wait_for_selector(".contestant-invalid-wager")
 
-            await context.make_wager(active_player.contestant_id, 800, on_dialog)
+            assert (await error_elem.text_content()).strip() == f"{locale['invalid_wager']} 100 {locale['and']} {active_player.score}"
 
-            # Make a wager that is too low
-            async def on_dialog(dialog: Dialog):
-                await dialog.dismiss()
-                assert dialog.message == f"{locale['invalid_wager']} 100 {locale['and']} {active_player.score}"
-                await dialog.page.evaluate("dialog = true")
+            page = context.contestant_pages[active_player.contestant_id]
+            await context.make_wager(active_player.contestant_id, 0, False)
+            error_elem = await page.wait_for_selector(".contestant-invalid-wager")
 
-            await context.make_wager(active_player.contestant_id, 0, on_dialog)
+            assert (await error_elem.text_content()).strip() == f"{locale['invalid_wager']} 100 {locale['and']} {active_player.score}"
 
 @pytest.mark.asyncio
 async def test_finale_question(database, locales):
@@ -661,7 +668,7 @@ async def test_finale_question(database, locales):
     ]
     contestant_wagers = [1000, 300, 700, 0]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
 
@@ -674,19 +681,18 @@ async def test_finale_question(database, locales):
             finale_question = game_data.get_questions_for_round()[0]
             finale_question.active = True
 
-            database.save_models(finale_question, game_data)
-            session.refresh(game_data)
-
             for contestant, score, wager in zip(game_data.game_contestants, contestant_scores, contestant_wagers):
                 contestant.score = score
                 contestant.finale_wager = wager
 
-            database.save_models(*game_data.game_contestants)
+            database.save_models(*game_data.game_contestants, game_data, finale_question)
+
+            await context.transition_state(game_data.id, StageType.QUESTION)
 
             await context.open_question_page(game_data.id)
 
             session.refresh(game_data)
-            
+
             assert game_data.stage == StageType.FINALE_QUESTION
 
             await context.assert_question_values(
@@ -734,6 +740,8 @@ async def test_finale_question(database, locales):
             assert context.presenter_page.url.endswith("/finale")
             for contestant, answer in zip(game_data.game_contestants, answers + [None]):
                 assert contestant.finale_answer == answer
+
+            await asyncio.sleep(5)
 
 # @pytest.mark.asyncio
 # async def test_undo(database, locales):

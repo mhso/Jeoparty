@@ -6,22 +6,23 @@ from pydantic import ValidationError
 import requests
 
 import flask
+from sqlalchemy.exc import IntegrityError
 from werkzeug.datastructures import FileStorage
 
 from mhooge_flask.auth import get_user_details
-from mhooge_flask.routing import make_template_context, make_text_response, make_json_response
+from mhooge_flask.routing import make_text_response, make_json_response
 from mhooge_flask.logging import logger
 
-from jeoparty.api.database import Database
+from jeoparty.api.database import Database, get_violating_key
 from jeoparty.api.config import Config, get_question_pack_data_path
 from jeoparty.api.orm.models import *
 from jeoparty.api.enums import StageType
-from jeoparty.app.routes.shared import (
-    redirect_to_login,
+from jeoparty.app.routes.api.shared import (
     validate_file,
     get_validation_error_msg,
     create_and_validate_model,
-    render_locale_template,
+    is_lan_active,
+    get_intfar_request_params,
 )
 
 _VALID_IMAGE_FILETYPES = [
@@ -39,20 +40,71 @@ _VALID_VIDEO_FILETYPES = [
     "video/mp4",
 ]
 
-dashboard_page = flask.Blueprint("dashboard", __name__, template_folder="templates")
+_UNAUTHORIZED_MSG = "You are authorized to access this. Please log in first."
 
-@dashboard_page.route("/")
-def home():
+dashboard_page = flask.Blueprint("dashboard_api", __name__, template_folder="templates")
+
+@dashboard_page.route("/packs", methods=["GET", "POST"])
+def packs():
     user_details = get_user_details()
     if user_details is None:
-        return redirect_to_login("dashboard.home")
+        return make_json_response(_UNAUTHORIZED_MSG, 401)
 
     database: Database = flask.current_app.config["DATABASE"]
-    user_id, user_name = user_details
 
     with database:
-        question_data = database.get_question_packs_for_user(user_id)
-        questions_json = []
+        if flask.request.method == "POST":
+            # POST request when creating a new question pack
+            data = dict(flask.request.form)
+            data["created_by"] = user_details[0]
+            if data.get("theme_id", "") == "none":
+                data["theme_id"] = None
+
+            action = "creating question pack"
+            success, pack_model_or_error = create_and_validate_model(QuestionPack, data, action)
+
+            if not success:
+                return make_json_response(pack_model_or_error, 400)
+
+            lobby_music_filename = "lobby_music.mp3"
+            has_lobby_music = "music" in flask.request.files and flask.request.files["music"].filename
+            if has_lobby_music:
+                file = flask.request.files["music"]
+                allowed_types = ["mp3", "wav"]
+                success, error_or_name = validate_file(file, allowed_types, default_name=lobby_music_filename)
+                if not success:
+                    error_msg = f"Could not validate question file '{file.filename}': {error_or_name}"
+                    return make_json_response(error_msg, 400)
+
+                pack_model_or_error.lobby_music = error_or_name
+
+            # Save the question pack to the database
+            try:
+                pack_model = database.create_question_pack(pack_model_or_error)
+            except IntegrityError as exc:
+                input_err = get_violating_key(exc)
+                if input_err is None:
+                    raise
+
+                error_msg = f"Error when {action}: '{input_err[0]}' - Input does not refer to a valid theme" 
+                return make_json_response(error_msg, 400)
+            except Exception:
+                logger.exception("Error when saving question pack to database")
+                error_msg = "There was an unexpected error when creating the question pack, please try again later"
+                return make_json_response(error_msg, 500)
+
+            data_path = get_question_pack_data_path(pack_model_or_error.id)
+            os.mkdir(data_path)
+
+            if has_lobby_music:
+                path = os.path.join(data_path, lobby_music_filename)
+                file.save(path)
+
+            return make_json_response(pack_model.dump(), 200)
+
+        # Otherwise, GET request when fetching all question packs
+        packs_json = []
+        question_data = database.get_question_packs_for_user(user_details[0])
         for question_pack in question_data:
             total_questions = 0
             for round in question_pack.rounds:
@@ -61,169 +113,120 @@ def home():
 
             json_data = question_pack.dump()
             json_data["total_questions"] = total_questions
-            questions_json.append(json_data)
+            packs_json.append(json_data)
 
-        games = database.get_games_for_user(user_id)
+    return make_json_response(packs_json, 200)
+
+def _send_intfar_request(game_data: Game):
+    config: Config = flask.current_app.config["APP_CONFIG"]
+    # Send host URL to Int-Far, if a LAN is active
+    base_url, request_json = get_intfar_request_params(config)
+
+    request_json["join_url"] = f"{config.external_host_url}/jeoparty/{game_data.join_code}"
+    if game_data.password:
+        request_json["password"] = game_data.password
+
+    print(f"Sending info to Int-Far at '{base_url}': {request_json}")
+
+    try:
+        response = requests.post(f"{base_url}/intfar/lan/set_jeoparty_info", json=request_json, timeout=6)
+        if response.status_code != 200:
+            logger.bind(response=response.text, status=response.status_code).error(f"Start of game request to Int-Far failed with status {response.status_code}")
+    except (requests.RequestException, requests.Timeout):
+        logger.exception("Failed sending start of game request to Int-Far!")
+
+@dashboard_page.route("/games", methods=["GET", "POST"])
+def games():
+    user_details = get_user_details()
+    if user_details is None:
+        return make_json_response(_UNAUTHORIZED_MSG, 401)
+
+    database: Database = flask.current_app.config["DATABASE"]
+
+    with database:
+        if flask.request.method == "POST":
+            data = dict(flask.request.form)
+            data["created_by"] = user_details[0]
+            data["join_code"] = data["title"].lower().replace("'", "").replace(" ", "_") if "title" in data else None
+
+            success, game_model_or_error = create_and_validate_model(Game, data, "creating game")
+        
+            if not success:
+                return make_json_response(game_model_or_error, 400)
+        
+            # Check if question pack exists
+            pack_data = database.get_question_packs_for_user(user_details[0], game_model_or_error.pack_id)
+            if not pack_data:
+                error_msg = "Error when creating game: The selected question pack is invalid."
+                return make_json_response(error_msg, 400)
+        
+            # Check if question pack supports the given rounds
+            pack_rounds = len(pack_data.rounds) - 1 if pack_data.include_finale else len(pack_data.rounds)
+            if game_model_or_error.regular_rounds > pack_rounds:
+                round_plural = "round" if pack_rounds == 1 else "rounds"
+                error_msg = f"Error when creating game: The question pack only supports {pack_rounds} regular {round_plural}."
+                return make_json_response(error_msg, 400)
+        
+            # Verify that the join code is unique
+            game_model_or_error.join_code = database.get_unique_join_code(game_model_or_error.join_code)
+        
+            try:
+                game_model = database.create_game(game_model_or_error)
+            except Exception:
+                logger.exception("Error when saving game to database")
+                error_msg = "There was an unexpected error when creating the game, please try again later"
+                return make_json_response(error_msg, 500)
+
+            # If LAN is active, send update to Int-Far
+            if is_lan_active(game_model):
+                _send_intfar_request(game_model)
+        
+            return make_json_response(game_model.dump(), 200)
 
         games_json = []
+        games = database.get_games_for_user(user_details[0])
+    
         for game_data in games:
-            json_data = game_data.dump()
+            json_data = game_data.dump(included_relations=[Game.pack])
             json_data["total_questions"] = len(game_data.get_questions_for_round())
             if game_data.stage is not StageType.ENDED:
                 if game_data.stage is StageType.FINALE_WAGER:
-                    url_suffix = "selection"
+                    stage = "selection"
                 elif game_data.stage is StageType.FINALE_QUESTION:
-                    url_suffix = "question"
+                    stage = "question"
                 elif game_data.stage is StageType.FINALE_RESULT:
-                    url_suffix = "finale"
+                    stage = "finale"
                 else:
-                    url_suffix = game_data.stage.value
+                    stage = game_data.stage.value
 
-                json_data["url"] = flask.url_for(f"presenter.{url_suffix}", game_id=game_data.id)
+                json_data["resume_path"] = f"/jeoparty/presenter/{game_data.id}/{stage}"
 
             games_json.append(json_data)
 
-    return make_template_context(
-        "dashboard/home.html",
-        user_id=user_id,
-        user_name=user_name,
-        questions=questions_json,
-        games=games_json,
-    )
+    return make_json_response(games_json, 200)
 
-@dashboard_page.route("/create_pack", methods=["GET", "POST"])
-def create_pack():
-    user_details = get_user_details()
-    if user_details is None:
-        return redirect_to_login("dashboard.create_pack")
 
-    user_id, user_name = user_details
-    database: Database = flask.current_app.config["DATABASE"]
-
-    if flask.request.method == "POST":
-        data = dict(flask.request.form)
-        data["created_by"] = user_id
-        if data["theme_id"] and data["theme_id"] == "none":
-            data["theme_id"] = None
-
-        success, pack_model_or_error = create_and_validate_model(QuestionPack, data, "creating question pack")
-
-        if not success:
-            return flask.redirect(flask.url_for(".create_pack", error=pack_model_or_error, _external=True))
-
-        lobby_music_filename = "lobby_music.mp3"
-        has_lobby_music = "music" in flask.request.files and flask.request.files["music"].filename
-        if has_lobby_music:
-            file = flask.request.files["music"]
-            allowed_types = ["mp3", "wav"]
-            success, error_or_name = validate_file(file, allowed_types, default_name=lobby_music_filename)
-            if not success:
-                return f"Could not validate question file '{file.filename}': {error_or_name}"
-
-            pack_model_or_error.lobby_music = error_or_name
-
-        # Save the question pack to the database
-        database.create_question_pack(pack_model_or_error)
-
-        data_path = get_question_pack_data_path(pack_model_or_error.id)
-        os.mkdir(data_path)
-
-        if has_lobby_music:
-            path = os.path.join(data_path, lobby_music_filename)
-            file.save(path)
-
-        return flask.redirect(flask.url_for(".question_pack", pack_id=pack_model_or_error.id, _external=True))
-
-    with database:
-        themes_json = [theme.dump(included_relations=[]) for theme in database.get_themes_for_user(user_id, include_public=True)]
-        languages_json = [(lang.value, lang.value.capitalize()) for lang in Language]
-
-    return make_template_context(
-        "dashboard/create_pack.html",
-        user_name=user_name,
-        languages=languages_json,
-        themes=themes_json,
-    )
-
-@dashboard_page.route("/create_game", methods=["GET", "POST"])
-def create_game():
-    user_details = get_user_details()
-    if user_details is None:
-        return redirect_to_login("dashboard.create_game")
-
-    user_id, user_name = user_details
-    database: Database = flask.current_app.config["DATABASE"]
-
-    if flask.request.method == "POST":
-        data = dict(flask.request.form)
-        data["created_by"] = user_id
-        data["join_code"] = data["title"].lower().replace("'", "").replace(" ", "_") if "title" in data else None
-
-        success, game_model_or_error = create_and_validate_model(Game, data, "creating game")
-
-        if not success:
-            return flask.redirect(flask.url_for(".create_game", error=game_model_or_error, _external=True))
-
-        # Check if question pack exists
-        pack_data = database.get_question_packs_for_user(user_id, game_model_or_error.pack_id)
-        if not pack_data:
-            error = "Error when creating game: The selected question pack is invalid."
-            return flask.redirect(flask.url_for(".create_game", error=error, _external=True)) 
-
-        # Check if question pack supports the given rounds
-        pack_rounds = len(pack_data.rounds) - 1 if pack_data.include_finale else len(pack_data.rounds)
-        if game_model_or_error.regular_rounds > pack_rounds:
-            round_plural = "round" if pack_rounds == 1 else "rounds"
-            error = f"Error when creating game: The question pack only supports {pack_rounds} regular {round_plural}."
-            return flask.redirect(flask.url_for(".create_game", error=error, _external=True)) 
-
-        # Verify that the join code is unique
-        game_model_or_error.join_code = database.get_unique_join_code(game_model_or_error.join_code)
-
-        try:
-            database.create_game(game_model_or_error)
-        except Exception:
-            logger.exception("Error when saving game to database")
-            error = "There was an unexpected error when creating the game, please try again later"
-            return flask.redirect(flask.url_for(".create_game", error=error, _external=True)) 
-
-        return flask.redirect(flask.url_for("presenter.lobby", game_id=game_model_or_error.id, _external=True))
-
-    with database:
-        questions = database.get_question_packs_for_user(user_id, include_public=True)
-        questions_json = [question_pack.dump(included_relations=[]) for question_pack in questions]
-
-    error = flask.request.args.get("error")
-
-    return make_template_context(
-        "dashboard/create_game.html",
-        user_name=user_name,
-        user_id=user_id,
-        questions=questions_json,
-        error=error,
-    )
-
-@dashboard_page.route("/game/<game_id>/delete", methods=["POST"])
+@dashboard_page.route("/games/<game_id>", methods=["DELETE"])
 def delete_game(game_id: str):
     user_details = get_user_details()
     if user_details is None:
-        return make_json_response("You are not logged in!", 401)
+        return make_json_response(_UNAUTHORIZED_MSG, 401)
 
     database: Database = flask.current_app.config["DATABASE"]
-    user_id = user_details[0]
 
-    if database.get_games_for_user(user_id, game_id) is None:
-        return make_json_response("You are not authorized to delete this game", 401)
+    with database:
+        if database.get_games_for_user( user_details[0], game_id) is None:
+            return make_json_response("You are not authorized to delete this game", 401)
 
-    try:
-        database.delete_game(game_id)
-    except Exception:
-        logger.exception("Error when deleting game")
-        return make_json_response("Unknown error when deleting game", 500)
+        try:
+            database.delete_game(game_id)
+        except Exception:
+            logger.exception("Error when deleting game")
+            return make_json_response("Unknown error when deleting game", 500)
 
     return make_json_response("Game was successfully deleted", 200)
 
-@dashboard_page.route("/pack/fetch")
+@dashboard_page.route("/packs/fetch")
 def fetch_resource():
     user_details = get_user_details()
     if user_details is None:
@@ -318,7 +321,8 @@ def _get_error_data(
     round_id: int | None = None,
     category_id: int | None = None,
     question_id: int | None = None,
-    element: str | None = None,
+    field: str | None = None,
+    index: int | None = None,
 ):
     data: Dict[str, str | int] = {"response": message}
 
@@ -326,7 +330,8 @@ def _get_error_data(
         ("round_id", round_id),
         ("category_id", category_id),
         ("question_id", question_id),
-        ("element", element),
+        ("field", field),
+        ("index", index),
     ]:
         if val:
             data[key] = val
@@ -338,6 +343,11 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
 
     if not success:
         return _get_error_data(error_or_model)
+
+    last_round_index = 0
+    for round_data in data["rounds"]:
+        if not round_data.get("deleted", False):
+            last_round_index = round_data["round"]
 
     for round_data in data["rounds"]:
         questions_for_round = 0
@@ -353,8 +363,8 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                             "One of the choices must be equal to the correct answer",
                             round_data["id"],
                             category_data["id"],
-                            question_data["id"],
-                            ".question-choices-wrapper",
+                            question_data.get("id"),
+                            "choices",
                         )
 
                     if len(extra["choices"]) > Config.MAX_ANSWER_CHOICES:
@@ -362,8 +372,8 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                             f"Amount of answer choices must not be greater than {Config.MAX_ANSWER_CHOICES}",
                             round_data["id"],
                             category_data["id"],
-                            question_data["id"],
-                            ".question-choices-wrapper",
+                            question_data.get("id"),
+                            "choices",
                         )
 
                     for index, choice in enumerate(extra["choices"], start=1):
@@ -372,8 +382,9 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                                 "Answer choice must not be empty",
                                 round_data["id"],
                                 category_data["id"],
-                                question_data["id"],
-                                f".question-choice-{index}",
+                                question_data.get("id"),
+                                "choices",
+                                index,
                             )
 
                         if len(choice) > 32:
@@ -381,23 +392,23 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
                                 "Answer choice must be less than 32 characters",
                                 round_data["id"],
                                 category_data["id"],
-                                question_data["id"],
-                                f".question-choice-{index}",
+                                question_data.get("id"),
+                                "choices",
+                                index,
                             )
 
                 if ("question_image" in extra or "video" in extra) and "height" not in extra:
-                    element = ".question-question-image" if "question_image" in extra else ".question-question-video"
                     return _get_error_data(
                         "The height of an image or video must be specified",
                         round_data["id"],
                         category_data["id"],
-                        question_data["id"],
-                        element
+                        question_data.get("id"),
+                        "media",
                     )
 
                 questions_for_round += 1
 
-        if error_or_model.include_finale and round_data["round"] == len(data["rounds"]):
+        if error_or_model.include_finale and round_data["round"] == last_round_index:
             if len(round_data["categories"]) > 1:
                 return _get_error_data(
                     f"The finale round must have exactly one category, but has {len(round_data["categories"])}",
@@ -412,139 +423,117 @@ def _validate_pack_data(data: Dict[str, Any]) -> Dict[str, str | int] | None:
 
     return None
 
-@dashboard_page.route("/pack/<pack_id>/save", methods=["POST"])
+@dashboard_page.route("/packs/<pack_id>/save", methods=["POST"])
 def save_pack(pack_id: str):
     user_details = get_user_details()
     if user_details is None:
-        return make_json_response(_get_error_data("You are not logged in!"), 401)
+        return make_json_response(_UNAUTHORIZED_MSG, 401)
 
     database: Database = flask.current_app.config["DATABASE"]
     user_id = user_details[0]
 
-    if database.get_question_packs_for_user(user_id, pack_id) is None:
-        return make_json_response(_get_error_data("You are not authorized to edit this question package"), 401)
+    with database:
+        if database.get_question_packs_for_user(user_id, pack_id) is None:
+            return make_json_response(_get_error_data("You are not authorized to edit this question package"), 401)
 
-    try:
-        data: Dict[str, Any] = json.loads(flask.request.form["data"])
+        try:
+            data: Dict[str, Any] = json.loads(flask.request.form["data"])
 
-        if not data["include_finale"]:
-            data["rounds"] = [round_data for round_data in data["rounds"] if round_data["round"] <= len(data["rounds"])]
+            if not data["include_finale"]:
+                data["rounds"] = [round_data for round_data in data["rounds"] if round_data["round"] <= len(data["rounds"])]
 
-        # Add missing entries
-        data["created_by"] = user_id
-        data["changed_at"] = datetime.now()
-        if "language" in data:
-            data["language"] = Language(data["language"])
+            # Add missing entries
+            data["created_by"] = user_id
+            data["changed_at"] = datetime.now()
+            if "language" in data:
+                data["language"] = Language(data["language"])
 
-        if "theme_id" in data and data["theme_id"] == "none":
-            data["theme_id"] = None
+            if "theme_id" in data and data["theme_id"] == "none":
+                data["theme_id"] = None
 
-        error = _validate_pack_data(data)
-        if error:
-            logger.bind(**error).error(error["response"])
-            return make_json_response(error, 400)
+            error = _validate_pack_data(data)
+            if error:
+                logger.bind(**error).error(error["response"])
+                return make_json_response(error, 400)
 
-        error = _save_pack_files(data, flask.request.files)
-        if error:
-            logger.bind(**error).error(f"Error when saving question media: {error['response']}")
-            return make_json_response(error, 400)
+            error = _save_pack_files(data, flask.request.files)
+            if error:
+                logger.bind(**error).error(f"Error when saving question media: {error['response']}")
+                return make_json_response(error, 400)
 
-        new_ids = database.update_question_pack(data)
+            new_ids = database.update_question_pack(data)
 
-    except ValidationError as exc:
-        details = ", ".join([get_validation_error_msg(detail) for detail in exc.errors(include_url=False)])
-        return make_json_response(f"Error when saving question pack: {details}", 400)
+        except ValidationError as exc:
+            details = ", ".join([get_validation_error_msg(detail) for detail in exc.errors(include_url=False)])
+            return make_json_response(f"Error when saving question pack: {details}", 400)
 
-    except Exception:
-        logger.exception("Error when saving question pack")
-        return make_json_response("Unknown error when saving question pack", 500)
+        except Exception:
+            logger.exception("Error when saving question pack")
+            return make_json_response("Unknown error when saving question pack", 500)
 
-    # Create backup of database for safety
-    database.create_backup()
+        # Create backup of database for safety
+        database.create_backup()
 
     return make_json_response({"response": "Question pack saved successfully.", "ids": new_ids}, 200)
 
-@dashboard_page.route("/pack/<pack_id>/cheatsheet")
-def cheatsheet(pack_id: str):
-    user_details = get_user_details()
-    if user_details is None:
-        return make_json_response("You are not logged in!", 401)
-
-    database: Database = flask.current_app.config["DATABASE"]
-    user_id = user_details[0]
-
-    with database:
-        pack_data: QuestionPack | None = database.get_question_packs_for_user(user_id, pack_id)
-        if pack_data is None:
-            return flask.abort(404)
-
-        all_round_data = []
-        for round_data in pack_data.rounds:
-            round_json = round_data.dump()
-            all_round_data.append(round_json)
-
-    return render_locale_template("dashboard/cheatsheet.html", rounds=all_round_data)
-
-@dashboard_page.route("/pack/<pack_id>/delete", methods=["POST"])
-def delete_pack(pack_id: str):
-    user_details = get_user_details()
-    if user_details is None:
-        return make_json_response("You are not logged in!", 401)
-
-    database: Database = flask.current_app.config["DATABASE"]
-    user_id = user_details[0]
-
-    if database.get_question_packs_for_user(user_id, pack_id) is None:
-        return make_json_response("You are not authorized to delete this question package", 401)
-
-    try:
-        database.delete_question_pack(pack_id)
-    except Exception:
-        logger.exception("Error when deleting question pack")
-        return make_json_response("Unknown error when deleting question pack", 500)
-
-    return make_json_response("Question pack was successfully deleted", 200)
-
-@dashboard_page.route("/pack/<pack_id>")
+@dashboard_page.route("/packs/<pack_id>", methods=["GET", "DELETE"])
 def question_pack(pack_id: str):
     user_details = get_user_details()
     if user_details is None:
-        return redirect_to_login("dashboard.question_pack", pack_id=pack_id)
+        return make_json_response(_UNAUTHORIZED_MSG, 401)
 
     database: Database = flask.current_app.config["DATABASE"]
+    
     with database:
-        user_id, user_name = user_details
+        if flask.request.method == "DELETE":
+            # DELETE request when deleting a question pack
+            if database.get_question_packs_for_user(user_details[0], pack_id) is None:
+                return make_json_response("You are not authorized to delete this question package", 401)
 
-        pack_data: QuestionPack | None = database.get_question_packs_for_user(user_id, pack_id)
-        if pack_data is None:
+            try:
+                database.delete_question_pack(pack_id)
+            except Exception:
+                logger.exception("Error when deleting question pack")
+                return make_json_response("Unknown error when deleting question pack", 500)
+
+            return make_json_response("Question pack was successfully deleted", 200)
+
+        pack_model: QuestionPack | None = database.get_question_packs_for_user(user_details[0], pack_id)
+        if pack_model is None:
             return flask.abort(404)
 
-        pack_json = pack_data.dump(included_relations=[QuestionPack.rounds])
-        pack_json["theme_id"] = pack_data.theme_id
-        if len(pack_data.rounds) == 1 and not pack_data.include_finale:
+        pack_json = pack_model.dump(included_relations=[QuestionPack.rounds])
+        pack_json["theme_id"] = pack_model.theme_id
+
+        if len(pack_model.rounds) == 1 and not pack_model.include_finale:
             # If finale is not included, provide a placeholder round
             # to make UI handling easier
             pack_json["rounds"].append(
                 {
-                    "pack_id": pack_data.id,
+                    "pack_id": pack_model.id,
                     "name": Config.DEFAULT_ROUND_NAMES[-1],
                     "round": 2,
                     "categories": [],
                 }
             )
 
-        themes_json = [theme.dump() for theme in database.get_themes_for_user(user_id, include_public=True)]
-        base_entries = {k: v for k, v in pack_json.items() if not isinstance(v, list)}
+    return make_json_response(pack_json, 200)
 
-    return render_locale_template(
-        "dashboard/question_pack.html",
-        pack_data.language,
-        user_name=user_name,
-        languages=[(lang.value, lang.value.capitalize()) for lang in Language],
-        themes=themes_json,
-        base_entries=base_entries,
-        media_sizes=Config.QUESTION_MEDIA_SIZES,
-        max_choices=Config.MAX_ANSWER_CHOICES,
-        **pack_json,
-    )
+@dashboard_page.route("/themes")
+def themes():
+    user_details = get_user_details()
+    if user_details is None:
+        return make_json_response(_UNAUTHORIZED_MSG, 401)
 
+    database: Database = flask.current_app.config["DATABASE"]
+
+    themes_json = []
+    with database:
+        for theme in database.get_themes_for_user(user_details[0], include_public=True):
+            themes_json.append(theme.dump())
+
+    return make_json_response(themes_json, 200)
+
+@dashboard_page.route("/ping")
+def ping():
+    return "OK"

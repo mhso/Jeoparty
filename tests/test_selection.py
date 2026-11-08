@@ -1,8 +1,6 @@
 import asyncio
 import pytest
 
-from playwright.async_api import Dialog
-
 from jeoparty.api.enums import PowerUpType, StageType
 from tests.browser_context import ContextHandler, PRESENTER_ACTION_KEY
 from tests import create_contestant_data, create_game
@@ -21,14 +19,14 @@ async def test_first_turn(database):
         ["100", "200"]
     ]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, join_in_parallel=False)
 
             await context.start_game()
 
             session.refresh(game_data)
-            
+
             assert game_data.get_contestant_with_turn() is None
             assert game_data.round == 1
             assert game_data.stage == StageType.SELECTION
@@ -52,10 +50,7 @@ async def test_first_turn(database):
 
             await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
-            async def first_turn_chosen():
-                return await context.presenter_page.evaluate("playerTurn != null")
-
-            await context.wait_for_event(first_turn_chosen)
+            await context.wait_for_event("on_first_turn_chosen", context.presenter_context, timeout=15)
 
             await asyncio.sleep(1)
 
@@ -83,7 +78,7 @@ async def test_new_round(database):
     pack_name = "Test Pack"
     contestant_names, contestant_colors = create_contestant_data()
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors)
 
@@ -99,6 +94,8 @@ async def test_new_round(database):
             questions_for_round[0].used = False
 
             database.save_models(*questions_for_round)
+
+            await context.transition_state(game_data.id, StageType.SELECTION)
 
             # Go to selection page
             await context.open_selection_page(game_data.id)
@@ -120,7 +117,7 @@ async def test_max_contestants(database):
     num_max = 10
     contestant_names, contestant_colors = create_contestant_data(num_max)
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, contestants=num_max)
             await context.start_game()
@@ -135,11 +132,12 @@ async def test_finale_wager_valid(database, locales):
         -500, 300, 1200, 0
     ]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
             locale = locales[game_data.pack.language.value]["pages"]["presenter/selection"]
 
+            game_data.stage = StageType.QUESTION
             game_data.round = 2
             database.save_models(game_data)
 
@@ -162,6 +160,8 @@ async def test_finale_wager_valid(database, locales):
 
             database.save_models(*questions_for_round)
 
+            await context.transition_state(game_data.id, StageType.SELECTION)
+
             # Go to selection page
             await context.open_selection_page(game_data.id)
 
@@ -169,7 +169,7 @@ async def test_finale_wager_valid(database, locales):
             questions = game_data.get_questions_for_round()
 
             assert game_data.round == 3
-            assert game_data.stage == StageType.FINALE_WAGER
+            assert game_data.stage is StageType.FINALE_WAGER
             assert all(q.question.category.round.round == 3 for q in questions)
             assert not any(q.used for q in questions)
             assert len(questions) == 1
@@ -257,7 +257,7 @@ async def test_finale_wager_valid(database, locales):
                 assert contestant.finale_wager == wager
 
             # Go to finale question page
-            async with await context.wait_until_ready():
+            async with await context.wait_until_ready("on_question_mounted"):
                 await context.presenter_page.press("body", PRESENTER_ACTION_KEY)
 
             session.refresh(game_data)
@@ -283,7 +283,7 @@ async def test_finale_wager_invalid(database, locales):
         -500, 300, 1200, 0
     ]
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(True) as context:
         with database as session:
             game_data = await create_game(context, session, pack_name, contestant_names, contestant_colors, daily_doubles=False)
 
@@ -296,6 +296,7 @@ async def test_finale_wager_invalid(database, locales):
 
             database.save_models(*game_data.game_contestants)
 
+            game_data.stage = StageType.QUESTION
             game_data.round = 2
             database.save_models(game_data)
 
@@ -312,6 +313,8 @@ async def test_finale_wager_invalid(database, locales):
 
             database.save_models(*questions_for_round)
 
+            await context.transition_state(game_data.id, StageType.SELECTION)
+
             # Go to selection page
             await context.open_selection_page(game_data.id)
 
@@ -321,20 +324,24 @@ async def test_finale_wager_invalid(database, locales):
             await asyncio.sleep(4)
 
             # Make a wager that is too high
-            async def on_dialog(dialog: Dialog):
-                await dialog.dismiss()
-                assert dialog.message == f"{locale['invalid_wager']} 0 {locale['and']} 1000"
-                await dialog.page.evaluate("dialog = true")
+            contestant_id_1 = game_data.game_contestants[0].contestant_id
+            page = context.contestant_pages[contestant_id_1]
 
-            await context.make_wager(game_data.game_contestants[0].contestant_id, 1100, on_dialog)
+            await context.make_wager(contestant_id_1, 1100, False)
+
+            error_elem = await page.wait_for_selector(".contestant-invalid-wager")
+
+            assert (await error_elem.text_content()) == f"{locale['invalid_wager']} 0 {locale['and']} 1000"
 
             # Make a wager that is too low
-            async def on_dialog(dialog: Dialog):
-                await dialog.dismiss()
-                assert dialog.message == f"{locale['invalid_wager']} 0 {locale['and']} 1000"
-                await dialog.page.evaluate("dialog = true")
+            contestant_id_2 = game_data.game_contestants[0].contestant_id
+            page = context.contestant_pages[contestant_id_2]
 
-            await context.make_wager(game_data.game_contestants[1].contestant_id, -100, on_dialog)
+            await context.make_wager(contestant_id_2, -100, False)
+
+            error_elem = await page.wait_for_selector(".contestant-invalid-wager")
+
+            assert (await error_elem.text_content()) == f"{locale['invalid_wager']} 0 {locale['and']} 1000"
 
 @pytest.mark.asyncio
 async def test_contestant_disconnect(database):

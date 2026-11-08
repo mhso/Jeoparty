@@ -9,25 +9,54 @@ from werkzeug.datastructures import FileStorage
 from mhooge_flask.routing import make_template_context, make_json_response
 
 from jeoparty.api.database import Database
-from jeoparty.api.enums import StageType
-from jeoparty.api.orm.models import Contestant, GameContestant
-from jeoparty.app.routes.shared import create_and_validate_model, render_locale_template, get_locale_data, is_lan_active
-from jeoparty.api.config import get_avatar_path, get_theme_path, get_bg_image_path, get_buzz_sound_path
+from jeoparty.api.enums import Environment, StageType
+from jeoparty.api.orm.models import Contestant, Game, GameContestant
+from jeoparty.app.routes.api.shared import (
+    create_and_validate_model,
+    render_locale_template,
+    is_lan_active,
+    get_contestant_id_from_cookie,
+    save_contestant_id_to_cookie,
+)
+from jeoparty.app.routes.api.socket import get_namespace_handler
+from jeoparty.api.config import Config, get_avatar_path, get_theme_path, get_bg_image_path, get_buzz_sound_path
 
-contestant_page = flask.Blueprint("contestant", __name__, template_folder="templates")
+contestant_page = flask.Blueprint("contestant_api", __name__, template_folder="templates")
 
 _VALID_AVATAR_FILETYPES = set(["jpg", "jpeg", "png", "webp"])
-COOKIE_ID = "jeoparty_contestant_id"
 
-def _save_user_id_to_cookie(user_id: str):
-    max_age = 60 * 60 * 24 * 365 # 1 year
-    return COOKIE_ID, user_id, max_age
+_LAN_NAMES = {
+    115142485579137029: "Dave",
+    172757468814770176: "Murt",
+    219497453374668815: "Tommy",
+    331082926475182081: "Muds",
+    347489125877809155: "Nønø",
+    267401734513491969: "Gual", # Include meself for testing
+}
 
-def _get_user_id_from_cookie(cookies) -> str | None:
-    if (cid := cookies.get(COOKIE_ID)):
-        return str(cid)
+_LAN_AVATARS = {
+    user_id: f"img/avatars/{user_id}.png"
+    for user_id in _LAN_NAMES
+}
 
-    return None
+_LAN_BACKGROUNDS = {
+    115142485579137029: "shyv_splash.jpg",
+    172757468814770176: "pentakill_olaf.png", 
+    331082926475182081: "crime_city_tf.png",
+    219497453374668815: "bard_splash.png",
+    347489125877809155: "gladiator_draven.png",
+    267401734513491969: "coven_nami.png", # Include meself for testing
+}
+
+# Sounds played when a specific player buzzes in first
+_LAN_BUZZ_SOUNDS = {
+    115142485579137029: "buzz_dave.mp3",
+    172757468814770176: "buzz_murt.mp3",
+    219497453374668815: "buzz_thommy.mp3",
+    331082926475182081: "buzz_muds.mp3",
+    347489125877809155: "buzz_no.mp3",
+    267401734513491969: "buzz_thommy.mp3", # Include meself for testing
+}
 
 def _validate_join_params(params: Dict[str, Any]) -> Tuple[bool, Contestant | str]:
     if "join_code" not in params:
@@ -89,48 +118,94 @@ def _save_contestant_avatar(file: FileStorage, user_id: str):
 
     return f"{get_avatar_path(False)}/{filename}"
 
-@contestant_page.route("/kicked")
-def contestant_kicked():
-    return make_template_context("contestant/kicked.html", status=200)
+def _get_existing_user_info(game_data: Game, database: Database):
+    if is_lan_active(game_data) and "user_id" in flask.request.args:
+        user_id = int(flask.request.args["user_id"])
+        return {
+            "name": _LAN_NAMES.get(user_id),
+            "avatar": _LAN_AVATARS.get(user_id),
+            "buzz_sound": _LAN_BUZZ_SOUNDS.get(user_id),
+            "bg_image": _LAN_BACKGROUNDS.get(user_id),
+        }
 
-@contestant_page.route("/join", methods=["POST"])
-def join_lobby():
+    if user_id := get_contestant_id_from_cookie(flask.request.cookies):
+        # Try to get existitng user
+        contestant = None if user_id is None else database.get_contestant_from_id(user_id)
+
+        if contestant is not None:
+            contestant_json = {
+                "name": contestant.name,
+                "color": contestant.color,
+                "avatar": contestant.avatar,
+            }
+
+            if not contestant.avatar:
+                contestant_json["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
+
+            return contestant_json
+
+    return None
+
+@contestant_page.route("/lobby/<join_code>")
+def lobby(join_code: str):
     database: Database = flask.current_app.config["DATABASE"]
 
-    user_id = _get_user_id_from_cookie(flask.request.cookies)
+    with database:
+        game_data = database.get_game_from_code(join_code)
+        if game_data is None:
+            return make_json_response("No game exists with the given join code.", 404)
+
+        index = len(game_data.game_contestants)
+
+        response_json = {
+            "game_id": game_data.id,
+            "join_code": join_code,
+            "title": game_data.title,
+            "has_password": game_data.password is not None,
+            "language": game_data.pack.language.value,
+            "full": index == game_data.max_contestants,
+            "ended": game_data.stage is StageType.ENDED,
+            "default_avatar": _get_default_avatar(index, game_data.pack.theme_id)
+        }
+
+        response_json["existing"] = _get_existing_user_info(game_data, database)
+
+        return make_json_response(response_json, 200)
+
+@contestant_page.route("/contestant/join", methods=["POST"])
+def join_lobby():
+    config: Config = flask.current_app.config["APP_CONFIG"]
+    database: Database = flask.current_app.config["DATABASE"]
+
     params = dict(flask.request.form)
 
-    if user_id is not None:
-        params["id"] = user_id
+    if "id" in params:
+        user_id = params["id"]
+    else:
+        user_id = get_contestant_id_from_cookie(flask.request.cookies)
 
     success, contestant_model_or_error = _validate_join_params(params)
     join_code = flask.request.form.get("join_code")
 
     if not success:
         if join_code is None:
-            return flask.abort(400)
+            return make_json_response({"template": "missing_code"}, 400)
 
-        return flask.redirect(flask.url_for(".lobby", join_code=join_code, error=contestant_model_or_error, _external=True))
+        return make_json_response(contestant_model_or_error, 400)
 
     contestant_model: Contestant = contestant_model_or_error
 
     with database as session:
         game_data = database.get_game_from_code(join_code)
-        if game_data is None:
-            return flask.redirect(
-                flask.url_for(".lobby", join_code=join_code, error="Failed to join: Game does not exist", _external=True)
-            )
 
-        locale = get_locale_data(game_data.pack.language, "contestant/lobby")
+        if game_data is None:
+            return make_json_response({"template": "no_such_game"}, 404)
+
         if game_data.password is not None and flask.request.form.get("password") != game_data.password:
-            return flask.redirect(
-                flask.url_for(".lobby", join_code=join_code, error=locale["wrong_password"], _external=True)
-            )
+            return make_json_response({"template": "wrong_password"}, 404)
 
         if game_data.stage == StageType.ENDED:
-            return flask.redirect(
-                flask.url_for(".lobby", join_code=join_code, error=locale["game_over"], _external=True)
-            )
+            return make_json_response({"template": "game_over"}, 400)
 
         # Ensure no race conditions can occur when contestants join
         with flask.current_app.config["JOIN_LOCK"]:
@@ -138,9 +213,7 @@ def join_lobby():
 
             index = len(game_data.game_contestants)
             if index == game_data.max_contestants:
-                return flask.redirect(
-                    flask.url_for(".lobby", join_code=join_code, error=locale["lobby_full"], _external=True)
-                )
+                return make_json_response({"template": "lobby_full"}, 400)
 
             # Try to get existitng user
             existing_model = None if user_id is None else database.get_contestant_from_id(user_id)
@@ -178,6 +251,8 @@ def join_lobby():
             new_avatar = None
             if "default_avatar" not in flask.request.form and "avatar" in flask.request.files and flask.request.files["avatar"].filename:
                 new_avatar = _save_contestant_avatar(flask.request.files["avatar"], contestant_model.id)
+            elif "avatar" in flask.request.form:
+                new_avatar = flask.request.form["avatar"]
             elif existing_model is None or existing_model.avatar is None:
                 new_avatar = _get_default_avatar(index, game_data.pack.theme_id)
 
@@ -193,189 +268,24 @@ def join_lobby():
                 )
                 database.add_contestant_to_game(game_contestant_model, game_data.use_powerups)
 
+            # Make the socket handler reload the game so it sees the new/updated contestant
+            if (handler := get_namespace_handler(game_data.id)) is not None:
+                handler.invalidate_game_data()
+
         # Save user ID to cookie and redirect to game view
-        cookie_id, data, max_age = _save_user_id_to_cookie(contestant_model.id)
-        response = flask.redirect(flask.url_for(".game_view", game_id=game_data.id, _external=True))
-        response.set_cookie(cookie_id, data, max_age=max_age)
+        cookie_id, data, max_age = save_contestant_id_to_cookie(contestant_model.id)
+        response = make_json_response({"game_id": game_data.id, "contestant_id": contestant_model.id}, 200)
+
+        response.set_cookie(
+            cookie_id,
+            data,
+            max_age=max_age,
+            path="/jeoparty",
+            secure=config.env is Environment.PRODUCTION,
+            httponly=True,
+            samesite="Lax",
+        )
+
         return response
-
-    return response
-
-@contestant_page.route("/<game_id>/game")
-def game_view(game_id: str):
-    user_id = _get_user_id_from_cookie(flask.request.cookies)
-
-    database: Database = flask.current_app.config["DATABASE"]
-
-    with database:
-        game_data = database.get_game_from_id(game_id)
-        if game_data is None:
-            return make_template_context("contestant/nogame.html", status=404)
-
-        # Validate that user_id is saved as a cookie
-        if user_id is None:
-            return flask.redirect(flask.url_for(".lobby", join_code=game_data.join_code, _external=True))
-
-        # Find the game contestant matching the given user_id
-        contestant_data = game_data.get_contestant(contestant_id=user_id)
-
-        if contestant_data is None: # User haven't joined the game yet
-            return flask.redirect(flask.url_for(".lobby", join_code=game_data.join_code, _external=True))
-
-        # Get question data
-        game_question = game_data.get_active_question()
-        if game_question is not None:
-            question = game_question.question.dump() 
-            question["category"] = game_question.question.category.dump(included_relations=[])
-            question["daily_double"] = game_question.daily_double
-        else:
-            question = None
-
-        round_name = game_data.pack.rounds[game_data.round - 1].name
-
-        questions = game_data.get_questions_for_round()
-        start_of_round = questions != [] and not game_data.get_active_question() and not any(question.used for question in questions)
-        start_of_game = start_of_round and game_data.round == 1 and game_data.get_contestant_with_turn() is None
-
-        game_json = game_data.dump(included_relations=[], id="game_id")
-
-        game_contestant_json = contestant_data.dump(id="user_id")
-
-        # If game is ended, save whether this contestant won
-        if game_data.stage == StageType.ENDED:
-            winners = game_data.get_game_winners()
-            contestant_won = False
-            for winner_data in winners:
-                if winner_data.id == contestant_data.id:
-                    contestant_won = True
-
-            game_contestant_json["winner"] = contestant_won
-
-        num_questions_in_round = len(questions)
-
-        return render_locale_template(
-            "contestant/game.html",
-            game_data.pack.language,
-            ping=30,
-            question=question,
-            num_questions_in_round=num_questions_in_round,
-            start_of_game=start_of_game,
-            round_name=round_name,
-            **game_json,
-            **game_contestant_json,
-        )
-
-@contestant_page.route("/<join_code>")
-def lobby(join_code: str):
-    database: Database = flask.current_app.config["DATABASE"]
-
-    user_data = {}
-
-    with database:
-        game_data = database.get_game_from_code(join_code)
-        if game_data is None:
-            return make_template_context("contestant/nogame.html", status=404)
-        
-        user_id = _get_user_id_from_cookie(flask.request.cookies)
-
-        if user_id is not None:
-            contestant = database.get_contestant_from_id(user_id)
-            if contestant is not None:
-                user_data = contestant.dump()
-
-    if "avatar" not in user_data:
-        user_data["avatar"] = f"{get_avatar_path(False)}/questionmark.png"
-        user_data["is_default_avatar"] = flask.url_for("static", filename="img/questionmark.png")
-
-    if (bg_image := user_data.get("bg_image")):
-        user_data["bg_image"] = os.path.basename(bg_image)
-
-    if (buzz_sound := user_data.get("buzz_sound")):
-        user_data["buzz_sound"] = os.path.basename(buzz_sound)
-
-    error = flask.request.args.get("error")
-
-    return render_locale_template(
-        "contestant/lobby.html",
-        game_data.pack.language,
-        **user_data,
-        join_code=join_code,
-        has_password=game_data.password is not None,
-        error=error,
-    )
-
-@contestant_page.route("/<join_code>/lan")
-def lobby_lan(join_code: str):
-    database: Database = flask.current_app.config["DATABASE"]
-
-    names = {
-        115142485579137029: "Dave",
-        172757468814770176: "Murt",
-        219497453374668815: "Tommy",
-        331082926475182081: "Muds",
-        347489125877809155: "Nønø",
-    }
-
-    avatars = {
-        user_id: f"img/avatars/{user_id}.png"
-        for user_id in names
-    }
-
-    backgrounds = {
-        115142485579137029: "coven_nami.png",
-        172757468814770176: "pentakill_olaf.png", 
-        331082926475182081: "crime_city_tf.png",
-        219497453374668815: "bard_splash.png",
-        347489125877809155: "gladiator_draven.png",
-    }
-
-    # Sounds played when a specific player buzzes in first
-    buzz_in_sounds = {
-        115142485579137029: "buzz_dave.mp3",
-        172757468814770176: "buzz_murt.mp3",
-        219497453374668815: "buzz_thommy.mp3",
-        331082926475182081: "buzz_muds.mp3",
-        347489125877809155: "buzz_no.mp3",
-    }
-
-    with database as session:
-        game_data = database.get_game_from_code(join_code)
-        if game_data is None:
-            return make_template_context("contestant/nogame.html", status=404)
-
-        if not is_lan_active(game_data) or not "user_id" in flask.request.args:
-            return flask.abort(404)
-
-        user_id = int(flask.request.args["user_id"])
-        user_id_str = str(user_id)
-
-        if not database.get_contestant_from_id(user_id_str):
-            contestant = Contestant(
-                id=user_id_str,
-                name=names[user_id],
-                color="#000000",
-                avatar=avatars[user_id],
-            )
-
-            session.add(contestant)
-            session.commit()
-
-        if not user_id in names:
-            return flask.abort(404)
-
-        template = render_locale_template(
-            "contestant/lobby.html",
-            game_data.pack.language,
-            name=names[user_id],
-            avatar=avatars[user_id],
-            buzz_sound=buzz_in_sounds[user_id],
-            bg_image=backgrounds[user_id],
-            join_code=join_code,
-            has_password=game_data.password is not None,
-        )
-
-    response = flask.make_response(template)
-    cookie_id, data, max_age = _save_user_id_to_cookie(user_id_str)
-    response.set_cookie(cookie_id, data, max_age=max_age)
 
     return response

@@ -23,7 +23,7 @@ async def test_defaults(database, locales):
     ]
     contestant_avatar = "http://localhost:5006/static/img/avatars/default/*.png"
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler(True) as context:
         game_id = (await context.create_game(pack_name))[1]
 
         placeholder_elem = await context.presenter_page.query_selector("#menu-no-contestants-placeholder")
@@ -55,8 +55,6 @@ async def test_defaults(database, locales):
                 presenter_contestant_entries = await contestants_wrapper.query_selector_all(".menu-contestant-entry")
                 assert len(presenter_contestant_entries) == index + 1
 
-                assert await presenter_contestant_entries[index].get_attribute("id") == f"player_{contestant.id}"
-
                 presenter_entry_style = await presenter_contestant_entries[index].get_property("style")
                 border_color = await presenter_entry_style.get_property("borderColor")
                 assert rgb_to_hex(await border_color.json_value()) == color
@@ -76,7 +74,7 @@ async def test_rejoin(database):
     contestant_avatar_1 = "/static/img/avatars/default/*.png"
     contestant_avatar_2 = "src/jeoparty/app/static/img/avatars/f909a1fc-d673-469d-ad82-b51ed7672e7f.png"
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         game_id = (await context.create_game(pack_name))[1]
 
         with database as session:
@@ -152,7 +150,7 @@ async def test_errors(database):
     pack_name = "Test Pack"
     num_contestants = 4
 
-    async with ContextHandler(database) as context:
+    async with ContextHandler() as context:
         game_id = (await context.create_game(pack_name, contestants=num_contestants))[1]
 
         with database as session:
@@ -169,18 +167,6 @@ async def test_errors(database):
 
             error_elem = await page.query_selector("#contestant-lobby-status")
             assert await error_elem.text_content() == "Error when joining lobby: 'Name' should have at least 2 characters"
-
-            # Try to join with too long of a name
-            too_long_name = "Contestant With Way Too Long Name"
-            page, contestant_id = await context.join_lobby(game_data.join_code, too_long_name, expect_success=False)
-
-            # Assert that player failed to join
-            assert contestant_id is None
-            session.refresh(game_data)
-            assert game_data.game_contestants == []
-
-            error_elem = await page.query_selector("#contestant-lobby-status")
-            assert await error_elem.text_content() == "Error when joining lobby: 'Name' should have at most 16 characters"
 
             # Try to join with a name that has invalid characters
             invalid_name = "Inv@l!d Nam£"

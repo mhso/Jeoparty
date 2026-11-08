@@ -4,15 +4,17 @@ from subprocess import PIPE, Popen
 from time import sleep
 import socket
 import json
+import re
 
 from sqlalchemy import select, delete, update, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from mhooge_flask.database import SQLAlchemyDatabase
 from mhooge_flask.logging import logger
 
 from jeoparty.api.config import Config
-from jeoparty.api.enums import Environment, StageType
+from jeoparty.api.enums import StageType
 from jeoparty.api.orm.models import *
 
 def format_value(key, value):
@@ -28,7 +30,23 @@ def row_factory(cursor, row):
     return {key: format_value(key, value) for key, value in zip(fields, row)}
 
 def start_ssh_tunnel():
-    cmd = ["pdm", "run", f"{Config.SRC_FOLDER}/ssh_tunnel.py"]
+    with open(f"{Config.STATIC_FOLDER}/secret.json") as fp:
+        secrets = json.load(fp)
+
+    jump_host = secrets["ssh_jump_host"]
+    remote_host = secrets["ssh_remote_host"]
+
+    cmd = [
+        "ssh",
+        "-N",
+        "-L",
+        f"5432:{remote_host}:5432",
+        f"mikkel@{jump_host}",
+        "-o",
+        "ServerAliveInterval=30",
+        "-o",
+        "ExitOnForwardFailure=yes",
+    ]
     ssh_tunnel = Popen(cmd, text=True, stdout=PIPE)
     os.set_blocking(ssh_tunnel.stdout.fileno(), False)
 
@@ -41,19 +59,17 @@ def start_ssh_tunnel():
 
     return ssh_tunnel
 
+def get_violating_key(exc: IntegrityError):
+    for line in exc.args[0].split("\n"):
+        if m := re.match(r"DETAIL\:\s+Key\s\((.+)\)\=\((.+)\)", line):
+            return (m.group(1), m.group(2))
+
+    return None
+
 class Database(SQLAlchemyDatabase):
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, conn_str: str):
         self.config = config
-        self.ssh_tunnel = None
-        if config.env is Environment.DEVELOPMENT:
-            self.ssh_tunnel = start_ssh_tunnel()
-
-        super().__init__(config.db_conn_str, "api/orm", True, True)
-
-        db_name = self.engine.url.database
-        db_host = self.engine.url.host
-        db_port = self.engine.url.port
-        logger.info(f"Connected to database '{db_name}' at '{db_host}:{db_port}'")
+        super().__init__(conn_str, "api/orm", f"{config.RESOURCES_FOLDER}/database", True, True)
 
     def get_question_packs_for_user(self, user_id: str, pack_id: str | None = None, include_public: bool = False) -> List[QuestionPack] | QuestionPack:
         with self as session:
@@ -69,7 +85,9 @@ class Database(SQLAlchemyDatabase):
                 selectinload(QuestionPack.rounds).
                 selectinload(QuestionRound.categories).
                 selectinload(QuestionCategory.questions)
-            ).filter(*filters)
+            ).filter(
+                *filters
+            ).order_by(QuestionPack.created_at)
 
             data = session.execute(statement).scalars().all()
 
@@ -99,19 +117,27 @@ class Database(SQLAlchemyDatabase):
 
             return data if theme_id is None else data[0]
 
-    def get_game_from_id(self, game_id: str):
-        with self as session:
-            statement = select(Game).options(
-                selectinload(Game.pack).options(
-                    selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
-                    selectinload(QuestionPack.theme).selectinload(Theme.buzzer_sounds)
-                )
-            ).options(
-                selectinload(Game.game_questions).selectinload(GameQuestion.question)
-            ).options(
-                selectinload(Game.game_contestants).selectinload(GameContestant.power_ups)
-            ).filter(Game.id == game_id)
+    def _get_game_stmt(self, game_id: str):
+        return select(Game).options(
+            selectinload(Game.pack).options(
+                selectinload(QuestionPack.rounds).selectinload(QuestionRound.categories).selectinload(QuestionCategory.questions),
+                selectinload(QuestionPack.theme).selectinload(Theme.buzzer_sounds)
+            )
+        ).options(
+            selectinload(Game.game_questions).selectinload(GameQuestion.question)
+        ).options(
+            selectinload(Game.game_contestants).options(
+                selectinload(GameContestant.contestant), selectinload(GameContestant.power_ups)
+            )
+        ).filter(Game.id == game_id)
 
+    def get_game_from_id(self, game_id: str, session: Session | None = None):
+        statement = self._get_game_stmt(game_id)
+    
+        if session:
+            return session.execute(statement).scalar_one_or_none()
+
+        with self as session:
             return session.execute(statement).scalar_one_or_none()
 
     def get_game_from_code(self, join_code: str):
@@ -194,6 +220,7 @@ class Database(SQLAlchemyDatabase):
                 session.add(QuestionRound(pack_id=pack_model.id, name=name, round=round_num))
 
             session.commit()
+
             session.refresh(pack_model)
 
             return pack_model
@@ -215,6 +242,8 @@ class Database(SQLAlchemyDatabase):
 
             session.commit()
             session.refresh(game_model)
+
+            return game_model
 
     def delete_game(self, game_id: str):
         with self as session:
@@ -492,3 +521,24 @@ class Database(SQLAlchemyDatabase):
                 session.execute(delete(table))
 
             session.commit()
+
+class PostgresDatabase(Database):
+    def __init__(self, config: Config, ssh_tunnel: bool = False):
+        self.ssh_tunnel = None
+        if ssh_tunnel:
+            self.ssh_tunnel = start_ssh_tunnel()
+
+        super().__init__(config, config.psql_conn_str)
+
+        db_name = self.engine.url.database
+        db_host = self.engine.url.host
+        db_port = self.engine.url.port
+        logger.info(f"Connected to database '{db_name}' at '{db_host}:{db_port}'")
+
+    @property
+    def engine_properties(self):
+        return {"pool_recycle": 300, "pool_size": 5}
+
+class SQLiteDatabase(Database):
+    def __init__(self, config: Config):
+        super().__init__(config, config.sqlite_conn_str)

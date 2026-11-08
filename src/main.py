@@ -13,14 +13,15 @@ from mhooge_flask.restartable import restartable
 
 from jeoparty.api.config import Config
 from jeoparty.api.enums import Environment
-from jeoparty.api.database import Database
+from jeoparty.api.database import PostgresDatabase, SQLiteDatabase
 
 def run_app(args):
     routes = [
+        Route("spa", "spa_page"),
         Route("dashboard", "dashboard_page"),
         Route("contestant", "contestant_page"),
-        Route("presenter", "presenter_page", "presenter"),
-        Route("login", "login_page")
+        Route("game", "game_page"),
+        Route("auth", "auth_page"),
     ]
 
     override_env = None
@@ -33,7 +34,11 @@ def run_app(args):
 
     database = None
     try:
-        database = Database(config)
+        if args.database == "sqlite":
+            database = SQLiteDatabase(config)
+        else:
+            database = PostgresDatabase(config, args.ssh_tunnel)
+
         app_name = "jeoparty"
 
         locale_data = {}
@@ -49,6 +54,8 @@ def run_app(args):
             routes,
             database,
             root_folder="jeoparty/app",
+            static_path="/jeoparty/static",
+            static_folder="static",
             server_cls=SocketIOServerWrapper,
             persistent_variables={"app_name": app_name.capitalize()},
             exit_code=0,
@@ -59,8 +66,11 @@ def run_app(args):
 
         logger.info("Starting Flask web app.")
         init.run_app(web_app, app_name, args.port, config.flask_host_url)
+    except KeyboardInterrupt:
+        pass
     finally:
-        if database and database.ssh_tunnel:
+        if args.database == "psql" and database and database.ssh_tunnel:
+            database.ssh_tunnel.terminate()
             database.ssh_tunnel.kill()
             database.ssh_tunnel.wait()
 
@@ -71,6 +81,8 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("-e", "--env", type=str, choices=Environment)
     parser.add_argument("-p", "--port", type=int, default=5006)
+    parser.add_argument("-t", "--ssh-tunnel", action="store_true", help="Use SSH tunnel to connect to PostgreSQL")
+    parser.add_argument("-db", "--database", choices=("psql", "sqlite"), help="Which database dialect to use")
     args = parser.parse_args()
 
     run_app(args)
