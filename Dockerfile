@@ -25,15 +25,15 @@ COPY pyproject.toml uv.lock ./
 # Download uv and install requirements
 RUN curl -LsSf https://astral.sh/uv/install.sh | bash && uv sync --no-dev
 
-# Move back to test at some point...
-RUN uv run playwright install chromium
-
 # Copy code and resources
 COPY src ./src
 COPY resources/locales ./resources/locales
 
 # -=-=-=- Test Stage -=-=-=-
 FROM base AS test
+
+# Move back to test at some point...
+RUN uv run playwright install chromium
 
 COPY tests ./tests
 
@@ -45,4 +45,4 @@ FROM base AS prod
 
 # Run the server
 WORKDIR /jeoparty/src
-CMD uv run main.py -p ${PORT} -e production --spa
+CMD uv run main.py -p ${PORT} -e production

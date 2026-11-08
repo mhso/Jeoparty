@@ -16,22 +16,12 @@ from jeoparty.api.enums import Environment
 from jeoparty.api.database import PostgresDatabase, SQLiteDatabase
 
 def run_app(args):
-    if args.spa:
-        # Built Vue frontend instead of the Jinja pages (see routes/spa.py)
-        page_routes = [Route("spa", "spa_page")]
-    else:
-        page_routes = [
-            Route("dashboard", "dashboard_page"),
-            Route("contestant", "contestant_page"),
-            Route("presenter", "presenter_page", prefix="presenter"),
-            Route("login", "login_page"),
-        ]
-
-    routes = page_routes + [
-        Route("dashboard", "dashboard_page", prefix="api", folder="routes.api"),
-        Route("contestant", "contestant_page", prefix="api", folder="routes.api"),
-        Route("game", "game_page", prefix="api", folder="routes.api"),
-        Route("auth", "auth_page", prefix="api", folder="routes.api"),
+    routes = [
+        Route("spa", "spa_page"),
+        Route("dashboard", "dashboard_page"),
+        Route("contestant", "contestant_page"),
+        Route("game", "game_page"),
+        Route("auth", "auth_page"),
     ]
 
     override_env = None
@@ -93,7 +83,6 @@ def main():
     parser.add_argument("-p", "--port", type=int, default=5006)
     parser.add_argument("-t", "--ssh-tunnel", action="store_true", help="Use SSH tunnel to connect to PostgreSQL")
     parser.add_argument("-db", "--database", choices=("psql", "sqlite"), help="Which database dialect to use")
-    parser.add_argument("--spa", action="store_true", help="Serve the built Vue frontend instead of the Jinja templates")
     args = parser.parse_args()
 
     run_app(args)

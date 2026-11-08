@@ -219,7 +219,7 @@ def app():
     # Get a list of question packs before the test
     pack_folders_before = set(glob(f"{Config.STATIC_FOLDER}/data/packs/*"))
 
-    args = ["uv", "run", "main.py", "-e" "testing", "--spa"]
+    args = ["uv", "run", "main.py", "-e" "testing"]
     if os.environ.get("USE_DOCKER") != "1":
         args.extend(["-db", "sqlite"])
 

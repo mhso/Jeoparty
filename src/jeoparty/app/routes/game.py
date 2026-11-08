@@ -278,6 +278,7 @@ def _transition_endscreen(game_data: Game):
         base_url, request_json = get_intfar_request_params(config)
 
         request_json["player_data"] = game_json["game_contestants"]
+        request_json["pack_name"] = game_json[game_data.pack.name]
 
         try:
             response = requests.post(f"{base_url}/intfar/lan/jeopardy_winner", json=request_json, timeout=8)

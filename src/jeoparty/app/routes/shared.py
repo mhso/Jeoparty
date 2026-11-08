@@ -1,4 +1,5 @@
 from glob import glob
+import json
 import os
 import random
 import traceback
@@ -26,6 +27,18 @@ def is_lan_active(game_data: Game):
         and game_data.pack.theme.name == "LAN"
         and game_data.created_by == Config.ADMIN_ID
     )
+
+def get_intfar_request_params(config: Config):
+    base_url = f"{config.internal_host_url}:5000"
+
+    with open(f"{Config.STATIC_FOLDER}/secret.json", "r", encoding="utf-8") as fp:
+        data = json.load(fp)
+        admin_id = data["intfar_disc_id"]
+        token = data["intfar_user_id"]
+
+    request_json = {"disc_id": admin_id, "token": token}
+
+    return base_url, request_json
 
 def redirect_to_login(endpoint: str, **params):
     return flask.redirect(flask.url_for("login.login", redirect_page=endpoint, **params, _external=True))
@@ -87,17 +100,20 @@ def get_question_answer_sounds(theme: Theme, max_contestants: int):
     else:
         wrong_sounds = [default_wrong]
 
-    # Get as many wrong sounds as there are contestants, duplicating sounds
+    num_sound = max_contestants * 2
+
+    # Get as many wrong sounds as there are contestants x2,
+    # incase rewinds happen. Sounds are duplicated,
     # if we don't have enough custom ones
-    if len(wrong_sounds) < max_contestants:
+    if len(wrong_sounds) < num_sound:
         # Add default wrong answer sound
         for repeat_sound in cycle(wrong_sounds):
             wrong_sounds.append(repeat_sound)
-            if len(wrong_sounds) == max_contestants:
+            if len(wrong_sounds) == num_sound:
                 break
 
     random.shuffle(wrong_sounds)
-    wrong_sounds = wrong_sounds[:max_contestants]
+    wrong_sounds = wrong_sounds[:num_sound]
 
     return correct_sound, wrong_sounds
 
@@ -127,6 +143,8 @@ T = TypeVar("T", bound="Base")
 
 def get_validation_error_msg(detail: ErrorDetails):
     loc_fmt = detail["loc"][0].replace("_", " ").capitalize()
+    print(detail)
+    print(loc_fmt)
 
     if detail["type"] == "string_pattern_mismatch":
         return f"'{loc_fmt}' contains invalid characters"
@@ -220,3 +238,15 @@ def validate_file(
             suffix += 1
 
     return True, full_path
+
+COOKIE_ID = "jeoparty_contestant_id"
+
+def save_contestant_id_to_cookie(user_id: str):
+    max_age = 60 * 60 * 24 * 365 # 1 year
+    return COOKIE_ID, user_id, max_age
+
+def get_contestant_id_from_cookie(cookies) -> str | None:
+    if (cid := cookies.get(COOKIE_ID)):
+        return str(cid)
+
+    return None
